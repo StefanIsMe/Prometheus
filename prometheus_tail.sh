@@ -1,9 +1,9 @@
 #!/bin/bash
-# Tail strix scan activity in real-time
-# Usage: ./strix_tail.sh [run_id]
+# Tail prometheus scan activity in real-time
+# Usage: ./prometheus_tail.sh [run_id]
 # If no run_id given, uses the latest active scan
 
-COMMS_DIR="$HOME/.strix/comms"
+COMMS_DIR="$HOME/.prometheus/comms"
 
 if [ -n "$1" ]; then
     RUN_ID="$1"
@@ -12,7 +12,7 @@ else
 fi
 
 if [ -z "$RUN_ID" ]; then
-    echo "No active strix scans found"
+    echo "No active prometheus scans found"
     echo "Active scans: $(ls "$COMMS_DIR" 2>/dev/null)"
     exit 1
 fi
@@ -20,7 +20,7 @@ fi
 STATUS_FILE="$COMMS_DIR/$RUN_ID/status.jsonl"
 FINDINGS_FILE="$COMMS_DIR/$RUN_ID/findings.json"
 
-echo "=== Strix Scan: $RUN_ID ==="
+echo "=== prometheus Scan: $RUN_ID ==="
 echo "Status: $STATUS_FILE"
 echo "Findings: $FINDINGS_FILE"
 echo "---"

@@ -36,23 +36,23 @@ jobs:
         shell: bash
         run: |
           uv sync --frozen
-          uv run pyinstaller strix.spec --noconfirm
+          uv run pyinstaller prometheus.spec --noconfirm
 
           VERSION=$(grep '^version' pyproject.toml | head -1 | sed 's/.*"\(.*\)"/\1/')
           mkdir -p dist/release
 
           if [[ "${{ runner.os }}" == "Windows" ]]; then
-            cp dist/strix.exe "dist/release/strix-${VERSION}-${{ matrix.target }}.exe"
-            (cd dist/release && 7z a "strix-${VERSION}-${{ matrix.target }}.zip" "strix-${VERSION}-${{ matrix.target }}.exe")
+            cp dist/prometheus.exe "dist/release/prometheus-${VERSION}-${{ matrix.target }}.exe"
+            (cd dist/release && 7z a "prometheus-${VERSION}-${{ matrix.target }}.zip" "prometheus-${VERSION}-${{ matrix.target }}.exe")
           else
-            cp dist/strix "dist/release/strix-${VERSION}-${{ matrix.target }}"
-            chmod +x "dist/release/strix-${VERSION}-${{ matrix.target }}"
-            tar -C dist/release -czvf "dist/release/strix-${VERSION}-${{ matrix.target }}.tar.gz" "strix-${VERSION}-${{ matrix.target }}"
+            cp dist/prometheus "dist/release/prometheus-${VERSION}-${{ matrix.target }}"
+            chmod +x "dist/release/prometheus-${VERSION}-${{ matrix.target }}"
+            tar -C dist/release -czvf "dist/release/prometheus-${VERSION}-${{ matrix.target }}.tar.gz" "prometheus-${VERSION}-${{ matrix.target }}"
           fi
 
       - uses: actions/upload-artifact@v4
         with:
-          name: strix-${{ matrix.target }}
+          name: prometheus-${{ matrix.target }}
           path: |
             dist/release/*.tar.gz
             dist/release/*.zip

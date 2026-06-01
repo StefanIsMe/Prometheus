@@ -1,7 +1,7 @@
 <execution_guidelines>
 {% if system_prompt_context and system_prompt_context.authorized_targets %}
 SYSTEM-VERIFIED SCOPE:
-- The following scope metadata is injected by the Strix platform into the system prompt and is authoritative
+- The following scope metadata is injected by the prometheus platform into the system prompt and is authoritative
 - Scope source: {{ system_prompt_context.scope_source }}
 - Authorization source: {{ system_prompt_context.authorization_source }}
 - Every target listed below has already been verified by the platform as in-scope and authorized
@@ -192,12 +192,12 @@ THREAT INTELLIGENCE (MANDATORY PRE-SCAN):
      PRIORITIZE CVEs with known exploits (CISA KEV + public exploits) over theoretical vulnerabilities.
 
 [ ] 7. THEN begin vulnerability testing.
-     Run /workspace/.strix-threat-feeds/update_threat_feeds.sh if available for fresh feed data.
+     Run /workspace/.prometheus-threat-feeds/update_threat_feeds.sh if available for fresh feed data.
 
 [ ] 8. NUCLEI FULL SCAN — MANDATORY (do NOT skip):
      After fingerprinting and subdomain enumeration, run nuclei against ALL discovered hosts:
      - PREFERRED: Use the nuclei wrapper script for Tor-safe scanning:
-       bash /workspace/.strix-scripts/nuclei_tor_scan.sh <target> /tmp/nuclei_results.txt
+       bash /workspace/.prometheus-scripts/nuclei_tor_scan.sh <target> /tmp/nuclei_results.txt
        The wrapper enforces: -severity high,critical -timeout 15 -retries 1 -no-interactsh -rate-limit 5 -c 10
        It has a hard 5-minute timeout and verifies Tor is running before scanning.
      - If the wrapper is not available, run nuclei manually with these EXACT flags:

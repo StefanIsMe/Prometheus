@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# strix-safe-launch.sh — Pre-flight checks + launch Strix
-# Ensures Tor is running on the host BEFORE Strix starts,
+# prometheus-safe-launch.sh — Pre-flight checks + launch prometheus
+# Ensures Tor is running on the host BEFORE prometheus starts,
 # so the agent never wastes turns diagnosing host-level issues.
 #
-# Usage: ./strix-safe-launch.sh [all strix args passed through]
-# Example: ./strix-safe-launch.sh -t https://example.com --rate-limit 5 -m deep
+# Usage: ./prometheus-safe-launch.sh [all prometheus args passed through]
+# Example: ./prometheus-safe-launch.sh -t https://example.com --rate-limit 5 -m deep
 
 set -euo pipefail
 
@@ -79,26 +79,26 @@ else
 fi
 
 # --- 5. Check sandbox image exists ---
-if docker image inspect ghcr.io/usestrix/strix-sandbox:0.1.13 >/dev/null 2>&1; then
-    log_ok "Strix sandbox image present"
+if docker image inspect ghcr.io/useprometheus/prometheus-sandbox:0.1.13 >/dev/null 2>&1; then
+    log_ok "prometheus sandbox image present"
 else
-    log_warn "Strix sandbox image not found (will pull on first run — ~15GB)"
+    log_warn "prometheus sandbox image not found (will pull on first run — ~15GB)"
 fi
 
-# --- 6. Check Strix source exists ---
-STRIX_SOURCE="$HOME/strix-source"
-if [ -f "$STRIX_SOURCE/run_strix.py" ]; then
-    log_ok "Strix source at $STRIX_SOURCE"
+# --- 6. Check prometheus source exists ---
+prometheus_SOURCE="$HOME/prometheus-source"
+if [ -f "$prometheus_SOURCE/run_prometheus.py" ]; then
+    log_ok "prometheus source at $prometheus_SOURCE"
 else
-    log_fail "Strix source not found at $STRIX_SOURCE"
+    log_fail "prometheus source not found at $prometheus_SOURCE"
     ERRORS=$((ERRORS + 1))
 fi
 
-# --- 7. Check strix config ---
-if [ -f "$HOME/.strix/cli-config.json" ]; then
-    log_ok "Strix config exists"
+# --- 7. Check prometheus config ---
+if [ -f "$HOME/.prometheus/cli-config.json" ]; then
+    log_ok "prometheus config exists"
 else
-    log_warn "No strix config at ~/.strix/cli-config.json"
+    log_warn "No prometheus config at ~/.prometheus/cli-config.json"
 fi
 
 echo ""
@@ -116,9 +116,9 @@ if [ "$ERRORS" -gt 0 ]; then
     exit 1
 fi
 
-echo -e "${GREEN}=== All pre-flight checks passed. Launching Strix. ===${NC}"
+echo -e "${GREEN}=== All pre-flight checks passed. Launching prometheus. ===${NC}"
 echo ""
 
-# --- Launch Strix from source ---
-cd "$STRIX_SOURCE"
-exec python3 run_strix.py "$@"
+# --- Launch prometheus from source ---
+cd "$prometheus_SOURCE"
+exec python3 run_prometheus.py "$@"
