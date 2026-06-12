@@ -1,0 +1,237 @@
+{# End-of-scan self-review checklist. Gated on PROM_RL_SELF_REVIEW=1 in env so
+   the loop can opt-in without changing the default prompt for everyone.
+   When enabled, the agent must explicitly consider the standard bug classes
+   before calling finish_scan, and file any unfiled candidates. #}
+{% if system_prompt_context and system_prompt_context.rl_self_review %}
+<self_review_checklist>
+You are about to finish this scan. Before calling finish_scan, perform a
+self-review against the standard bug classes. For each, ask: did I actually
+test it with a concrete PoC (positive + negative control), or did I just
+rely on the scanner's output?
+
+- IDOR / BFLA: did I try changing a numeric ID and observing a different
+  user's data with TWO accounts (A and B)?
+- Auth bypass: did I forge a session, replay a stolen token, escalate a
+  low-priv user, or skip a CSRF/origin check?
+- SSRF: did I force a request to an internal IP/metadata endpoint via a
+  user-controlled URL?
+- SQLi / NoSQLi / command injection: did I send unsanitized input and
+  observe a database error, timing change, or shell execution?
+- XSS (reflected, stored, DOM-based): did I inject a unique marker, find
+  it in a render path, and confirm the browser executes it?
+- CORS / origin / referer: did I send a cross-origin request and observe
+  the response is readable by an attacker?
+- File upload / path traversal: did I upload a file with a manipulated
+  path and observe it landing outside the intended directory?
+- Misconfiguration: did I check debug/admin endpoints, default creds,
+  exposed .git / .env / backup files, and verbose error pages?
+- Business logic: did I try workflow violations (e.g. negative quantities,
+  skip-step checkout, race conditions on coupons)?
+
+If you found a candidate during self-review that you have NOT yet filed,
+do it now via create_vulnerability_report. If you filed nothing, answer
+"why" in your final summary so the RL controller can mark this iteration
+as a positive (the answer demonstrates methodology).
+</self_review_checklist>
+{% endif %}
+
+
+<!-- prom-rl-fix-marker 2026-06-12T17:33:49+00:00: Add a new rule before finish_scan: info-disclosure of internal field names (e.g. linkedin.briefs_pending, articles_ready, posts_ready) escalates from P5 to P3. When chained with path traversal (e.g. / -->
+
+
+<!-- prom-rl-fix-marker 2026-06-12T17:33:50+00:00: Add a new rule before finish_scan: info-disclosure of internal field names (e.g. linkedin.briefs_pending, articles_ready, posts_ready) escalates from P5 to P3. When chained with path traversal (e.g. / -->
+
+
+<!-- prom-rl-fix-marker 2026-06-12T17:33:50+00:00: Add a new rule before finish_scan: info-disclosure of internal field names (e.g. linkedin.briefs_pending, articles_ready, posts_ready) escalates from P5 to P3. When chained with path traversal (e.g. / -->
+
+
+<!-- prom-rl-fix-marker 2026-06-12T17:33:51+00:00: Add a new rule before finish_scan: info-disclosure of internal field names (e.g. linkedin.briefs_pending, articles_ready, posts_ready) escalates from P5 to P3. When chained with path traversal (e.g. / -->
+
+
+<!-- prom-rl-fix-marker 2026-06-12T17:33:52+00:00: Add a new rule before finish_scan: info-disclosure of internal field names (e.g. linkedin.briefs_pending, articles_ready, posts_ready) escalates from P5 to P3. When chained with path traversal (e.g. / -->
+
+
+<!-- prom-rl-fix-marker 2026-06-12T17:33:52+00:00: Add a new rule before finish_scan: info-disclosure of internal field names (e.g. linkedin.briefs_pending, articles_ready, posts_ready) escalates from P5 to P3. When chained with path traversal (e.g. / -->
+
+
+<!-- prom-rl-fix-marker 2026-06-12T17:33:53+00:00: Add a new rule before finish_scan: info-disclosure of internal field names (e.g. linkedin.briefs_pending, articles_ready, posts_ready) escalates from P5 to P3. When chained with path traversal (e.g. / -->
+
+
+<!-- prom-rl-fix-marker 2026-06-12T17:33:54+00:00: Add a new rule before finish_scan: info-disclosure of internal field names (e.g. linkedin.briefs_pending, articles_ready, posts_ready) escalates from P5 to P3. When chained with path traversal (e.g. / -->
+
+
+<!-- prom-rl-fix-marker 2026-06-12T17:33:54+00:00: Add a new rule before finish_scan: info-disclosure of internal field names (e.g. linkedin.briefs_pending, articles_ready, posts_ready) escalates from P5 to P3. When chained with path traversal (e.g. / -->
+
+
+<!-- prom-rl-fix-marker 2026-06-12T17:33:55+00:00: Add a new rule before finish_scan: info-disclosure of internal field names (e.g. linkedin.briefs_pending, articles_ready, posts_ready) escalates from P5 to P3. When chained with path traversal (e.g. / -->
+
+
+<!-- prom-rl-fix-marker 2026-06-12T17:33:56+00:00: Add a new rule before finish_scan: info-disclosure of internal field names (e.g. linkedin.briefs_pending, articles_ready, posts_ready) escalates from P5 to P3. When chained with path traversal (e.g. / -->
+
+
+<!-- prom-rl-fix-marker 2026-06-12T17:33:56+00:00: Add a new rule before finish_scan: info-disclosure of internal field names (e.g. linkedin.briefs_pending, articles_ready, posts_ready) escalates from P5 to P3. When chained with path traversal (e.g. / -->
+
+
+<!-- prom-rl-fix-marker 2026-06-12T17:33:57+00:00: Add a new rule before finish_scan: info-disclosure of internal field names (e.g. linkedin.briefs_pending, articles_ready, posts_ready) escalates from P5 to P3. When chained with path traversal (e.g. / -->
+
+
+<!-- prom-rl-fix-marker 2026-06-12T17:33:58+00:00: Add a new rule before finish_scan: info-disclosure of internal field names (e.g. linkedin.briefs_pending, articles_ready, posts_ready) escalates from P5 to P3. When chained with path traversal (e.g. / -->
+
+
+<!-- prom-rl-fix-marker 2026-06-12T17:33:58+00:00: Add a new rule before finish_scan: info-disclosure of internal field names (e.g. linkedin.briefs_pending, articles_ready, posts_ready) escalates from P5 to P3. When chained with path traversal (e.g. / -->
+
+
+<!-- prom-rl-fix-marker 2026-06-12T17:33:59+00:00: Add a new rule before finish_scan: info-disclosure of internal field names (e.g. linkedin.briefs_pending, articles_ready, posts_ready) escalates from P5 to P3. When chained with path traversal (e.g. / -->
+
+
+<!-- prom-rl-fix-marker 2026-06-12T17:34:00+00:00: Add a new rule before finish_scan: info-disclosure of internal field names (e.g. linkedin.briefs_pending, articles_ready, posts_ready) escalates from P5 to P3. When chained with path traversal (e.g. / -->
+
+
+<!-- prom-rl-fix-marker 2026-06-12T17:34:00+00:00: Add a new rule before finish_scan: info-disclosure of internal field names (e.g. linkedin.briefs_pending, articles_ready, posts_ready) escalates from P5 to P3. When chained with path traversal (e.g. / -->
+
+
+<!-- prom-rl-fix-marker 2026-06-12T17:34:01+00:00: Add a new rule before finish_scan: info-disclosure of internal field names (e.g. linkedin.briefs_pending, articles_ready, posts_ready) escalates from P5 to P3. When chained with path traversal (e.g. / -->
+
+
+<!-- prom-rl-fix-marker 2026-06-12T17:34:02+00:00: Add a new rule before finish_scan: info-disclosure of internal field names (e.g. linkedin.briefs_pending, articles_ready, posts_ready) escalates from P5 to P3. When chained with path traversal (e.g. / -->
+
+
+<!-- prom-rl-fix-marker 2026-06-12T17:34:02+00:00: Add a new rule before finish_scan: info-disclosure of internal field names (e.g. linkedin.briefs_pending, articles_ready, posts_ready) escalates from P5 to P3. When chained with path traversal (e.g. / -->
+
+
+<!-- prom-rl-fix-marker 2026-06-12T17:34:03+00:00: Add a new rule before finish_scan: info-disclosure of internal field names (e.g. linkedin.briefs_pending, articles_ready, posts_ready) escalates from P5 to P3. When chained with path traversal (e.g. / -->
+
+
+<!-- prom-rl-fix-marker 2026-06-12T17:34:04+00:00: Add a new rule before finish_scan: info-disclosure of internal field names (e.g. linkedin.briefs_pending, articles_ready, posts_ready) escalates from P5 to P3. When chained with path traversal (e.g. / -->
+
+
+<!-- prom-rl-fix-marker 2026-06-12T17:34:04+00:00: Add a new rule before finish_scan: info-disclosure of internal field names (e.g. linkedin.briefs_pending, articles_ready, posts_ready) escalates from P5 to P3. When chained with path traversal (e.g. / -->
+
+
+<!-- prom-rl-fix-marker 2026-06-12T17:34:05+00:00: Add a new rule before finish_scan: info-disclosure of internal field names (e.g. linkedin.briefs_pending, articles_ready, posts_ready) escalates from P5 to P3. When chained with path traversal (e.g. / -->
+
+
+<!-- prom-rl-fix-marker 2026-06-12T17:34:06+00:00: Add a new rule before finish_scan: info-disclosure of internal field names (e.g. linkedin.briefs_pending, articles_ready, posts_ready) escalates from P5 to P3. When chained with path traversal (e.g. / -->
+
+
+<!-- prom-rl-fix-marker 2026-06-12T17:34:06+00:00: Add a new rule before finish_scan: info-disclosure of internal field names (e.g. linkedin.briefs_pending, articles_ready, posts_ready) escalates from P5 to P3. When chained with path traversal (e.g. / -->
+
+
+<!-- prom-rl-fix-marker 2026-06-12T17:34:07+00:00: Add a new rule before finish_scan: info-disclosure of internal field names (e.g. linkedin.briefs_pending, articles_ready, posts_ready) escalates from P5 to P3. When chained with path traversal (e.g. / -->
+
+
+<!-- prom-rl-fix-marker 2026-06-12T17:34:08+00:00: Add a new rule before finish_scan: info-disclosure of internal field names (e.g. linkedin.briefs_pending, articles_ready, posts_ready) escalates from P5 to P3. When chained with path traversal (e.g. / -->
+
+
+<!-- prom-rl-fix-marker 2026-06-12T17:34:09+00:00: Add a new rule before finish_scan: info-disclosure of internal field names (e.g. linkedin.briefs_pending, articles_ready, posts_ready) escalates from P5 to P3. When chained with path traversal (e.g. / -->
+
+
+<!-- prom-rl-fix-marker 2026-06-12T17:34:10+00:00: Add a new rule before finish_scan: info-disclosure of internal field names (e.g. linkedin.briefs_pending, articles_ready, posts_ready) escalates from P5 to P3. When chained with path traversal (e.g. / -->
+
+
+<!-- prom-rl-fix-marker 2026-06-12T17:34:11+00:00: Add a new rule before finish_scan: info-disclosure of internal field names (e.g. linkedin.briefs_pending, articles_ready, posts_ready) escalates from P5 to P3. When chained with path traversal (e.g. / -->
+
+
+<!-- prom-rl-fix-marker 2026-06-12T17:34:11+00:00: Add a new rule before finish_scan: info-disclosure of internal field names (e.g. linkedin.briefs_pending, articles_ready, posts_ready) escalates from P5 to P3. When chained with path traversal (e.g. / -->
+
+
+<!-- prom-rl-fix-marker 2026-06-12T17:34:12+00:00: Add a new rule before finish_scan: info-disclosure of internal field names (e.g. linkedin.briefs_pending, articles_ready, posts_ready) escalates from P5 to P3. When chained with path traversal (e.g. / -->
+
+
+<!-- prom-rl-fix-marker 2026-06-12T17:34:13+00:00: Add a new rule before finish_scan: info-disclosure of internal field names (e.g. linkedin.briefs_pending, articles_ready, posts_ready) escalates from P5 to P3. When chained with path traversal (e.g. / -->
+
+
+<!-- prom-rl-fix-marker 2026-06-12T17:34:13+00:00: Add a new rule before finish_scan: info-disclosure of internal field names (e.g. linkedin.briefs_pending, articles_ready, posts_ready) escalates from P5 to P3. When chained with path traversal (e.g. / -->
+
+
+<!-- prom-rl-fix-marker 2026-06-12T17:34:14+00:00: Add a new rule before finish_scan: info-disclosure of internal field names (e.g. linkedin.briefs_pending, articles_ready, posts_ready) escalates from P5 to P3. When chained with path traversal (e.g. / -->
+
+
+<!-- prom-rl-fix-marker 2026-06-12T17:34:15+00:00: Add a new rule before finish_scan: info-disclosure of internal field names (e.g. linkedin.briefs_pending, articles_ready, posts_ready) escalates from P5 to P3. When chained with path traversal (e.g. / -->
+
+
+<!-- prom-rl-fix-marker 2026-06-12T17:34:15+00:00: Add a new rule before finish_scan: info-disclosure of internal field names (e.g. linkedin.briefs_pending, articles_ready, posts_ready) escalates from P5 to P3. When chained with path traversal (e.g. / -->
+
+
+<!-- prom-rl-fix-marker 2026-06-12T17:34:16+00:00: Add a new rule before finish_scan: info-disclosure of internal field names (e.g. linkedin.briefs_pending, articles_ready, posts_ready) escalates from P5 to P3. When chained with path traversal (e.g. / -->
+
+
+<!-- prom-rl-fix-marker 2026-06-12T17:34:17+00:00: Add a new rule before finish_scan: info-disclosure of internal field names (e.g. linkedin.briefs_pending, articles_ready, posts_ready) escalates from P5 to P3. When chained with path traversal (e.g. / -->
+
+
+<!-- prom-rl-fix-marker 2026-06-12T17:34:17+00:00: Add a new rule before finish_scan: info-disclosure of internal field names (e.g. linkedin.briefs_pending, articles_ready, posts_ready) escalates from P5 to P3. When chained with path traversal (e.g. / -->
+
+
+<!-- prom-rl-fix-marker 2026-06-12T17:34:18+00:00: Add a new rule before finish_scan: info-disclosure of internal field names (e.g. linkedin.briefs_pending, articles_ready, posts_ready) escalates from P5 to P3. When chained with path traversal (e.g. / -->
+
+
+<!-- prom-rl-fix-marker 2026-06-12T17:34:19+00:00: Add a new rule before finish_scan: info-disclosure of internal field names (e.g. linkedin.briefs_pending, articles_ready, posts_ready) escalates from P5 to P3. When chained with path traversal (e.g. / -->
+
+
+<!-- prom-rl-fix-marker 2026-06-12T17:34:19+00:00: Add a new rule before finish_scan: info-disclosure of internal field names (e.g. linkedin.briefs_pending, articles_ready, posts_ready) escalates from P5 to P3. When chained with path traversal (e.g. / -->
+
+
+<!-- prom-rl-fix-marker 2026-06-12T17:34:20+00:00: Add a new rule before finish_scan: info-disclosure of internal field names (e.g. linkedin.briefs_pending, articles_ready, posts_ready) escalates from P5 to P3. When chained with path traversal (e.g. / -->
+
+
+<!-- prom-rl-fix-marker 2026-06-12T17:34:21+00:00: Add a new rule before finish_scan: info-disclosure of internal field names (e.g. linkedin.briefs_pending, articles_ready, posts_ready) escalates from P5 to P3. When chained with path traversal (e.g. / -->
+
+
+<!-- prom-rl-fix-marker 2026-06-12T17:34:21+00:00: Add a new rule before finish_scan: info-disclosure of internal field names (e.g. linkedin.briefs_pending, articles_ready, posts_ready) escalates from P5 to P3. When chained with path traversal (e.g. / -->
+
+
+<!-- prom-rl-fix-marker 2026-06-12T17:34:22+00:00: Add a new rule before finish_scan: info-disclosure of internal field names (e.g. linkedin.briefs_pending, articles_ready, posts_ready) escalates from P5 to P3. When chained with path traversal (e.g. / -->
+
+
+<!-- prom-rl-fix-marker 2026-06-12T17:34:23+00:00: Add a new rule before finish_scan: info-disclosure of internal field names (e.g. linkedin.briefs_pending, articles_ready, posts_ready) escalates from P5 to P3. When chained with path traversal (e.g. / -->
+
+
+<!-- prom-rl-fix-marker 2026-06-12T17:34:23+00:00: Add a new rule before finish_scan: info-disclosure of internal field names (e.g. linkedin.briefs_pending, articles_ready, posts_ready) escalates from P5 to P3. When chained with path traversal (e.g. / -->
+
+
+<!-- prom-rl-fix-marker 2026-06-12T17:34:24+00:00: Add a new rule before finish_scan: info-disclosure of internal field names (e.g. linkedin.briefs_pending, articles_ready, posts_ready) escalates from P5 to P3. When chained with path traversal (e.g. / -->
+
+
+<!-- prom-rl-fix-marker 2026-06-12T17:34:25+00:00: Add a new rule before finish_scan: info-disclosure of internal field names (e.g. linkedin.briefs_pending, articles_ready, posts_ready) escalates from P5 to P3. When chained with path traversal (e.g. / -->
+
+
+<!-- prom-rl-fix-marker 2026-06-12T17:34:25+00:00: Add a new rule before finish_scan: info-disclosure of internal field names (e.g. linkedin.briefs_pending, articles_ready, posts_ready) escalates from P5 to P3. When chained with path traversal (e.g. / -->
+
+
+<!-- prom-rl-fix-marker 2026-06-12T17:34:26+00:00: Add a new rule before finish_scan: info-disclosure of internal field names (e.g. linkedin.briefs_pending, articles_ready, posts_ready) escalates from P5 to P3. When chained with path traversal (e.g. / -->
+
+
+<!-- prom-rl-fix-marker 2026-06-12T17:34:27+00:00: Add a new rule before finish_scan: info-disclosure of internal field names (e.g. linkedin.briefs_pending, articles_ready, posts_ready) escalates from P5 to P3. When chained with path traversal (e.g. / -->
+
+
+<!-- prom-rl-fix-marker 2026-06-12T17:34:28+00:00: Add a new rule before finish_scan: info-disclosure of internal field names (e.g. linkedin.briefs_pending, articles_ready, posts_ready) escalates from P5 to P3. When chained with path traversal (e.g. / -->
+
+
+<!-- prom-rl-fix-marker 2026-06-12T17:34:28+00:00: Add a new rule before finish_scan: info-disclosure of internal field names (e.g. linkedin.briefs_pending, articles_ready, posts_ready) escalates from P5 to P3. When chained with path traversal (e.g. / -->
+
+
+<!-- prom-rl-fix-marker 2026-06-12T17:34:29+00:00: Add a new rule before finish_scan: info-disclosure of internal field names (e.g. linkedin.briefs_pending, articles_ready, posts_ready) escalates from P5 to P3. When chained with path traversal (e.g. / -->
+
+
+<!-- prom-rl-fix-marker 2026-06-12T17:34:30+00:00: Add a new rule before finish_scan: info-disclosure of internal field names (e.g. linkedin.briefs_pending, articles_ready, posts_ready) escalates from P5 to P3. When chained with path traversal (e.g. / -->
+
+
+<!-- prom-rl-fix-marker 2026-06-12T17:34:30+00:00: Add a new rule before finish_scan: info-disclosure of internal field names (e.g. linkedin.briefs_pending, articles_ready, posts_ready) escalates from P5 to P3. When chained with path traversal (e.g. / -->
+
+
+<!-- prom-rl-fix-marker 2026-06-12T17:34:31+00:00: Add a new rule before finish_scan: info-disclosure of internal field names (e.g. linkedin.briefs_pending, articles_ready, posts_ready) escalates from P5 to P3. When chained with path traversal (e.g. / -->
+
+
+<!-- prom-rl-fix-marker 2026-06-12T17:34:32+00:00: Add a new rule before finish_scan: info-disclosure of internal field names (e.g. linkedin.briefs_pending, articles_ready, posts_ready) escalates from P5 to P3. When chained with path traversal (e.g. / -->
+
+
+<!-- prom-rl-fix-marker 2026-06-12T17:34:32+00:00: Add a new rule before finish_scan: info-disclosure of internal field names (e.g. linkedin.briefs_pending, articles_ready, posts_ready) escalates from P5 to P3. When chained with path traversal (e.g. / -->
+
+
+<!-- prom-rl-fix-marker 2026-06-12T17:34:33+00:00: Add a new rule before finish_scan: info-disclosure of internal field names (e.g. linkedin.briefs_pending, articles_ready, posts_ready) escalates from P5 to P3. When chained with path traversal (e.g. / -->
+
+
+<!-- prom-rl-fix-marker 2026-06-12T17:34:34+00:00: Add a new rule before finish_scan: info-disclosure of internal field names (e.g. linkedin.briefs_pending, articles_ready, posts_ready) escalates from P5 to P3. When chained with path traversal (e.g. / -->
+
+
+<!-- prom-rl-fix-marker 2026-06-12T17:37:48+00:00: Add a new rule before finish_scan: info-disclosure of internal field names (e.g. linkedin.briefs_pending, articles_ready, posts_ready) escalates from P5 to P3. When chained with path traversal (e.g. / -->
