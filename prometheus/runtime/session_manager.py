@@ -18,6 +18,10 @@ logger = logging.getLogger(__name__)
 
 
 # In-container Caido sidecar port (matches the image's caido-cli bind).
+# Tor SOCKS5 proxy reachable from inside Docker containers via host-gateway.
+_TOR_PROXY = "socks5://host.docker.internal:9050"
+
+
 _CONTAINER_CAIDO_PORT = 48080
 
 # Browser-harness mount point inside the sandbox.
@@ -28,7 +32,7 @@ _BROWSER_HARNESS_MOUNT = "/opt/browser-harness"
 _BROWSERCODE_HOST = Path.home() / "browsercode"
 _BROWSERCODE_MOUNT = "/opt/browsercode"
 
-# Scan pipeline script mount — the script isn't in the upstream strix-sandbox image.
+# Scan pipeline script mount — the script isn't in the upstream prometheus-sandbox image.
 # Mount the entire scripts/ directory so Docker can create /scripts/ as a mount point.
 _PIPELINE_SCRIPTS_HOST = Path("/mnt/hdd/prometheus-data/prometheus-source/scripts")
 _PIPELINE_SCRIPTS_MOUNT = "/scripts"
@@ -103,11 +107,16 @@ async def create_or_reuse(
     *,
     image: str,
     local_sources: list[dict[str, str]],
+    allow_direct: bool = False,
 ) -> dict[str, Any]:
     """Return the existing session bundle for ``scan_id`` or create a new one.
 
     Each ``local_sources`` entry mounts its host ``source_path`` at
     ``/workspace/<workspace_subdir>`` inside the container.
+
+    Args:
+        allow_direct: If True, tools inside the container may fall back
+            to direct connections when Tor is unreachable.
     """
     cached = _SESSION_CACHE.get(scan_id)
     if cached is not None:
@@ -179,10 +188,13 @@ async def create_or_reuse(
                 "http_proxy": container_caido_url,
                 "https_proxy": container_caido_url,
                 "ALL_PROXY": container_caido_url,
-                "NO_PROXY": "localhost,127.0.0.1",
+                "NO_PROXY": "localhost,[IP_ADDRESS]",
                 "PYTHONPATH": extra_pythonpath,
                 # Browser-harness CDP connection to in-container Chromium.
-                "BU_CDP_URL": "http://127.0.0.1:9222",
+                "BU_CDP_URL": "http://[IP_ADDRESS]:9222",
+                # Tor proxy info, used by scripts like scan-pipeline.sh
+                "PROMETHEUS_TOR_PROXY": _TOR_PROXY,
+                "PROMETHEUS_ALLOW_DIRECT": str(allow_direct).lower(),
             },
         ),
     )

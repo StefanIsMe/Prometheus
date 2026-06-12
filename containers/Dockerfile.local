@@ -1,6 +1,6 @@
-# prometheus local sandbox — layers on strix for tool additions
+# prometheus local sandbox — layers on prometheus for tool additions
 # Build: docker build -f containers/Dockerfile.local -t prometheus-sandbox:local .
-FROM ghcr.io/usestrix/strix-sandbox:1.0.0
+FROM ghcr.io/useprometheus/prometheus-sandbox:1.0.0
 
 USER root
 
