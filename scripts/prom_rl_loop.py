@@ -514,8 +514,13 @@ def _action_scan_locked(cfg: dict, lock_fh: object) -> dict:
         "--scan-mode", mode,
         "--rate-limit", str(rate),
     ]
-    if t.get("instruction_hint") and len(t["instruction_hint"]) <= 200:
-        cmd += ["--instruction", t["instruction_hint"]]
+    if t.get("instruction_hint"):
+        # Always pass through the instruction via a file — the war.gov one
+        # is long and contains critical rules of engagement we must not
+        # silently drop.
+        instr_path = Path(f"/tmp/prom-rl-instr-{key}.txt")
+        instr_path.write_text(t["instruction_hint"])
+        cmd += ["--instruction-file", str(instr_path)]
     log_path = Path(f"/tmp/prom-rl-scan-{key}-{int(time.time())}.log")
     log_fh = open(log_path, "w")
     try:
@@ -628,25 +633,24 @@ def _action_scan_recon(key: str, t: dict) -> dict:
 
 
 def _parse_run_dir(run_dir: str) -> dict:
-    """Parse the run.json + log for a real run dir. Returns a triage dict
-    with findings, severity hints, escalation candidates."""
+    """Parse a prometheus run dir into a dict ready for the escalation heuristic.
+
+    Reads run.json (status/findings), the penetration_test_report.md tail,
+    and the prometheus.log tail. Tolerates missing files and bad JSON.
+    """
+    out: dict = {"run_dir": run_dir, "ok": False}
     run_path = Path(run_dir)
-    out = {
-        "run_dir": run_dir,
-        "run_json": None,
-        "findings": [],
-        "log_tail": "",
-        "error": None,
-    }
+    if not run_path.exists():
+        out["error"] = f"run dir missing: {run_path}"
+        return out
     run_json = run_path / "run.json"
-    if not run_json.exists():
-        out["error"] = f"no run.json in {run_dir}"
-        return out
-    try:
-        out["run_json"] = json.loads(run_json.read_text())
-    except json.JSONDecodeError as e:
-        out["error"] = f"run.json parse: {e}"
-        return out
+    if run_json.exists():
+        try:
+            out["run"] = json.loads(run_json.read_text())
+            out["ok"] = True
+        except json.JSONDecodeError as e:
+            out["error"] = f"run.json parse: {e}"
+            return out
     report = run_path / "penetration_test_report.md"
     if report.exists():
         # Pull a 4KB tail of the report for the heuristic
@@ -670,24 +674,89 @@ PATH_TRAVERSAL_HINT = re.compile(r"(/markdown/\.\.|\\.\\.\\|path traversal|norma
 INFO_DISCLOSURE_HINT = re.compile(r"(/data/dashboard-data|/data/articles|/\.well-known/|llms\.txt)", re.I)
 
 
+def _build_marker_from_db() -> dict | None:
+    """Self-sufficient scan-completion detection.
+
+    Queries prometheus.db / scans.db directly for the most recent
+    completed scan, writes /tmp/prom-rl-scan-complete.json, returns the
+    marker dict. Returns None if nothing completed recently.
+    """
+    # The 12-hour cutoff keeps stale runs from being re-reviewed every loop.
+    cutoff_ts = int(time.time()) - 12 * 3600
+    candidates: list[dict] = []
+    for db in (Path.home() / ".prometheus" / "scans.db",
+               Path.home() / ".prometheus" / "prometheus.db"):
+        if not db.exists():
+            continue
+        try:
+            with sqlite3.connect(str(db)) as conn:
+                conn.row_factory = sqlite3.Row
+                for table in ("scans", "runs", "scan_runs"):
+                    try:
+                        rows = conn.execute(
+                            f"SELECT * FROM {table} WHERE status IN ('completed','done','finished') "
+                            f"AND (end_time IS NULL OR end_time >= ?) ORDER BY end_time DESC LIMIT 5",
+                            (cutoff_ts,),
+                        ).fetchall()
+                    except sqlite3.OperationalError:
+                        continue
+                    for r in rows:
+                        rd = dict(r)
+                        # Normalize target/run_dir
+                        target = rd.get("target_name") or rd.get("target") or rd.get("name") or "unknown"
+                        run_dir = rd.get("run_dir") or rd.get("output_dir") or rd.get("path")
+                        if not run_dir:
+                            continue
+                        candidates.append({
+                            "scan_id": str(rd.get("id") or rd.get("run_id") or rd.get("scan_id") or Path(run_dir).name),
+                            "target": str(target),
+                            "target_name": str(target),
+                            "findings_count": int(rd.get("findings_count") or rd.get("findings") or 0),
+                            "run_dir": str(run_dir),
+                            "end_time": int(rd.get("end_time") or rd.get("ended_at") or time.time()),
+                            "db_source": str(db),
+                        })
+        except Exception as e:  # pragma: no cover — DB ops should never crash the loop
+            pass
+    if not candidates:
+        return None
+    candidates.sort(key=lambda c: c["end_time"], reverse=True)
+    marker = candidates[0]
+    SCAN_COMPLETE.parent.mkdir(parents=True, exist_ok=True)
+    SCAN_COMPLETE.write_text(json.dumps(marker, indent=2))
+    return marker
+
+
 def action_review(cfg: dict) -> dict:
     """Find the most recent completed run, parse it, apply escalation
-    heuristic, and return a triage score."""
-    # Pick the marker file (active or archived)
+    heuristic, and return a triage score.
+
+    Self-sufficient: if no scan-complete marker exists, queries
+    prometheus.db directly for the most recent completed scan, writes the
+    marker, and reviews it. This means the loop works even when the
+    external watcher daemon is not running."""
+    # Prefer the live scan-complete marker; if absent, try the archived
+    # one; if both absent, build one fresh from prometheus.db
+    marker = None
+    marker_path = None
     if SCAN_COMPLETE.exists():
         marker = json.loads(SCAN_COMPLETE.read_text())
         marker_path = SCAN_COMPLETE
-    else:
-        # Fall back to the most recent archived marker
-        if not SCAN_COMPLETE_ARCHIVE.exists():
-            return {
-                "action": "REVIEW",
-                "target": "-",
-                "result": "no completed scan marker (active or archived)",
-                "score": 0.0,
-            }
+    elif SCAN_COMPLETE_ARCHIVE.exists():
         marker = json.loads(SCAN_COMPLETE_ARCHIVE.read_text())
         marker_path = SCAN_COMPLETE_ARCHIVE
+    else:
+        marker = _build_marker_from_db()
+        if marker:
+            marker_path = SCAN_COMPLETE  # pretend it's a fresh marker
+            SCAN_COMPLETE.write_text(json.dumps(marker, indent=2))
+    if not marker:
+        return {
+            "action": "REVIEW",
+            "target": "-",
+            "result": "no completed scan to review (no marker, no DB row)",
+            "score": 0.0,
+        }
     run_dir = marker.get("run_dir", "")
     target = marker.get("target", "?")
     scan_id = marker.get("scan_id", "?")

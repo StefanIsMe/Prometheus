@@ -83,21 +83,25 @@ def test_rotation_advances_through_targets(monkeypatch, tmp_path):
     assert len(seen) >= 6, f"expected rotation across multiple targets, got {seen}"
 
 
-def test_recon_mode_for_war_gov(monkeypatch, tmp_path):
-    """dod-war-gov target should trigger recon-only mode when picked."""
+def test_war_gov_in_program_full_scan_mode():
+    """DoD VDP / HackerOne BPV: program allows coordinated research on
+    publicly accessible DoD systems. The war.gov target MUST be in
+    full-scan mode (scan_mode=deep) and MUST carry the DoD rules of
+    engagement in its instruction_hint. This test prevents regression
+    where someone flips it back to recon/quick without re-adding the
+    rules-of-engagement text."""
     cfg = json.loads((Path("~/.prometheus/prom_rl_targets.json").expanduser()).read_text())
     t = cfg["targets"]["dod-war-gov"]
-    # Force a recon-eligible state
-    t["scan_mode"] = "recon"
-    t["ai_allowed"] = True
-    t["scope"] = ["https://www.war.gov"]
-    result = prom_rl_loop._action_scan_recon("dod-war-gov", t)
-    assert result["action"] == "SCAN"
-    assert result["target"] == "dod-war-gov"
-    assert "recon" in result["result"]
-    # The recon function writes a file — verify it exists
-    files_touched = result["files_touched"]
-    assert any("recon-dod-war-gov" in f for f in files_touched)
+    assert t["scan_mode"] == "deep", (
+        f"war.gov must be full deep scan inside DoD VDP program, got scan_mode={t['scan_mode']!r}"
+    )
+    assert t["ai_allowed"] is True
+    assert "war.gov" in t["scope"][0]
+    hint = t.get("instruction_hint", "")
+    for needle in ("DoD", "exfiltrate", "denial of service", "scope", "minimum"):
+        assert needle.lower() in hint.lower(), (
+            f"war.gov instruction_hint missing DoD rule phrase: {needle!r}"
+        )
 
 
 def test_recon_mode_does_no_active_scanning(monkeypatch, tmp_path):
