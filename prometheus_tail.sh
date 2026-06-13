@@ -1,5 +1,8 @@
 #!/bin/bash
 # Tail prometheus scan activity in real-time
+# ⚠️  DEPRECATED: use prom_rl_tail.py for richer output, filtering, and
+# agent-readable formatting. This script is kept only as a fallback.
+#   python3 /home/stefan/prometheus-source/scripts/prom_rl_tail.py follow
 # Usage: ./prometheus_tail.sh [run_id]
 # If no run_id given, uses the latest active scan
 

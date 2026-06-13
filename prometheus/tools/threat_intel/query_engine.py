@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 import time
 from typing import Any
 
@@ -23,6 +24,51 @@ from prometheus.tools.threat_intel.tool import (
 
 
 logger = logging.getLogger(__name__)
+
+
+# Phase 1D: the audit found 19 NVD, 30 VulnerableCode, and many CIRCL
+# failures all stemming from one root cause — the agent's free-form
+# fingerprint text was being passed verbatim as the search term to
+# online APIs, producing 200+ char `?purl=pkg:npm/...` URLs that the
+# APIs rejected. ``slugify_tech`` reduces each fingerprint to a short
+# slug (max 64 chars, alphanumeric+dash) before any online call.
+_SLUG_MAX_LEN = 64
+_CVE_PATTERN = re.compile(r"CVE-\d{4}-\d{4,7}")
+_FALLBACK_TOKEN_PATTERN = re.compile(r"[A-Za-z][A-Za-z0-9._-]*")
+
+
+def slugify_tech(tech: str) -> str:
+    """Reduce a free-form technology string to a 64-char slug.
+
+    Priority:
+
+    1. The first CVE-like substring (``CVE-YYYY-NNNN``) — this matches
+       what the agent actually wants to look up.
+    2. The first 5 alphanumeric tokens of the input, lowercased and
+       joined with single dashes.
+    3. The original string, truncated to ``_SLUG_MAX_LEN``.
+
+    Always returns a string that is at most ``_SLUG_MAX_LEN`` chars
+    long and contains only ``[A-Za-z0-9._-]`` (safe for URL paths).
+    """
+    if not tech:
+        return ""
+    if not isinstance(tech, str):
+        tech = str(tech)
+    # 1. CVE id?
+    m = _CVE_PATTERN.search(tech)
+    if m:
+        return m.group(0)
+    # 2. First 5 alphanumeric tokens
+    tokens = _FALLBACK_TOKEN_PATTERN.findall(tech)
+    if tokens:
+        slug = "-".join(t.lower() for t in tokens[:5])
+        if len(slug) > _SLUG_MAX_LEN:
+            slug = slug[:_SLUG_MAX_LEN].rstrip("-")
+        return slug
+    # 3. Truncate the original (will be re-cleaned of unsafe chars)
+    cleaned = re.sub(r"[^A-Za-z0-9._-]+", "-", tech).strip("-")
+    return cleaned[:_SLUG_MAX_LEN]
 
 
 def _normalize_ecosystem(tech: str) -> str | None:
@@ -548,18 +594,23 @@ async def _query_online(
         for fp in fingerprints:
             tech = fp.get("technology", "").strip()
             version = fp.get("version", "").strip()
+            # Phase 1D: slugify before any online call so the agent's
+            # free-form fingerprint text doesn't produce 200+ char URLs.
+            slug = slugify_tech(tech)
 
             try:
                 # Import online query functions
                 from prometheus.tools.threat_intel.tool import _query_ghsa, _query_nvd, _query_osv
 
-                # Query all sources in parallel (7 sources)
-                nvd_task = _query_nvd(client, tech, version)
-                osv_task = _query_osv(client, tech, version)
-                ghsa_task = _query_ghsa(client, tech, version)
-                circl_task = _query_circl(client, tech, version)
-                vc_task = _query_vulnerablecode(client, tech, version)
-                npm_task = _query_npm_advisory(client, tech, version)
+                # Query all sources in parallel (7 sources). Use the
+                # slug for online calls; the full text is preserved in
+                # the fingerprint for the local BM25 lookup.
+                nvd_task = _query_nvd(client, slug, version)
+                osv_task = _query_osv(client, slug, version)
+                ghsa_task = _query_ghsa(client, slug, version)
+                circl_task = _query_circl(client, slug, version)
+                vc_task = _query_vulnerablecode(client, slug, version)
+                npm_task = _query_npm_advisory(client, slug, version)
 
                 results_all = await asyncio.gather(
                     nvd_task, osv_task, ghsa_task, circl_task, vc_task, npm_task,

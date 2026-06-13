@@ -56,6 +56,8 @@ dev = [
   "bandit>=1.8.3",
   "pre-commit>=4.2.0",
   "pyinstaller>=6.17.0; python_version >= '3.12' and python_version < '3.15'",
+  "pytest>=8.0.0",
+  "pytest-asyncio>=0.25.0",
 ]
 
 [build-system]

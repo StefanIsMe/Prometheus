@@ -60,6 +60,29 @@ logger = logging.getLogger(__name__)
 StreamEventSink = Callable[[str, Any], None]
 
 
+# ---------------------------------------------------------------------------
+# Phase 2B: a synthetic ExecResult used by ``_safe_exec`` to translate
+# the post-shutdown ``RuntimeError: cannot schedule new futures`` into
+# a normal failure (so call-sites see a failed result, not a raise).
+# Kept at module level so external tests (test_safe_exec_shutdown.py)
+# can import and inspect it.
+# ---------------------------------------------------------------------------
+
+
+class _SyntheticExecResult:
+    """Mimics a failed ExecResult so the existing call-sites work unchanged."""
+
+    def ok(self) -> bool:
+        return False
+
+    exit_code = -1
+    stdout = b""
+    stderr = b"executor shut down"
+
+
+_SYNTHETIC_EXEC_FAILURE = _SyntheticExecResult()
+
+
 async def run_prometheus_scan(
     *,
     scan_config: dict[str, Any],
@@ -92,6 +115,22 @@ async def run_prometheus_scan(
     set_scan_id(scan_id)
     set_active_run(scan_id)
     clear_scan_cache()
+
+    # --- Phase 3D: LLM budget preflight ---
+    # Cheap, fast credits check BEFORE we spin up a sandbox. Saves a
+    # full scan launch when the account is out of credits.
+    try:
+        from prometheus.core.runner import _check_llm_budget
+        budget_ok, budget_msg = await _check_llm_budget(scan_id)
+        if not budget_ok:
+            _progress(f"Budget preflight FAILED: {budget_msg}")
+            logger.error(
+                "LLM budget preflight failed for scan %s: %s", scan_id, budget_msg,
+            )
+            return None
+    except Exception as exc:
+        # Never let a budget-check failure kill a scan — log and continue.
+        logger.warning("LLM budget preflight raised (non-fatal): %s", exc)
 
     # --- ALWAYS refresh threat intel from online sources before scan ---
     _progress("Refreshing threat intelligence feeds from online sources...")
@@ -159,7 +198,7 @@ async def run_prometheus_scan(
                 result = subprocess.run(
                     ["curl", "-sS", "-o", "/dev/null", "-D", "-",
                      "--connect-timeout", "10", "--max-time", "15",
-                     "-H", "User-Agent: Prometheus/1.0 (pre-scan)",
+                     "-H", "User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/IP_ADDRESS Safari/537.36",
                      url],
                     capture_output=True, text=True, timeout=20,
                 )
@@ -339,6 +378,7 @@ async def run_prometheus_scan(
         scan_id,
         image=image,
         local_sources=local_sources or [],
+        allow_direct=bool(scan_config.get("allow_direct", False)),
     )
     _progress("Sandbox ready. Updating nuclei templates...")
     logger.info("Sandbox ready for scan %s", scan_id)
@@ -347,9 +387,36 @@ async def run_prometheus_scan(
     session = bundle.get("session")
     _pre_scan_technologies: dict[str, str] = {}
     _wpscan_results: dict[str, dict[str, Any]] = {}
+
+    # Phase 2B: wrap every ``session.exec`` call below with a small helper
+    # that converts the post-shutdown ``RuntimeError: cannot schedule new
+    # futures after shutdown`` into a clean failure rather than bubbling
+    # up and crashing the run-loop.
+    async def _safe_exec(*args: Any, **kwargs: Any) -> Any:
+        """Call ``session.exec`` and translate the executor-shutdown error.
+
+        The SDK's BaseSandboxSession.exec awaits on a private ThreadPoolExecutor.
+        When the parent process's ``_python_exit`` hook tears it down first,
+        the next ``await session.exec(...)`` raises a ``RuntimeError`` with
+        ``cannot schedule new futures after shutdown`` in the message — this
+        would normally bubble up and kill the scan. We catch it and return a
+        synthetic failure result so the caller (which always inspects
+        ``.ok()`` / ``.stdout``) sees a normal failure and the scan continues.
+        """
+        try:
+            return await session.exec(*args, **kwargs)
+        except RuntimeError as exc:
+            if "cannot schedule new futures" not in str(exc):
+                raise
+            logger.warning(
+                "[scan %s] session.exec failed: executor shut down — returning synthetic failure",
+                scan_id,
+            )
+            return _SYNTHETIC_EXEC_FAILURE
+
     if session:
         try:
-            nuc_result = await session.exec(
+            nuc_result = await _safe_exec(
                 "sh", "-c",
                 "which nuclei && nuclei -update-templates -silent 2>&1 || echo 'nuclei not installed'",
                 timeout=60,
@@ -373,7 +440,7 @@ async def run_prometheus_scan(
                     continue
                 domain = url.split("/")[2] if "//" in url else url
                 try:
-                    tech_result = await session.exec(
+                    tech_result = await _safe_exec(
                         "sh", "-c",
                         f"httpx -u {url} -tech-detect -json -silent -timeout 15 2>&1",
                         timeout=30,
@@ -682,6 +749,7 @@ RESCAN MODE — EFFICIENCY DIRECTIVES:
             settings.llm.reasoning_effort,
             supports_thinking=resolution.supports_thinking,
             provider_name=resolution.provider_name,
+            model_id=resolved_model,
         )
         run_config = RunConfig(
             model=resolved_model,
@@ -891,13 +959,47 @@ RESCAN MODE — EFFICIENCY DIRECTIVES:
                     llm_requests=llm_requests,
                     total_tokens=total_tokens,
                 )
-                # Auto-register findings in report_status tracker
+                # Auto-register findings in report_status tracker.
+                # Before syncing, run should_revalidate on each finding to
+                # block re-filing when the external state says "closed" and
+                # the cooldown hasn't elapsed. This is the scan-end gate
+                # that prevents a re-scanned finding from being silently
+                # accepted as a new submission.
                 if findings_list:
                     try:
+                        filtered_findings: list[dict[str, Any]] = []
+                        blocked: list[dict[str, Any]] = []
+                        for f in findings_list:
+                            try:
+                                policy = ks.should_revalidate(
+                                    domain=domain,
+                                    finding_title=str(f.get("title") or ""),
+                                    endpoint=str(f.get("endpoint") or ""),
+                                    cwe=str(f.get("cwe") or ""),
+                                )
+                                if policy.get("action") == "archive":
+                                    blocked.append({
+                                        "title": f.get("title"),
+                                        "reason": policy.get("reason"),
+                                    })
+                                    continue
+                                filtered_findings.append(f)
+                            except Exception:
+                                # On policy-check failure, default to
+                                # letting the sync proceed (matches
+                                # the previous "always sync" behavior).
+                                filtered_findings.append(f)
+                        if blocked:
+                            logger.info(
+                                "runner.py: scan-end dedup blocked %d finding(s) on %s "
+                                "from being re-registered: %s",
+                                len(blocked), domain,
+                                [b.get("title") for b in blocked],
+                            )
                         sync_result = ks.sync_scan_findings(
                             domain=domain,
                             scan_id=scan_id,
-                            findings=findings_list,
+                            findings=filtered_findings,
                         )
                         logger.info(
                             "Synced %d new findings to report_status for %s",
@@ -1040,6 +1142,76 @@ def _build_threat_fingerprints(scan_config: dict[str, Any]) -> list[dict[str, st
                 fingerprints.append({"technology": tech, "version": version})
 
     return fingerprints
+
+
+# ---------------------------------------------------------------------------
+# Phase 3D: LLM budget preflight
+# ---------------------------------------------------------------------------
+
+# Headroom in tokens. If the account is below this, refuse to launch.
+# 50K tokens ≈ 1 small scan; tuned so an out-of-credits account fails
+# the preflight before spinning up a sandbox.
+_LLM_BUDGET_MIN_HEADROOM_TOKENS = 50_000
+
+
+async def _check_llm_budget(scan_id: str) -> tuple[bool, str]:
+    """Best-effort credits check. Returns ``(ok, message)``.
+
+    Implementation: try ``client.models.list()`` and look at the
+    response. Most providers expose credit / quota information via
+    either an HTTP header (``x-ratelimit-remaining-tokens``) or a
+    response body field. We accept any of: (a) ``x-ratelimit-remaining-tokens``
+    header below the headroom floor, (b) a 402/429 status code, or
+    (c) a body field that explicitly says out of credits.
+
+    Anything we can't parse → assume "OK" — better to launch and fail
+    at the SDK layer than to false-positive at preflight.
+    """
+    try:
+        from prometheus.config import load_settings
+        settings = load_settings()
+        provider_name = (settings.llm.provider or "").lower()
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("Budget preflight: settings load failed (%s); skipping", exc)
+        return True, "settings load failed; skipping preflight"
+
+    if not provider_name:
+        return True, "no provider configured; skipping preflight"
+
+    try:
+        import httpx
+        from prometheus.config.llm_config import _PROVIDER_ENV_KEY_MAP
+        api_key_env = _PROVIDER_ENV_KEY_MAP.get(provider_name)
+        if not api_key_env:
+            return True, f"no API key env mapping for provider '{provider_name}'"
+        import os
+        api_key = os.environ.get(api_key_env)
+        if not api_key:
+            return True, f"no API key in env {api_key_env}; skipping preflight"
+        api_base = (settings.llm.api_base or "https://api.openai.com/v1").rstrip("/")
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(
+                f"{api_base}/models",
+                headers={"Authorization": f"Bearer {api_key}"},
+            )
+        if resp.status_code in (402, 429):
+            return False, f"provider {provider_name} returned {resp.status_code}: {resp.text[:200]}"
+        # Some providers return remaining-tokens in headers.
+        remaining = resp.headers.get("x-ratelimit-remaining-tokens")
+        if remaining is not None:
+            try:
+                if int(remaining) < _LLM_BUDGET_MIN_HEADROOM_TOKENS:
+                    return False, (
+                        f"provider {provider_name} reports only {remaining} tokens of headroom "
+                        f"(min={_LLM_BUDGET_MIN_HEADROOM_TOKENS})"
+                    )
+            except (TypeError, ValueError):
+                pass
+        return True, "preflight OK"
+    except Exception as exc:  # noqa: BLE001
+        # Best-effort: never block a scan on a failed preflight.
+        logger.debug("Budget preflight check raised (non-fatal): %s", exc)
+        return True, f"preflight check raised: {exc}"
 
 
 def _format_threat_intel_context(result: dict[str, Any]) -> str:

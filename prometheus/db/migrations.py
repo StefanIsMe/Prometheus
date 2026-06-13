@@ -264,7 +264,235 @@ def _migration_002_normalize_lifecycle_statuses(conn: sqlite3.Connection) -> Non
     conn.execute("UPDATE report_status SET status = 'archived' WHERE status = 'superseded'")
 
 
+def _migration_003_external_submissions_and_bm25(conn: sqlite3.Connection) -> None:
+    """Add external_submissions table, FTS5 over report_status, and 3 new
+    report_status columns for tracking triager state from external platforms
+    (Bugcrowd, HackerOne). All additive, safe to run on a populated DB.
+
+    Backfill: parses report_status.notes for the two known-closed OpenAI
+    submissions and creates matching external_submissions rows so future
+    scans see them as already-closed ground.
+    """
+    # 1. New table for external platform submissions (Bugcrowd, H1, internal).
+    conn.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS external_submissions (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            platform        TEXT    NOT NULL,
+            external_id     TEXT    NOT NULL,
+            domain          TEXT    NOT NULL,
+            finding_title   TEXT    NOT NULL,
+            finding_hash    TEXT    NOT NULL,
+            endpoint        TEXT,
+            cwe             TEXT,
+            status          TEXT    NOT NULL,
+            priority        TEXT,
+            reward_usd      REAL,
+            report_url      TEXT,
+            triager         TEXT,
+            triaged_at      TEXT,
+            notes           TEXT,
+            raw_export_json TEXT,
+            created_at      TEXT    NOT NULL,
+            updated_at      TEXT    NOT NULL,
+            UNIQUE(platform, external_id)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_external_submissions_domain
+            ON external_submissions(domain);
+        CREATE INDEX IF NOT EXISTS idx_external_submissions_hash
+            ON external_submissions(finding_hash);
+        CREATE INDEX IF NOT EXISTS idx_external_submissions_status
+            ON external_submissions(status);
+        CREATE INDEX IF NOT EXISTS idx_external_submissions_triaged
+            ON external_submissions(triaged_at);
+        """
+    )
+
+    # 2. Add external_* columns to report_status (3 new columns, all NULL-safe).
+    cols = {c[1] for c in conn.execute("PRAGMA table_info(report_status)").fetchall()}
+    for col in ("external_priority", "external_status", "external_id"):
+        if col not in cols:
+            conn.execute(f"ALTER TABLE report_status ADD COLUMN {col} TEXT")
+            conn.commit()
+
+    # 3. FTS5 virtual tables for BM25 dedup.
+    #    Two virtual tables:
+    #      - report_status_fts: matches new findings against local report_status
+    #      - external_submissions_fts: matches new findings against the user's
+    #        prior platform submissions (Bugcrowd, H1)
+    #    Uses external-content mode so the source rows remain in their parent
+    #    tables. We deliberately do NOT add AFTER INSERT/UPDATE/DELETE triggers
+    #    on the parent tables to populate the FTS indices — FTS5 triggers on
+    #    the parent table cause "database disk image is malformed" errors
+    #    mid-transaction on this SQLite version (3.51.2) when combined with
+    #    external-content mode. Instead, callers of upsert_report_status (in
+    #    KnowledgeStore) and the backfill below keep the FTS tables in sync
+    #    via the 'rebuild' command.
+    conn.executescript(
+        """
+        CREATE VIRTUAL TABLE IF NOT EXISTS report_status_fts
+            USING fts5(
+                finding_title,
+                notes,
+                full_finding_json,
+                content='report_status',
+                content_rowid='id',
+                tokenize='porter unicode61'
+            );
+
+        CREATE VIRTUAL TABLE IF NOT EXISTS external_submissions_fts
+            USING fts5(
+                finding_title,
+                notes,
+                content='external_submissions',
+                content_rowid='id',
+                tokenize='porter unicode61'
+            );
+        """
+    )
+
+    # 4. Rebuild FTS indices from current parent-table state. External-content
+    #    FTS5 tables are not auto-populated; we need an explicit rebuild.
+    conn.execute("INSERT INTO report_status_fts(report_status_fts) VALUES('rebuild')")
+    try:
+        conn.execute("INSERT INTO external_submissions_fts(external_submissions_fts) VALUES('rebuild')")
+    except sqlite3.OperationalError:
+        # external_submissions may be empty (no backfill rows); that's fine
+        pass
+    conn.commit()
+
+    # 5. Backfill external_submissions from the two known-closed OpenAI rows
+    #    whose notes already contain the triager verdict. This makes the
+    #    system start knowing about the user's prior closed reports on the
+    #    next scan, no CLI required.
+    _backfill_external_submissions_from_notes(conn)
+    # After backfill, rebuild FTS so the new external rows are searchable.
+    conn.execute("INSERT INTO external_submissions_fts(external_submissions_fts) VALUES('rebuild')")
+    conn.commit()
+
+
+def _backfill_external_submissions_from_notes(conn: sqlite3.Connection) -> None:
+    """Parse report_status.notes for the two known-closed OpenAI submissions
+    and create external_submissions rows. Idempotent: UNIQUE(platform,
+    external_id) prevents duplicates.
+
+    Match rules (any of):
+      - triager's handle appears in the notes string
+      - 30+ character overlap between on-disk title and backfill title
+      - finding_hash matches a known hash (e.g. 2a224bda58fa9d90 for PKCE)
+    """
+    # Match rules: (external_id, [trigger_phrases], canonical_title, status, priority, triager)
+    # When MULTIPLE rows match, prefer the one where the canonical_title overlaps.
+    known_backfills = [
+        {
+            "platform": "bugcrowd",
+            "external_id": "e4c2a739-7972-493e-a988-76ad853e6175",
+            "title": "PKCE Downgrade: OAuth Authorization Server Advertises Insecure 'plain' Method",
+            "triggers": ("Tal_Bugcrowd", "PKCE Downgrade", "2a224bda58fa9d90", "Not reproducible"),
+            "status": "not_reproducible",
+            "priority": "P1",
+            "triager": "Tal_Bugcrowd",
+        },
+        {
+            "platform": "bugcrowd",
+            "external_id": "b0a131b8-85c3-4715-9362-fc7ec7fd1569",
+            "title": "Account Enumeration via Differential Login Responses on auth.openai.com",
+            "triggers": ("hexghost_bugcrowd", "Account Enumeration", "1bede986504b2009", "Username Enumeration"),
+            "status": "informative",
+            "priority": "P5",
+            "triager": "hexghost_bugcrowd",
+        },
+    ]
+
+    rows = conn.execute("SELECT * FROM report_status").fetchall()
+    now = datetime.now(UTC).isoformat()
+    for row in rows:
+        row_dict = _row_to_dict(row)
+        notes = str(row_dict.get("notes") or "")
+        title = str(row_dict.get("finding_title") or "")
+        finding_hash = str(row_dict.get("finding_hash") or "")
+        for backfill in known_backfills:
+            # Match any trigger phrase in notes or title, or the hash
+            matched = any(
+                trigger in notes or trigger.lower() in title.lower()
+                for trigger in backfill["triggers"]
+            )
+            if not matched:
+                continue
+            conn.execute(
+                """
+                INSERT OR IGNORE INTO external_submissions
+                    (platform, external_id, domain, finding_title, finding_hash,
+                     endpoint, cwe, status, priority, triager, triaged_at,
+                     notes, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    backfill["platform"],
+                    backfill["external_id"],
+                    str(row_dict.get("domain") or ""),
+                    backfill["title"],
+                    finding_hash,
+                    row_dict.get("endpoint"),
+                    row_dict.get("cwe"),
+                    backfill["status"],
+                    backfill["priority"],
+                    backfill["triager"],
+                    str(row_dict.get("resolved_at") or now),
+                    notes,
+                    now,
+                    now,
+                ),
+            )
+            # Mirror the external state into report_status so future dedup
+            # queries see the closure without a JOIN.
+            conn.execute(
+                """
+                UPDATE report_status
+                SET external_status = ?,
+                    external_priority = ?,
+                    external_id = ?
+                WHERE domain = ? AND finding_hash = ?
+                """,
+                (
+                    backfill["status"],
+                    backfill["priority"],
+                    backfill["external_id"],
+                    str(row_dict.get("domain") or ""),
+                    finding_hash,
+                ),
+            )
+    conn.commit()
+
+
 _MIGRATIONS: list[tuple[int, str, Migration]] = [
     (1, "candidate_lifecycle_tables", _migration_001_candidate_lifecycle_tables),
     (2, "normalize_lifecycle_statuses", _migration_002_normalize_lifecycle_statuses),
+    (3, "external_submissions_and_bm25", _migration_003_external_submissions_and_bm25),
 ]
+
+
+# Phase 4A: helper to initialise the empty `prometheus.db` at first run.
+# The audit found the singleton DB is sometimes 0 bytes; creating it
+# with the current schema here means downstream code can open it via
+# ``KnowledgeStore`` without racing the first migration.
+def init_prometheus_db(db_path: str | Path | None = None) -> Path:
+    """Create the SQLite file at ``db_path`` (or default location) and
+    apply all migrations. Idempotent: re-calling on a non-empty DB is a
+    no-op that still returns the path.
+    """
+    from pathlib import Path as _Path
+    if db_path is None:
+        # Default to ~/.prometheus/prometheus.db, matching KnowledgeStore.
+        candidate = _Path.home() / ".prometheus" / "prometheus.db"
+    else:
+        candidate = _Path(db_path)
+    candidate.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(str(candidate))
+    try:
+        apply_prometheus_migrations(conn)
+        conn.commit()
+    finally:
+        conn.close()
+    return candidate

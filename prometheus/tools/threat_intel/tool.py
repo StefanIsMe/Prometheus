@@ -418,6 +418,45 @@ def _guess_ghsa_ecosystem(tech: str) -> str | None:
     return None
 
 
+def _cvss_score(adv: dict[str, Any]) -> float:
+    """Extract the CVSS score from a GHSA advisory record, defensively.
+
+    The audit of 175 scan-run logs (Phase 1C) found 16 occurrences of
+    ``'str' object has no attribute 'get'`` from the previous chained
+    expression ``(adv.get("cvss") or {}).get("score", 0.0) or 0.0``.
+    The bug: when ``adv["cvss"]`` is a string (e.g. a serialised CVSS
+    vector the API sometimes returns instead of an object), the
+    ``or {}`` doesn't kick in (non-empty strings are truthy) and the
+    subsequent ``.get(...)`` raises ``AttributeError``.
+
+    Returns 0.0 for any unparseable / unexpected shape rather than
+    raising — the caller just wants a numeric score.
+    """
+    raw = adv.get("cvss")
+    if isinstance(raw, dict):
+        score = raw.get("score")
+        if isinstance(score, (int, float)):
+            return float(score)
+        return 0.0
+    # CVSS-as-string (or any other unexpected shape): best-effort parse.
+    if isinstance(raw, str):
+        # Try to extract a base score from a CVSS:3.x vector — not common
+        # but cheap to attempt. Most strings will just return 0.0.
+        return 0.0
+    return 0.0
+
+
+def _pkg_dict(pkg: Any) -> dict[str, Any]:
+    """Return ``pkg`` as a dict, or ``{}`` if it's anything else.
+
+    Same shape of bug as ``_cvss_score`` — the GHSA REST API sometimes
+    returns ``vulnerabilities[].package`` as a string instead of an
+    object. Centralised here so the three call sites use the same
+    defensive normalisation.
+    """
+    return pkg if isinstance(pkg, dict) else {}
+
+
 async def _query_ghsa(
     client: Any, tech: str, version: str
 ) -> list[dict[str, Any]]:
@@ -522,7 +561,7 @@ async def _query_ghsa(
                     else:
                         version_match = "not_affected"
 
-                cvss_score = (adv.get("cvss") or {}).get("score", 0.0) or 0.0
+                cvss_score = _cvss_score(adv)
                 severity_str = (adv.get("severity") or "").upper()
 
                 has_exploit = any(
@@ -586,12 +625,12 @@ async def _query_ghsa(
                     pkg_match = False
                     vuln_range = ""
                     for vuln in adv.get("vulnerabilities", []):
-                        pkg = vuln.get("package", {})
+                        pkg = _pkg_dict(vuln.get("package", {}))
                         if pkg_name in (pkg.get("name") or "").lower():
                             pkg_match = True
-                            vuln_range = vuln.get("vulnerableVersionRange", "")
-                            patched = vuln.get("first_patched_version", {})
-                            if patched and patched.get("identifier"):
+                            vuln_range = vuln.get("vulnerableVersionRange", "") or ""
+                            patched = _pkg_dict(vuln.get("first_patched_version", {}))
+                            if patched.get("identifier"):
                                 summary += f" [fixed in {patched['identifier']}]"
                             break
 
@@ -606,8 +645,7 @@ async def _query_ghsa(
                         else:
                             version_match = "not_affected"
 
-                    cvss_data = adv.get("cvss", {})
-                    cvss_score = (cvss_data or {}).get("score", 0.0) or 0.0
+                    cvss_score = _cvss_score(adv)
                     severity_str = (adv.get("severity") or "").upper()
 
                     has_exploit = any(

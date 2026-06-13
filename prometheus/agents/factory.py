@@ -115,9 +115,7 @@ from prometheus.tools.todo.tools import (
     delete_todo,
     list_todos,
     mark_todo_completed,
-    mark_todo_done,
     mark_todo_in_progress,
-    mark_todo_pending,
     update_todo,
 )
 from prometheus.tools.web_search.tool import web_search
@@ -506,6 +504,78 @@ def _format_validation_error(tool_name: str, exc: ValidationError) -> str:
     return f"{tool_name}: invalid arguments — " + "; ".join(parts)
 
 
+def _current_agent_id(ctx: Any) -> str:
+    """Best-effort agent id lookup from the SDK tool-invocation context.
+
+    The openai-agents SDK doesn't expose the agent id on the RunContext in a
+    stable public way, so we sniff the most common shapes. Returns "-" if
+    we can't figure it out — the tailer treats that as unknown agent.
+    """
+    for attr in ("agent", "agent_instance", "caller_agent"):
+        obj = getattr(ctx, attr, None)
+        if obj is None:
+            continue
+        for aid_attr in ("agent_id", "id", "name"):
+            v = getattr(obj, aid_attr, None)
+            if isinstance(v, str) and v:
+                return v
+    return "-"
+
+
+def _wrap_tool_call_event(tool: FunctionTool) -> FunctionTool:
+    """Generic wrap that emits a structured tool_call event for ANY tool.
+
+    Per-tool wrappers (_wrap_exec_command, _wrap_write_stdin, _wrap_query_threat_feeds_tool,
+    etc.) add their own domain-specific behavior; this one ensures *every* tool
+    call shows up in the comms stream so the live tailer can render what the
+    agent is doing. Best-effort — never raises, never blocks the tool.
+    """
+    invoke_tool = tool.on_invoke_tool
+
+    async def invoke(ctx: Any, raw_input: str) -> Any:
+        run_id = get_active_run()
+        if run_id:
+            try:
+                parsed_args = (
+                    json.loads(raw_input) if isinstance(raw_input, str) and raw_input else {}
+                )
+            except json.JSONDecodeError:
+                parsed_args = {}
+            # Record the full args in the comms stream. The stream is the
+            # record; the tailer truncates at display time. Truncating
+            # tool args at the source was hiding the actual command the
+            # agent ran — for instance, the "what command?" question
+            # during a long curl pipeline was unanswerable from the
+            # tail because the head 200 chars were JSON braces.
+            if isinstance(parsed_args, dict):
+                args_summary = ""
+                for k in ("command", "cmd", "url", "path", "query", "input", "text", "message", "endpoint"):
+                    v = parsed_args.get(k)
+                    if isinstance(v, str) and v:
+                        args_summary = v
+                        break
+                if not args_summary:
+                    args_summary = json.dumps(parsed_args)
+            else:
+                args_summary = str(raw_input)
+            try:
+                write_status(
+                    run_id,
+                    "tool_call",
+                    {
+                        "tool": tool.name,
+                        "args": args_summary,
+                        "agent_id": _current_agent_id(ctx),
+                    },
+                )
+            except Exception:
+                logger.debug("tool_call write_status failed", exc_info=True)
+        return await invoke_tool(ctx, raw_input)
+
+    tool.on_invoke_tool = invoke
+    return tool
+
+
 def _wrap_exec_command(tool: FunctionTool) -> FunctionTool:
     invoke_tool = tool.on_invoke_tool
 
@@ -553,9 +623,18 @@ def _wrap_exec_command(tool: FunctionTool) -> FunctionTool:
                     "Agent tried to run query_threat_feeds via exec_command (shell). "
                     "This is a TOOL, not a shell command. Command was: %s", cmd[:200]
                 )
+        # Generic tool_call visibility is handled by _wrap_tool_call_event
+        # which wraps this tool after _wrap_exec_command runs. The
+        # _configure_shell_tools loop applies it to every FunctionTool, so
+        # we don't need a per-tool write_status here. (Old inline event was
+        # the only one for years — kept the live tailer blind to non-shell
+        # tools until now.)
+
+        # run_id is referenced below for Hermes control-message polling.
+        # The previous version inherited this from the inline write_status
+        # block we replaced with the comment above; re-derive it here so
+        # we don't NameError when exec_command is invoked.
         run_id = get_active_run()
-        if run_id and cmd:
-            write_status(run_id, "tool_call", {"tool": "exec_command", "command": cmd[:200]})
 
         # Check for control messages from Hermes
         if run_id:
@@ -623,6 +702,10 @@ def _configure_shell_tools(toolset: Any, *, chat_completions: bool) -> None:
             wrapped = _wrap_exec_command(wrapped)
         elif tool.name == "write_stdin":
             wrapped = _wrap_write_stdin(wrapped)
+        # Generic visibility wrap for EVERY tool — covers nuclei, wpscan,
+        # browser, browser_harness, http_fetch, etc. so the live tailer
+        # can show what the agent is doing, not just shell execs.
+        wrapped = _wrap_tool_call_event(wrapped)
         if chat_completions:
             wrapped = _function_tool_with_error_result(wrapped)
         setattr(toolset, name, wrapped)
@@ -758,6 +841,22 @@ def _finish_tool_use_behavior(
     interactive = (
         bool(ctx.context.get("interactive", False)) if isinstance(ctx.context, dict) else False
     )
+    # Per-agent gate-block escape hatch: after N consecutive refusals of
+    # the same gate, let finish_scan through with a warning. Without this,
+    # a stuck-on-gate scan stalls forever (or until the LLM gives up and
+    # the watchdog kills the agent). The threshold mirrors the one in
+    # prometheus.core.execution._MAX_CONSECUTIVE_GATE_BLOCKS — keep in sync.
+    from prometheus.core.execution import (
+        _consecutive_gate_blocks,
+        _MAX_CONSECUTIVE_GATE_BLOCKS,
+    )
+    root_agent_id = ctx.context.get("agent_id") if isinstance(ctx.context, dict) else None
+    agent_blocks = _consecutive_gate_blocks.get(root_agent_id, {}) if root_agent_id else {}
+
+    def _gate_open(gate_key: str) -> bool:
+        """True if the escape hatch is open for this (agent, gate) pair."""
+        return agent_blocks.get(gate_key, 0) >= _MAX_CONSECUTIVE_GATE_BLOCKS
+
     for tool_result in tool_results:
         if _lifecycle_tool_completed(tool_result.tool.name, tool_result.output):
             # Tor gate: block finish_scan if Tor not verified
@@ -767,12 +866,18 @@ def _finish_tool_use_behavior(
                 and not _tor_verified
                 and _tor_ever_used  # Only block if Tor was actually used
             ):
-                logger.info("Tor gate: Tor verification not confirmed")
-                return ToolsToFinalOutputResult(
-                    is_final_output=False,
-                    final_output="GATE BLOCKED: Tor verification not confirmed. "
-                    "Run 'curl -s --proxy socks5h://host.docker.internal:9050 https://check.torproject.org/api/ip' "
-                    "and verify the response contains 'IsTor: true'. This is MANDATORY before any scanning.",
+                if not _gate_open("tor"):
+                    logger.info("Tor gate: Tor verification not confirmed")
+                    return ToolsToFinalOutputResult(
+                        is_final_output=False,
+                        final_output="GATE BLOCKED: Tor verification not confirmed. "
+                        "Run 'curl -s --proxy socks5h://host.docker.internal:9050 https://check.torproject.org/api/ip' "
+                        "and verify the response contains 'IsTor: true'. This is MANDATORY before any scanning.",
+                    )
+                logger.warning(
+                    "Tor gate escape hatch open: allowing finish_scan despite "
+                    "missing Tor verification (refusal_count=%d).",
+                    agent_blocks.get("tor", 0),
                 )
             # Fingerprinting gate: block research until technologies identified
             if (
@@ -780,12 +885,18 @@ def _finish_tool_use_behavior(
                 and tool_result.tool.name == "finish_scan"
                 and not _fingerprint_done
             ):
-                logger.info("Fingerprint gate: no fingerprinting tools used")
-                return ToolsToFinalOutputResult(
-                    is_final_output=False,
-                    final_output="GATE BLOCKED: No technology fingerprinting detected. "
-                    "Run httpx, whatweb, or similar tools to identify the target's technology stack "
-                    "BEFORE finishing. Example: 'httpx -u https://target.com -tech-detect'",
+                if not _gate_open("fingerprint"):
+                    logger.info("Fingerprint gate: no fingerprinting tools used")
+                    return ToolsToFinalOutputResult(
+                        is_final_output=False,
+                        final_output="GATE BLOCKED: No technology fingerprinting detected. "
+                        "Run httpx, whatweb, or similar tools to identify the target's technology stack "
+                        "BEFORE finishing. Example: 'httpx -u https://target.com -tech-detect'",
+                    )
+                logger.warning(
+                    "Fingerprint gate escape hatch open: allowing finish_scan "
+                    "without fingerprinting (refusal_count=%d).",
+                    agent_blocks.get("fingerprint", 0),
                 )
             # Research gate: block finish_scan if mandatory research not done
             if (
@@ -794,12 +905,18 @@ def _finish_tool_use_behavior(
                 and not _research_complete()
             ):
                 missing = _RESEARCH_REQUIRED_TOOLS - _research_calls
-                logger.info("Research gate: missing tools: %s", missing)
-                return ToolsToFinalOutputResult(
-                    is_final_output=False,
-                    final_output=f"GATE BLOCKED: Mandatory research incomplete. "
-                    f"Missing tool calls: {', '.join(missing)}. "
-                    f"You MUST call both web_search and query_threat_feeds before finishing the scan.",
+                if not _gate_open("research"):
+                    logger.info("Research gate: missing tools: %s", missing)
+                    return ToolsToFinalOutputResult(
+                        is_final_output=False,
+                        final_output=f"GATE BLOCKED: Mandatory research incomplete. "
+                        f"Missing tool calls: {', '.join(missing)}. "
+                        f"You MUST call both web_search and query_threat_feeds before finishing the scan.",
+                    )
+                logger.warning(
+                    "Research gate escape hatch open: allowing finish_scan "
+                    "without mandatory research (missing=%s, refusal_count=%d).",
+                    missing, agent_blocks.get("research", 0),
                 )
             # Per-technology CVE research gate
             if (
@@ -809,17 +926,22 @@ def _finish_tool_use_behavior(
                 and not _per_tech_research_complete()
             ):
                 required = min(_technologies_queried, _MAX_TECH_RESEARCH)
-                logger.info(
-                    "Per-tech research gate: %d/%d web_search calls for %d technologies",
-                    _web_search_count, required, _technologies_queried,
-                )
-                return ToolsToFinalOutputResult(
-                    is_final_output=False,
-                    final_output=f"GATE BLOCKED: Per-technology CVE research incomplete. "
-                    f"You've done {_web_search_count}/{required} web_search calls "
-                    f"for {_technologies_queried} fingerprinted technologies. "
-                    f"Search for CVEs for EACH technology before finishing. "
-                    f"Query threat feeds for ALL technologies. Do NOT skip any.",
+                if not _gate_open("per_tech_research"):
+                    logger.info(
+                        "Per-tech research gate: %d/%d web_search calls for %d technologies",
+                        _web_search_count, required, _technologies_queried,
+                    )
+                    return ToolsToFinalOutputResult(
+                        is_final_output=False,
+                        final_output=f"GATE BLOCKED: Per-technology CVE research incomplete. "
+                        f"You've done {_web_search_count}/{required} web_search calls "
+                        f"for {_technologies_queried} fingerprinted technologies. "
+                        f"Search for CVEs for EACH technology before finishing. "
+                        f"Query threat feeds for ALL technologies. Do NOT skip any.",
+                    )
+                logger.warning(
+                    "Per-tech gate escape hatch open (refusal_count=%d).",
+                    agent_blocks.get("per_tech_research", 0),
                 )
             # Minimum web_search count gate - Stefan wants exhaustive research
             if (
@@ -827,18 +949,23 @@ def _finish_tool_use_behavior(
                 and tool_result.tool.name == "finish_scan"
                 and _web_search_count < _MIN_WEB_SEARCHES_BEFORE_FINISH
             ):
-                logger.info(
-                    "Minimum web_search gate: %d/%d web_search calls",
-                    _web_search_count, _MIN_WEB_SEARCHES_BEFORE_FINISH,
-                )
-                return ToolsToFinalOutputResult(
-                    is_final_output=False,
-                    final_output=f"GATE BLOCKED: Insufficient research depth. "
-                    f"You've done {_web_search_count}/{_MIN_WEB_SEARCHES_BEFORE_FINISH} web_search calls. "
-                    f"You MUST do at least {_MIN_WEB_SEARCHES_BEFORE_FINISH} web_search calls before finishing. "
-                    f"Keep searching for vulnerabilities, attack vectors, and techniques. "
-                    f"Query threat feeds for EVERY technology. "
-                    f"Do NOT stop until you have exhausted ALL possible approaches.",
+                if not _gate_open("min_web_search"):
+                    logger.info(
+                        "Minimum web_search gate: %d/%d web_search calls",
+                        _web_search_count, _MIN_WEB_SEARCHES_BEFORE_FINISH,
+                    )
+                    return ToolsToFinalOutputResult(
+                        is_final_output=False,
+                        final_output=f"GATE BLOCKED: Insufficient research depth. "
+                        f"You've done {_web_search_count}/{_MIN_WEB_SEARCHES_BEFORE_FINISH} web_search calls. "
+                        f"You MUST do at least {_MIN_WEB_SEARCHES_BEFORE_FINISH} web_search calls before finishing. "
+                        f"Keep searching for vulnerabilities, attack vectors, and techniques. "
+                        f"Query threat feeds for EVERY technology. "
+                        f"Do NOT stop until you have exhausted ALL possible approaches.",
+                    )
+                logger.warning(
+                    "Min-web-search gate escape hatch open (refusal_count=%d).",
+                    agent_blocks.get("min_web_search", 0),
                 )
             # Nuclei gate: block finish_scan if nuclei was never run
             if (
@@ -846,13 +973,19 @@ def _finish_tool_use_behavior(
                 and tool_result.tool.name == "finish_scan"
                 and not _nuclei_run
             ):
-                logger.info("Nuclei gate: nuclei was never invoked")
-                return ToolsToFinalOutputResult(
-                    is_final_output=False,
-                    final_output="GATE BLOCKED: Nuclei was never run. "
-                    "You MUST run nuclei at least once before finishing. "
-                    "Example: 'nuclei -u https://target.com -proxy socks5://host.docker.internal:9050 "
-                    "-severity high,critical -timeout 15 -retries 1 -no-interactsh -rate-limit 5 -c 10'",
+                if not _gate_open("nuclei"):
+                    logger.info("Nuclei gate: nuclei was never invoked")
+                    return ToolsToFinalOutputResult(
+                        is_final_output=False,
+                        final_output="GATE BLOCKED: Nuclei was never run. "
+                        "You MUST run nuclei at least once before finishing. "
+                        "Example: 'nuclei -u https://target.com -proxy socks5://host.docker.internal:9050 "
+                        "-severity high,critical -timeout 15 -retries 1 -no-interactsh -rate-limit 5 -c 10'",
+                    )
+                logger.warning(
+                    "Nuclei gate escape hatch open: allowing finish_scan "
+                    "without nuclei (refusal_count=%d).",
+                    agent_blocks.get("nuclei", 0),
                 )
             # Mark REPORTING phase complete in PTG when finish_scan passes all gates
             if tool_result.tool.name == "finish_scan":
@@ -881,10 +1014,8 @@ _BASE_TOOLS: tuple[Tool, ...] = (
     create_todo,
     list_todos,
     update_todo,
-    mark_todo_done,
-    mark_todo_pending,
-    mark_todo_in_progress,
     mark_todo_completed,
+    mark_todo_in_progress,
     delete_todo,
     create_note,
     list_notes,

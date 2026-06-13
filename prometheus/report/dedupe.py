@@ -193,21 +193,69 @@ async def check_duplicate(
         # names pass through verbatim to the resolved gateway.
         model = MultiProvider(unknown_prefix_mode="model_id").get_model(resolved_model)
         response = None
-        async for event in model.stream_response(
-            system_instructions=DEDUPE_SYSTEM_PROMPT,
-            input=user_msg,
-            model_settings=ModelSettings(retry=DEFAULT_MODEL_RETRY, include_usage=True, store=False),
-            tools=[],
-            output_schema=None,
-            handoffs=[],
-            tracing=ModelTracing.DISABLED,
-            previous_response_id=None,
-            conversation_id=None,
-            prompt=None,
-        ):
-            event_response = getattr(event, "response", None)
-            if event_response is not None:
-                response = event_response
+        # Phase 4D: wrap the dedupe model call in a small retry loop for
+        # transient connection errors. The 1win-com_bd4f run died here on
+        # an ``openai.APIConnectionError`` mid-iteration; after exhaustion
+        # we return a no-op so the report writer does not crash.
+        from openai import APIConnectionError
+        try:
+            import httpx
+        except ImportError:  # pragma: no cover
+            httpx = None  # type: ignore[assignment]
+
+        async def _stream_once() -> Any:
+            async for event in model.stream_response(
+                system_instructions=DEDUPE_SYSTEM_PROMPT,
+                input=user_msg,
+                model_settings=ModelSettings(
+                    retry=DEFAULT_MODEL_RETRY,
+                    include_usage=True,
+                    store=False,
+                ),
+                tools=[],
+                output_schema=None,
+                handoffs=[],
+                tracing=ModelTracing.DISABLED,
+                previous_response_id=None,
+                conversation_id=None,
+                prompt=None,
+            ):
+                yield event
+
+        _RETRYABLE = (APIConnectionError,)
+        if httpx is not None:
+            _RETRYABLE = _RETRYABLE + (httpx.ConnectError, httpx.ReadError)  # type: ignore[assignment]
+
+        response = None
+        last_exc: BaseException | None = None
+        for _attempt in range(1, 4):  # 3 attempts
+            try:
+                async for event in _stream_once():
+                    event_response = getattr(event, "response", None)
+                    if event_response is not None:
+                        response = event_response
+                break  # success
+            except _RETRYABLE as exc:  # type: ignore[misc]
+                last_exc = exc
+                logger.warning(
+                    "dedupe model call transient connection error "
+                    "(attempt %d/3): %s",
+                    _attempt, exc,
+                )
+                import asyncio as _asyncio
+                await _asyncio.sleep(0.5 * (2 ** (_attempt - 1)))
+                continue
+        if response is None and last_exc is not None:
+            logger.warning(
+                "dedupe model call failed after retries; returning no-op: %s",
+                last_exc,
+            )
+            return {
+                "is_duplicate": False,
+                "duplicate_id": "",
+                "confidence": 0.0,
+                "reason": f"dedupe model call failed: {last_exc}",
+            }
         if response is None:
             return {
                 "is_duplicate": False,

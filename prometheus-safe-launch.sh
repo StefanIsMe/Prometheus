@@ -79,7 +79,7 @@ else
 fi
 
 # --- 5. Check sandbox image exists ---
-IMAGE=$(python3 -c "import json; print(json.load(open('$HOME/.prometheus/cli-config.json'))['env'].get('PROMETHEUS_IMAGE','ghcr.io/usestrix/strix-sandbox:1.0.0'))" 2>/dev/null || echo "ghcr.io/usestrix/strix-sandbox:1.0.0")
+IMAGE=$(python3 -c "import json; print(json.load(open('$HOME/.prometheus/cli-config.json'))['env'].get('PROMETHEUS_IMAGE','ghcr.io/useprometheus/prometheus-sandbox:1.0.0'))" 2>/dev/null || echo "ghcr.io/useprometheus/prometheus-sandbox:1.0.0")
 if docker image inspect "$IMAGE" >/dev/null 2>&1; then
     log_ok "prometheus sandbox image present ($IMAGE)"
 else

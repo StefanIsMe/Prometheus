@@ -643,8 +643,17 @@ def apply_model_to_sdk(resolved: ResolvedModel) -> None:
 # Models known to reject tool_choice when thinking is active.
 # Includes proxy providers (openrouter) because OpenRouter can route
 # to DeepSeek or other upstreams that reject tool_choice with thinking,
-# and we don't know the upstream at call time.
-_THINKING_NO_TOOL_CHOICE_PROVIDERS: set[str] = {"deepseek", "openrouter"}
+# and we don't know the upstream at call time.  Phase 3C extends the set
+# with the model ids seen in the audit (e.g. custom proxy models whose
+# upstream gateway rejects ``tool_choice`` while thinking is active).
+_THINKING_NO_TOOL_CHOICE_PROVIDERS: set[str] = {
+    "deepseek",
+    "openrouter",
+    "minimax",
+    "minimax-oauth",
+    "grok",
+    "xai",
+}
 
 
 def should_set_tool_choice(provider_name: str, supports_thinking: bool) -> bool:

@@ -48,17 +48,22 @@ async def run_scan_pipeline(
     import asyncio
     import os
 
-    tor_flag = "--tor" if "TOR" in os.environ.get("ALL_PROXY", "") else ""
+    tor_proxy_set = "PROMETHEUS_TOR_PROXY" in os.environ
+    allow_direct = os.environ.get("PROMETHEUS_ALLOW_DIRECT", "false").lower() == "true"
+    tor_flag = "--tor" if tor_proxy_set else ""
+    allow_direct_flag = "--allow-direct" if allow_direct else ""
     deep_flag = "--deep" if deep else ""
 
-    cmd = f"bash {PIPELINE_SCRIPT} {target_url} /workspace/pipeline-output {tor_flag} {deep_flag}"
-    
+    cmd = f"bash {PIPELINE_SCRIPT} {target_url} /workspace/pipeline-output {tor_flag} {allow_direct_flag} {deep_flag}"
+
+
     # Execute in sandbox via exec_command — don't actually run here
     # This function returns the command for the agent to execute
     return json.dumps({
         "command": cmd,
         "script": PIPELINE_SCRIPT,
         "tor": bool(tor_flag),
+        "allow_direct": bool(allow_direct_flag),
         "deep": deep,
         "instruction": (
             f"Run this command: {cmd}\n"

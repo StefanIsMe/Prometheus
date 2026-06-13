@@ -189,6 +189,7 @@ def make_model_settings(
     store: bool = False,
     supports_thinking: bool = False,
     provider_name: str = "",
+    model_id: str | None = None,
 ) -> ModelSettings:
     # DeepSeek rejects tool_choice when thinking mode is active.
     # Thinking mode is triggered by either supports_thinking flag OR
@@ -196,22 +197,43 @@ def make_model_settings(
     # Omit tool_choice for those providers so SDK defaults to "auto".
     from prometheus.config.llm_config import _THINKING_NO_TOOL_CHOICE_PROVIDERS
 
+    # Phase 3C: centralised model-id-driven overrides. The audit found
+    # four configuration drift bugs (``max_output_tokens`` rejection,
+    # ``store=true`` vs ``store=false`` mismatches, "Item with id … not
+    # found" store persistence, and ``thinking + tool_choice`` rejections
+    # on extra provider ids). Routing them through a single per-model
+    # dict keeps future drift in one place.
+    from prometheus.config.model_options import resolve_model_options
+
+    overrides = resolve_model_options(model_id, provider_name=provider_name)
+
     _tool_choice: str | None = "required"
     _reasoning_active = (
         supports_thinking
         or (reasoning_effort is not None and reasoning_effort != "none")
     )
-    if _reasoning_active and provider_name.lower() in _THINKING_NO_TOOL_CHOICE_PROVIDERS:
+    if (
+        _reasoning_active
+        and (provider_name.lower() in _THINKING_NO_TOOL_CHOICE_PROVIDERS
+             or overrides.drop_tool_choice_with_thinking)
+    ):
         _tool_choice = None
+
+    # Phase 3C: force ``store=False`` for ALL multi-turn Responses runs.
+    # The audit found 2 cases where the SDK persisted responses and the
+    # provider then rejected subsequent turns with "Item with id … not
+    # found" because the persisted item was no longer available.
+    effective_store = False if overrides.force_store_false else store
 
     model_settings = ModelSettings(
         parallel_tool_calls=False,
         tool_choice=_tool_choice,
         retry=DEFAULT_MODEL_RETRY,
         include_usage=True,
-        store=store,
+        store=effective_store,
+        **(overrides.extra_body_passthrough or {}),
     )
-    if reasoning_effort is not None:
+    if reasoning_effort is not None and not overrides.drop_reasoning_field:
         model_settings = model_settings.resolve(
             ModelSettings(reasoning=Reasoning(effort=reasoning_effort)),
         )

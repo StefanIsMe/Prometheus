@@ -20,6 +20,7 @@ from prometheus.core.candidate_schema import (
     FindingCandidate,
     assert_legal_transition,
 )
+from prometheus.core.comms import get_active_run, write_status
 from prometheus.tools.knowledge.store import KnowledgeStore
 
 
@@ -84,6 +85,24 @@ class CandidateStore:
             )
             self._conn.commit()
             stored = self.get_by_domain_fingerprint(candidate.domain, candidate.fingerprint)
+        # Live observability: tell the tailer a finding landed. Best-effort.
+        try:
+            _rid = get_active_run()
+            if _rid and stored is not None:
+                write_status(
+                    _rid,
+                    "finding_validated",
+                    {
+                        "id": stored.get("id", candidate.id),
+                        "domain": stored.get("domain", ""),
+                        "severity": stored.get("severity", "?"),
+                        "title": stored.get("title", "") or "",
+                        "endpoint": stored.get("endpoint", ""),
+                        "lifecycle": stored.get("lifecycle_status", ""),
+                    },
+                )
+        except Exception:
+            logger.debug("finding_validated write_status failed", exc_info=True)
         return {
             "success": True,
             "action": "updated" if existing else "created",
@@ -504,7 +523,11 @@ class CandidateStore:
     def _update_feedback_rule_locked(
         self, candidate: dict[str, Any], outcome: str, comments: str, now: str) -> None:
         vuln_type = str(candidate.get("vuln_type") or "unknown")
-        endpoint = str(candidate.get("endpoint") or "")[:200]
+        # Don't cap endpoint for the rule_key; SQLite TEXT is unlimited
+        # and a 200-char cap here was dropping the path/query that makes
+        # the rule distinguishable (e.g. "/api/v1/users/123" gets cut to
+        # "/api/v1/users/..." the moment a longer URL is in play).
+        endpoint = str(candidate.get("endpoint") or "")
         rule_key = f"{vuln_type}|{endpoint}".lower()
         rejected_inc = 1 if outcome in {"rejected", "informative", "na"} else 0
         duplicate_inc = 1 if outcome == "duplicate" else 0

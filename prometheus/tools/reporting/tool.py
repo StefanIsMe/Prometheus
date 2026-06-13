@@ -982,8 +982,12 @@ async def _do_create(  # noqa: PLR0912
 
         # LAYER 1: Knowledge store dedup (fast, deterministic)
         # Check against existing findings in the knowledge store
-        # This catches duplicates across scans before hitting the LLM dedup
+        # This catches duplicates across scans before hitting the LLM dedup.
+        # Five layers run inside find_duplicate_finding: exact hash,
+        # CWE+endpoint, normalized title, BM25, and external_submissions.
         existing_vuln_id: int | None = None
+        dedup_layer: str | None = None
+        dedup_match: dict[str, Any] | None = None
         try:
             from prometheus.tools.knowledge.store import KnowledgeStore
             ks = KnowledgeStore()
@@ -1000,10 +1004,90 @@ async def _do_create(  # noqa: PLR0912
                     cwe=cwe or "",
                 )
                 if dup_check:
-                    existing = dup_check["finding"]
-                    existing_vuln_id = existing.get("id")
+                    dedup_layer = dup_check.get("layer")
+                    dedup_match = dup_check
+                    # exact_hash / cwe_endpoint / title_similarity / bm25 all
+                    # populate 'finding'; external / external_bm25 populate
+                    # 'external' and have finding=None.
+                    if dup_check.get("finding"):
+                        existing_vuln_id = dup_check["finding"].get("id")
         except Exception as exc:
             logger.debug("Knowledge store dedup check failed (non-blocking): %s", exc)
+
+        # If the dedup hit was against an external (Bugcrowd/H1) closure
+        # rather than a local report_status row, consult should_revalidate
+        # to decide whether to block the report, file it, or update the
+        # external record's notes. This is the path that prevents
+        # re-submitting a finding the user already filed and was rejected.
+        external_only_dedup = (
+            dedup_match
+            and dedup_match.get("finding") is None
+            and dedup_match.get("external") is not None
+        )
+        if external_only_dedup and existing_vuln_id is None:
+            try:
+                from prometheus.tools.knowledge.store import KnowledgeStore
+                ks = KnowledgeStore()
+                policy = ks.should_revalidate(
+                    domain=domain,
+                    finding_title=title,
+                    endpoint=endpoint or "",
+                    cwe=cwe or "",
+                )
+                if policy.get("action") == "archive":
+                    logger.info(
+                        "DEDUP BLOCK: '%s' matches external closure (%s) — %s",
+                        title, dedup_layer, policy.get("reason"),
+                    )
+                    return {
+                        "success": False,
+                        "error": (
+                            f"DEDUP BLOCKED: this finding matches a previously "
+                            f"closed external submission "
+                            f"({dedup_match['external'].get('platform')}/"
+                            f"{dedup_match['external'].get('external_id')}, "
+                            f"status='{dedup_match['external'].get('status')}'). "
+                            f"Reason: {policy.get('reason')}. "
+                            f"See external_submissions row for triager notes. "
+                            f"Do not re-file without a material new chain of evidence."
+                        ),
+                        "title": title,
+                        "dedup_layer": dedup_layer,
+                        "external_submission": dedup_match.get("external"),
+                    }
+                if policy.get("action") == "revalidate":
+                    # Run a cheap live probe to see if the surface has
+                    # actually changed before allowing the new report.
+                    try:
+                        from prometheus.core.auto_revalidate import live_revalidate
+                        probe = live_revalidate({
+                            "finding_title": title,
+                            "domain": domain,
+                            "endpoint": endpoint or "",
+                            "vuln_type": (cwe or "").lower(),
+                        })
+                        logger.info(
+                            "should_revalidate=revalidate; live probe: changed=%s evidence=%s",
+                            probe.get("changed"), (probe.get("evidence") or "")[:200],
+                        )
+                        if probe.get("changed") is False:
+                            return {
+                                "success": False,
+                                "error": (
+                                    f"DEDUP BLOCKED (live revalidation): surface behavior "
+                                    f"has not changed since the prior closure. "
+                                    f"Probe: {probe.get('probe')}; "
+                                    f"Evidence: {probe.get('evidence')[:400]}"
+                                ),
+                                "title": title,
+                                "dedup_layer": dedup_layer,
+                                "external_submission": dedup_match.get("external"),
+                                "live_probe": probe,
+                            }
+                    except Exception as e:  # noqa: BLE001
+                        logger.debug("Live revalidate crashed (non-blocking): %s", e)
+            except Exception as e:  # noqa: BLE001
+                logger.debug("should_revalidate check failed (non-blocking): %s", e)
 
         # LAYER 2: LLM-based semantic dedup (slower, handles fuzzy matches)
         from prometheus.report.dedupe import check_duplicate

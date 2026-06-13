@@ -280,9 +280,20 @@ def get_version() -> str:
         return "unknown"
 
 
+def _positive_float(value: str) -> float:
+    """Argparse type: reject negative floats."""
+    try:
+        f = float(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"invalid float value: '{value}'")
+    if f < 0:
+        raise argparse.ArgumentTypeError(f"invalid value: {f} (must be >= 0)")
+    return f
+
+
 def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="prometheus Multi-Agent Cybersecurity Penetration Testing Tool",
+        description="Prometheus Multi-Agent Cybersecurity Penetration Testing Tool",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -330,12 +341,6 @@ Examples:
         help="Target to test (URL, repository, local directory path, domain name, or IP address). "
         "Can be specified multiple times for multi-target scans. "
         "Required for fresh runs; loaded from disk when ``--resume`` is set.",
-    )
-    parser.add_argument(
-        "--browse",
-        action="store_true",
-        help="Launch the TUI in reports-only mode without starting a scan. "
-        "Browse existing findings, manage submission status, and export reports.",
     )
     parser.add_argument(
         "--scans-file",
@@ -418,10 +423,18 @@ Examples:
 
     parser.add_argument(
         "--rate-limit",
-        type=float,
+        type=_positive_float,
         default=5.0,
         help="Max HTTP requests per second to the target (default: 5). "
         "Respects bug bounty program rate limits. Set to 0 to disable.",
+    )
+
+    parser.add_argument(
+        "--allow-direct",
+        action="store_true",
+        help="Allow individual HTTP requests to bypass Tor if Tor is unreachable. "
+        "By default, all scan traffic routes through Tor. With this flag, "
+        "tools will retry requests directly if Tor fails.",
     )
 
     parser.add_argument(
@@ -486,13 +499,11 @@ Examples:
         if not Path(args.scans_file).exists():
             parser.error(f"Scans file not found: {args.scans_file}")
         args.targets_info = []
-    elif args.browse:
-        # Browse mode: no target needed, launch TUI in reports-only mode
-        args.targets_info = []
     elif not args.target:
-        # Default to browse mode when no targets provided
-        args.browse = True
-        args.targets_info = []
+        parser.error(
+            "A target is required. Use -t/--target to specify a URL, domain, "
+            "IP, or local path to scan."
+        )
     else:
         args.targets_info = []
         for target in args.target:
@@ -901,7 +912,7 @@ def main() -> None:
             try:
                 import subprocess
                 result = subprocess.run(
-                    ["docker", "ps", "--filter", "ancestor=ghcr.io/usestrix/strix-sandbox:1.0.0",
+                    ["docker", "ps", "--filter", "ancestor=ghcr.io/useprometheus/prometheus-sandbox:1.0.0",
                      "--format", "{{.ID}}"],
                     capture_output=True, text=True, timeout=10,
                 )

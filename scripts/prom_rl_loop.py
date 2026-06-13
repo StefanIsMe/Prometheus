@@ -48,7 +48,7 @@ import sqlite3
 import subprocess
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
@@ -356,6 +356,31 @@ def pick_action(epsilon: float = EPSILON) -> str:
     return best["arm"]
 
 
+def _external_closed_count(domain: str, days: int = 90) -> int:
+    """How many external findings for *domain* are closed within *days* days.
+
+    Mirrors the prometheus.db query via the RL state's external_findings
+    table. Returns 0 if the table is empty (cold start) or the domain has
+    no recent closures. Used by write_handoff and by SCAN's target picker
+    to penalize scan targets with fresh closure streaks.
+    """
+    try:
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+        with state.connect() as conn:
+            row = conn.execute(
+                """
+                SELECT COUNT(*) AS cnt FROM external_findings
+                WHERE domain = ? AND status IN
+                    ('not_reproducible', 'na', 'informative', 'rejected', 'duplicate')
+                  AND triaged_at >= ?
+                """,
+                (domain, cutoff),
+            ).fetchone()
+        return int(row["cnt"] or 0) if row else 0
+    except sqlite3.Error:
+        return 0
+
+
 def write_handoff(payload: dict) -> None:
     lines = [
         f"# Prometheus RL — handoff @ {now_iso()}",
@@ -369,6 +394,9 @@ def write_handoff(payload: dict) -> None:
         f"- result:         {payload.get('result', '-')}",
         f"- files_touched:  {', '.join(payload.get('files_touched', [])) or '-'}",
         f"- next_pick_hint: {payload.get('next_pick_hint', '-')}",
+        # Live scan visibility — every loop turn can read this to see what
+        # any currently-running scan is doing without polling itself.
+        f"- live_tail:      python3 {Path(__file__).parent}/prom_rl_tail.py status",
         "",
         "## Last 10 iterations",
         "",
@@ -384,6 +412,23 @@ def write_handoff(payload: dict) -> None:
         lines += ["", "## Fix backlog (next FIX will drain top item)", ""]
         for i, item in enumerate(backlog[:5], 1):
             lines.append(f"  {i}. [{item.get('kind', '?')}] {item.get('reason', '')}")
+
+    # External-state mirror: surfaces how many closed submissions we know
+    # about on this target's domain. If > 0 within the 90-day window, the
+    # SCAN picker is being told to discourage scans against this domain
+    # without a new chain of evidence.
+    target = payload.get("target") or payload.get("target_detail") or ""
+    if target and target not in ("-", "?"):
+        target_domain = target.split("/")[2] if "://" in target else target.split("/")[0]
+        closed = _external_closed_count(target_domain, days=90)
+        lines += [
+            "",
+            "## External-state mirror",
+            "",
+            f"- external_closed_domain_count (last 90d, domain={target_domain}): {closed}",
+        ]
+        if closed > 0:
+            lines.append("- do NOT file new findings on this domain without a new chain of evidence")
     HANDOFF.write_text("\n".join(lines) + "\n")
 
 

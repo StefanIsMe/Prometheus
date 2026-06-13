@@ -118,11 +118,13 @@ def test_no_truncate_small_output():
 def test_mask_old_tool_output():
     """Phase 1: Old tool outputs should be masked."""
     output = "some tool output data"
-    
+
     # Recent (within threshold) — should not be masked
     assert mask_old_tool_output(output, 1) == output
-    assert mask_old_tool_output(output, 3) == output
-    
+    # age_turns=3 with MASK_AFTER_TURNS=2 should be masked
+    # (the threshold is strictly-greater-than)
+    assert mask_old_tool_output(output, 2) == output
+
     # Old (beyond threshold) — should be masked
     masked = mask_old_tool_output(output, 5)
     assert "evicted" in masked

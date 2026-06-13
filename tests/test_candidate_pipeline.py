@@ -60,7 +60,10 @@ def test_migration_preserves_existing_rows_and_backfills_candidates(tmp_path) ->
 
     applied = apply_prometheus_migrations(conn)
 
-    assert applied == [1, 2]
+    # Migration 003 is also applied; the new test in test_external_dedup
+    # exercises the backfill behavior. The pre-migration candidate rows
+    # are still preserved through the new migration.
+    assert applied == [1, 2, 3]
     assert conn.execute("SELECT COUNT(*) FROM programs").fetchone()[0] == 1
     assert conn.execute("SELECT COUNT(*) FROM targets").fetchone()[0] == 1
     assert conn.execute("SELECT COUNT(*) FROM scans").fetchone()[0] == 1

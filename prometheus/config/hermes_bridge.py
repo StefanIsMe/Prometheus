@@ -558,7 +558,13 @@ def apply_hermes_model_defaults(settings: Any | None = None) -> HermesModelResol
         settings.llm.model = resolution.model
         settings.llm.api_base = resolution.base_url
         settings.llm.api_key = api_key
-        settings.llm.use_hermes_model = True
+        # ``use_hermes_model`` was a legacy field on LlmSettings that
+        # has since been removed; the new Prometheus routing owns the
+        # model selection via prometheus.config.llm_config. Setting
+        # it would raise ``ValueError: object has no field`` on the
+        # current Settings class, so we omit the assignment and rely
+        # on the env-var + ResolvedModel path for the rest of the
+        # call sites.
 
     logger.info(
         "Hermes model resolved: provider=%s model=%s base_url=%s profile=%s api_key_env=%s present=%s",

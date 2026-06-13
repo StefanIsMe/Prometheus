@@ -9,7 +9,7 @@ import threading
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, NotRequired, TypedDict
 
 from agents import RunContextWrapper, function_tool
 
@@ -20,8 +20,41 @@ logger = logging.getLogger(__name__)
 VALID_PRIORITIES = ["low", "normal", "high", "critical"]
 VALID_STATUSES = ["pending", "in_progress", "done", "cancelled"]
 
+# Phase 4C: synonym map for common LLM-side priority spellings. The audit
+# found 6 scans that hit "Invalid priority. Must be one of: low, normal,
+# high, critical" because the LLM emitted ``"urgent"``, ``"p0"``, etc.
+# We map the most common variants to the canonical values before raising.
+_PRIORITY_SYNONYMS: dict[str, str] = {
+    "urgent": "high",
+    "important": "high",
+    "asap": "high",
+    "blocker": "high",
+    "p0": "critical",
+    "sev0": "critical",
+    "sev1": "high",
+    "sev2": "normal",
+    "sev3": "low",
+    "p1": "high",
+    "p2": "normal",
+    "p3": "low",
+}
+
 _PRIORITY_RANK = {"critical": 0, "high": 1, "normal": 2, "low": 3}
 _STATUS_RANK = {"done": 0, "cancelled": 1, "in_progress": 2, "pending": 3}
+
+
+class _CreateTodoInput(TypedDict):
+    title: str
+    description: NotRequired[str]
+    priority: NotRequired[str]
+
+
+class _UpdateTodoInput(TypedDict):
+    todo_id: str
+    title: NotRequired[str]
+    description: NotRequired[str]
+    priority: NotRequired[str]
+    status: NotRequired[str]
 
 
 def _todo_sort_key(todo: dict[str, Any]) -> tuple[int, int, str]:
@@ -110,7 +143,15 @@ def _get_agent_todos(agent_id: str) -> dict[str, dict[str, Any]]:
 
 
 def _normalize_priority(priority: str | None, default: str = "normal") -> str:
-    candidate = (priority or default or "normal").lower()
+    candidate = (priority or default or "normal").lower().strip()
+    # Map common LLM-side synonyms (urgent -> high, p0 -> critical, etc.)
+    # so the existing tool surface is robust to small wording differences.
+    mapped = _PRIORITY_SYNONYMS.get(candidate, candidate)
+    if mapped != candidate:
+        logger.info(
+            "priority synonym: %r -> %r (audit Phase 4C)", priority, mapped,
+        )
+        candidate = mapped
     if candidate not in VALID_PRIORITIES:
         raise ValueError(f"Invalid priority. Must be one of: {', '.join(VALID_PRIORITIES)}")
     return candidate
@@ -139,103 +180,6 @@ def get_pending_high_priority_todos(agent_id: str) -> list[dict[str, Any]]:
         if todo.get("status") not in _resolved
         and todo.get("priority") in ("high", "critical")
     ]
-
-
-def _normalize_todo_ids(raw_ids: Any) -> list[str]:
-    if raw_ids is None:
-        return []
-    if isinstance(raw_ids, str):
-        stripped = raw_ids.strip()
-        if not stripped:
-            return []
-        try:
-            data = json.loads(stripped)
-        except json.JSONDecodeError:
-            data = stripped.split(",") if "," in stripped else [stripped]
-        if isinstance(data, list):
-            return [str(item).strip() for item in data if str(item).strip()]
-        return [str(data).strip()]
-    if isinstance(raw_ids, list):
-        return [str(item).strip() for item in raw_ids if str(item).strip()]
-    return [str(raw_ids).strip()]
-
-
-def _normalize_bulk_updates(raw_updates: Any) -> list[dict[str, Any]]:
-    if raw_updates is None:
-        return []
-    data: Any = raw_updates
-    if isinstance(raw_updates, str):
-        stripped = raw_updates.strip()
-        if not stripped:
-            return []
-        try:
-            data = json.loads(stripped)
-        except json.JSONDecodeError as e:
-            raise ValueError("Updates must be valid JSON") from e
-
-    if isinstance(data, dict):
-        data = [data]
-    if not isinstance(data, list):
-        raise TypeError("Updates must be a list of update objects")
-
-    normalized: list[dict[str, Any]] = []
-    for item in data:
-        if not isinstance(item, dict):
-            raise TypeError("Each update must be an object with todo_id")
-        todo_id = item.get("todo_id") or item.get("id")
-        if not todo_id:
-            raise ValueError("Each update must include 'todo_id'")
-        normalized.append(
-            {
-                "todo_id": str(todo_id).strip(),
-                "title": item.get("title"),
-                "description": item.get("description"),
-                "priority": item.get("priority"),
-                "status": item.get("status"),
-            },
-        )
-    return normalized
-
-
-def _normalize_bulk_todos(raw_todos: Any) -> list[dict[str, Any]]:
-    if raw_todos is None:
-        return []
-    data: Any = raw_todos
-    if isinstance(raw_todos, str):
-        stripped = raw_todos.strip()
-        if not stripped:
-            return []
-        try:
-            data = json.loads(stripped)
-        except json.JSONDecodeError:
-            entries = [line.strip(" -*\t") for line in stripped.splitlines() if line.strip(" -*\t")]
-            return [{"title": entry} for entry in entries]
-
-    if isinstance(data, dict):
-        data = [data]
-    if not isinstance(data, list):
-        raise TypeError("Todos must be provided as a list, dict, or JSON string")
-
-    normalized: list[dict[str, Any]] = []
-    for item in data:
-        if isinstance(item, str):
-            title = item.strip()
-            if title:
-                normalized.append({"title": title})
-            continue
-        if not isinstance(item, dict):
-            raise TypeError("Each todo entry must be a string or object with a title")
-        title = item.get("title", "")
-        if not isinstance(title, str) or not title.strip():
-            raise ValueError("Each todo entry must include a non-empty 'title'")
-        normalized.append(
-            {
-                "title": title.strip(),
-                "description": (item.get("description") or "").strip() or None,
-                "priority": item.get("priority"),
-            },
-        )
-    return normalized
 
 
 def _apply_single_update(
@@ -273,37 +217,57 @@ def _apply_single_update(
     return None
 
 
+def _apply_bulk_status(todo_ids: list[str], new_status: str, agent_id: str) -> str:
+    """Apply a status change to multiple todos."""
+    agent_todos = _get_agent_todos(agent_id)
+    if not todo_ids:
+        return json.dumps(
+            {"success": False, "error": f"Provide a non-empty 'todo_ids' list to mark as {new_status}"},
+            ensure_ascii=False,
+            default=str,
+        )
+    marked: list[str] = []
+    errors: list[dict[str, Any]] = []
+    timestamp = datetime.now(UTC).isoformat()
+    for tid in todo_ids:
+        if tid not in agent_todos:
+            errors.append({"todo_id": tid, "error": f"Todo with ID '{tid}' not found"})
+            continue
+        todo = agent_todos[tid]
+        todo["status"] = new_status
+        todo["completed_at"] = timestamp if new_status in ("done", "cancelled") else None
+        todo["updated_at"] = timestamp
+        marked.append(tid)
+    if marked:
+        _persist()
+    response: dict[str, Any] = {
+        "success": len(errors) == 0,
+        "marked": marked,
+        "marked_count": len(marked),
+        "new_status": new_status,
+        "todos": _sorted_todos(agent_id),
+        "total_count": len(agent_todos),
+    }
+    if errors:
+        response["errors"] = errors
+    return json.dumps(response, ensure_ascii=False, default=str)
+
+
 @function_tool(timeout=30)
-async def create_todo(ctx: RunContextWrapper, todos: str) -> str:
-    """Create one or many todos for the current agent.
+async def create_todo(ctx: RunContextWrapper, todos: list[_CreateTodoInput]) -> str:
+    """Create one or more todos for the current agent.
 
-    Always pass a list, even for a single todo (wrap it in a one-item array).
-
-    Each agent (including subagents) has its **own private todo list** —
+    Each agent (including subagents) has its own private todo list —
     your todos don't leak to other agents and vice versa.
 
-    When to use:
-
-    - Planning multi-step assessments with parallel workstreams.
-    - Tracking work you'll come back to later.
-    - Breaking down complex scopes (per-endpoint, per-target, per-vuln-class).
-
-    When NOT to use:
-
-    - Simple linear workflows where progress is obvious.
-    - Single quick task — just do it.
-
     Args:
-        todos: JSON array of todo objects. For one todo, pass a one-item
-            list. Each object's fields:
+        todos: Array of todo objects. Each object supports:
 
-            - ``title`` (str, **required**): short actionable title,
+            - ``title`` (str, required): short actionable title,
               e.g. ``"Test /api/admin for IDOR"``.
-            - ``description`` (str, optional): extra context or
-              acceptance criteria.
-            - ``priority`` (str, optional): one of ``"low"`` /
-              ``"normal"`` / ``"high"`` / ``"critical"``. Defaults to
-              ``"normal"``.
+            - ``description`` (str, optional): extra context.
+            - ``priority`` (str, optional): ``"low"`` / ``"normal"`` /
+              ``"high"`` / ``"critical"``. Default ``"normal"``.
 
             Example: ``[{"title": "Probe /admin", "priority": "high"},
             {"title": "Check JWT alg=none"}]``.
@@ -311,37 +275,41 @@ async def create_todo(ctx: RunContextWrapper, todos: str) -> str:
     agent_id = _agent_id_from(ctx)
     logger.debug("create_todo: agent=%s todos_len=%d", agent_id, len(todos) if todos else 0)
     try:
-        tasks = _normalize_bulk_todos(todos)
-        if not tasks:
+        if not todos:
             return json.dumps(
-                {"success": False, "error": "Provide a non-empty 'todos' list to create"},
+                {"success": False, "error": "Provide a non-empty list of todos to create"},
                 ensure_ascii=False,
                 default=str,
             )
-
         agent_todos = _get_agent_todos(agent_id)
         created: list[dict[str, Any]] = []
-        for task in tasks:
+        for task in todos:
+            title = (task.get("title") or "").strip()
+            if not title:
+                return json.dumps(
+                    {"success": False, "error": "Each todo must include a non-empty 'title'"},
+                    ensure_ascii=False,
+                    default=str,
+                )
             task_priority = _normalize_priority(task.get("priority"))
             todo_id = str(uuid.uuid4())[:6]
             timestamp = datetime.now(UTC).isoformat()
             agent_todos[todo_id] = {
-                "title": task["title"],
-                "description": task.get("description"),
+                "title": title,
+                "description": (task.get("description") or "").strip() or None,
                 "priority": task_priority,
                 "status": "pending",
                 "created_at": timestamp,
                 "updated_at": timestamp,
                 "completed_at": None,
             }
-            created.append({"todo_id": todo_id, "title": task["title"], "priority": task_priority})
+            created.append({"todo_id": todo_id, "title": title, "priority": task_priority})
     except (ValueError, TypeError) as e:
         return json.dumps(
             {"success": False, "error": f"Failed to create todo: {e}"},
             ensure_ascii=False,
             default=str,
         )
-
     _persist()
     logger.debug("create_todo: agent=%s created=%d total=%d", agent_id, len(created), len(_get_agent_todos(agent_id)))
     return json.dumps(
@@ -365,13 +333,12 @@ async def list_todos(
 ) -> str:
     """List the current agent's todos, sorted by status then priority.
 
-    Sort order: status (done → in_progress → pending), then priority
-    within each status (critical → high → normal → low).
+    Sort order: done -> in_progress -> pending, then critical -> high ->
+    normal -> low within each status bucket.
 
     Args:
-        status: Filter — ``"pending"`` / ``"in_progress"`` / ``"done"``.
-        priority: Filter — ``"low"`` / ``"normal"`` / ``"high"`` /
-            ``"critical"``.
+        status: Filter by status (``"pending"`` / ``"in_progress"`` / ``"done"``).
+        priority: Filter by priority (``"low"`` / ``"normal"`` / ``"high"`` / ``"critical"``).
     """
     agent_id = _agent_id_from(ctx)
     try:
@@ -423,51 +390,43 @@ async def list_todos(
 
 
 @function_tool(timeout=30)
-async def update_todo(ctx: RunContextWrapper, updates: str) -> str:
-    """Update one or many todos.
+async def update_todo(ctx: RunContextWrapper, updates: list[_UpdateTodoInput]) -> str:
+    """Update one or more todos. Handles all editable fields including status.
 
-    Always pass a list, even for a single update (wrap it in a one-item
-    array).
-
-    For toggling status only, prefer the dedicated ``mark_todo_done`` /
-    ``mark_todo_pending`` tools — they're simpler and accept the same
-    list-of-ids form.
+    For simple status-only changes you can also use ``mark_todo_completed``
+    or ``mark_todo_in_progress``.
 
     Args:
-        updates: JSON array of update objects. For one update, pass a
-            one-item list. Each object's fields:
+        updates: Array of update objects. Each object supports:
 
-            - ``todo_id`` (str, **required**): ID returned by
-              ``create_todo``.
+            - ``todo_id`` (str, required): ID returned by ``create_todo``.
             - ``title`` (str, optional): new title.
-            - ``description`` (str, optional): new description (empty
-              string clears it).
-            - ``priority`` (str, optional): one of ``"low"`` /
-              ``"normal"`` / ``"high"`` / ``"critical"``.
-            - ``status`` (str, optional): one of ``"pending"`` /
-              ``"in_progress"`` / ``"done"``.
+            - ``description`` (str, optional): new description (empty clears it).
+            - ``priority`` (str, optional): ``"low"`` / ``"normal"`` / ``"high"`` / ``"critical"``.
+            - ``status`` (str, optional): ``"pending"`` / ``"in_progress"`` / ``"done"``.
 
-            Omitted fields stay unchanged. Example:
-            ``[{"todo_id": "abc", "status": "in_progress",
-            "priority": "high"}]``.
+            Omitted fields stay unchanged. Example: ``[{"todo_id": "abc",
+            "status": "in_progress", "priority": "high"}]``.
     """
     agent_id = _agent_id_from(ctx)
     try:
-        agent_todos = _get_agent_todos(agent_id)
-        updates_to_apply = _normalize_bulk_updates(updates)
-        if not updates_to_apply:
+        if not updates:
             return json.dumps(
-                {"success": False, "error": "Provide a non-empty 'updates' list"},
+                {"success": False, "error": "Provide a non-empty list of updates"},
                 ensure_ascii=False,
                 default=str,
             )
-
+        agent_todos = _get_agent_todos(agent_id)
         updated: list[str] = []
         errors: list[dict[str, Any]] = []
-        for upd in updates_to_apply:
+        for upd in updates:
+            todo_id = upd.get("todo_id", "").strip()
+            if not todo_id:
+                errors.append({"todo_id": todo_id, "error": "Missing 'todo_id'"})
+                continue
             err = _apply_single_update(
                 agent_todos,
-                upd["todo_id"],
+                todo_id,
                 upd.get("title"),
                 upd.get("description"),
                 upd.get("priority"),
@@ -476,7 +435,7 @@ async def update_todo(ctx: RunContextWrapper, updates: str) -> str:
             if err:
                 errors.append(err)
             else:
-                updated.append(upd["todo_id"])
+                updated.append(todo_id)
     except (ValueError, TypeError) as e:
         return json.dumps({"success": False, "error": str(e)}, ensure_ascii=False, default=str)
 
@@ -494,85 +453,37 @@ async def update_todo(ctx: RunContextWrapper, updates: str) -> str:
     return json.dumps(response, ensure_ascii=False, default=str)
 
 
-def _mark(*, agent_id: str, todo_ids: str, new_status: str) -> str:
-    try:
-        agent_todos = _get_agent_todos(agent_id)
-        ids = _normalize_todo_ids(todo_ids)
-        if not ids:
-            msg = f"Provide a non-empty 'todo_ids' list to mark as {new_status}"
-            return json.dumps({"success": False, "error": msg}, ensure_ascii=False, default=str)
-
-        marked: list[str] = []
-        errors: list[dict[str, Any]] = []
-        timestamp = datetime.now(UTC).isoformat()
-        for tid in ids:
-            if tid not in agent_todos:
-                errors.append({"todo_id": tid, "error": f"Todo with ID '{tid}' not found"})
-                continue
-            todo = agent_todos[tid]
-            todo["status"] = new_status
-            todo["completed_at"] = timestamp if new_status in ("done", "cancelled") else None
-            todo["updated_at"] = timestamp
-            marked.append(tid)
-    except (ValueError, TypeError) as e:
-        return json.dumps({"success": False, "error": str(e)}, ensure_ascii=False, default=str)
-
-    if marked:
-        _persist()
-    response: dict[str, Any] = {
-        "success": len(errors) == 0,
-        "marked": marked,
-        "marked_count": len(marked),
-        "new_status": new_status,
-        "todos": _sorted_todos(agent_id),
-        "total_count": len(agent_todos),
-    }
-    if errors:
-        response["errors"] = errors
-    return json.dumps(response, ensure_ascii=False, default=str)
-
-
 @function_tool(timeout=30)
-async def mark_todo_done(ctx: RunContextWrapper, todo_ids: str) -> str:
-    """Mark one or many todos as done.
-
-    Always pass a list, even for a single ID (wrap it in a one-item array).
+async def mark_todo_completed(ctx: RunContextWrapper, todo_ids: list[str]) -> str:
+    """Mark one or more todos as done (completed).
 
     Args:
-        todo_ids: JSON array of todo IDs to mark done. For one todo,
-            pass a one-item list.
+        todo_ids: Array of todo IDs to mark done, e.g. ``["abc123", "def456"]``.
     """
-    return _mark(agent_id=_agent_id_from(ctx), todo_ids=todo_ids, new_status="done")
+    return _apply_bulk_status(todo_ids, "done", _agent_id_from(ctx))
 
 
 @function_tool(timeout=30)
-async def mark_todo_pending(ctx: RunContextWrapper, todo_ids: str) -> str:
-    """Reset one or many todos to pending (e.g., to retry a failed task).
-
-    Always pass a list, even for a single ID (wrap it in a one-item array).
+async def mark_todo_in_progress(ctx: RunContextWrapper, todo_ids: list[str]) -> str:
+    """Mark one or more todos as in progress.
 
     Args:
-        todo_ids: JSON array of todo IDs to reset to pending. For one
-            todo, pass a one-item list.
+        todo_ids: Array of todo IDs to mark in progress, e.g. ``["abc123", "def456"]``.
     """
-    return _mark(agent_id=_agent_id_from(ctx), todo_ids=todo_ids, new_status="pending")
+    return _apply_bulk_status(todo_ids, "in_progress", _agent_id_from(ctx))
 
 
 @function_tool(timeout=30)
-async def delete_todo(ctx: RunContextWrapper, todo_ids: str) -> str:
-    """Delete one or many todos. Removes them entirely (no soft-delete).
-
-    Always pass a list, even for a single ID (wrap it in a one-item array).
+async def delete_todo(ctx: RunContextWrapper, todo_ids: list[str]) -> str:
+    """Delete one or more todos. Removes them entirely (no soft-delete).
 
     Args:
-        todo_ids: JSON array of todo IDs to delete. For one todo, pass
-            a one-item list.
+        todo_ids: Array of todo IDs to delete, e.g. ``["abc123", "def456"]``.
     """
     agent_id = _agent_id_from(ctx)
     try:
         agent_todos = _get_agent_todos(agent_id)
-        ids = _normalize_todo_ids(todo_ids)
-        if not ids:
+        if not todo_ids:
             return json.dumps(
                 {"success": False, "error": "Provide a non-empty 'todo_ids' list to delete"},
                 ensure_ascii=False,
@@ -581,7 +492,7 @@ async def delete_todo(ctx: RunContextWrapper, todo_ids: str) -> str:
 
         deleted: list[str] = []
         errors: list[dict[str, Any]] = []
-        for tid in ids:
+        for tid in todo_ids:
             if tid not in agent_todos:
                 errors.append({"todo_id": tid, "error": f"Todo with ID '{tid}' not found"})
                 continue
@@ -602,45 +513,3 @@ async def delete_todo(ctx: RunContextWrapper, todo_ids: str) -> str:
     if errors:
         response["errors"] = errors
     return json.dumps(response, ensure_ascii=False, default=str)
-
-
-# --- SDK-name aliases ---------------------------------------------------------
-# OpenAI Agents SDK ships built-in todo tools named ``mark_todo_in_progress``
-# and ``mark_todo_completed``. Models trained on the SDK (and third-party
-# providers that proxy OpenAI Chat-Completions) sometimes emit these names
-# verbatim, which raises ``ModelBehaviorError: Tool ... not found in agent``
-# because Prometheus's actual todo tools are ``mark_todo_done`` and
-# ``mark_todo_pending``. These aliases accept the SDK's expected names and
-# delegate to the same backing store so the agent can finish a turn cleanly.
-# DO NOT remove these without first confirming that the active model never
-# emits the SDK tool names.
-
-
-@function_tool(timeout=30)
-async def mark_todo_in_progress(ctx: RunContextWrapper, todo_ids: str) -> str:
-    """Mark one or many todos as in_progress (OpenAI Agents SDK alias).
-
-    Mirrors ``mark_todo_pending``-style behavior but sets status to
-    ``in_progress`` instead. Exists so models that emit the OpenAI Agents
-    SDK's standard tool name do not crash the agent loop.
-
-    Args:
-        todo_ids: JSON array of todo IDs to mark in_progress. For one
-            todo, pass a one-item list.
-    """
-    return _mark(agent_id=_agent_id_from(ctx), todo_ids=todo_ids, new_status="in_progress")
-
-
-@function_tool(timeout=30)
-async def mark_todo_completed(ctx: RunContextWrapper, todo_ids: str) -> str:
-    """Mark one or many todos as completed (OpenAI Agents SDK alias).
-
-    Equivalent to ``mark_todo_done`` under Prometheus's status vocabulary.
-    Exists so models that emit the OpenAI Agents SDK's standard tool name
-    do not crash the agent loop.
-
-    Args:
-        todo_ids: JSON array of todo IDs to mark completed. For one
-            todo, pass a one-item list.
-    """
-    return _mark(agent_id=_agent_id_from(ctx), todo_ids=todo_ids, new_status="done")

@@ -105,6 +105,7 @@ async def run_cli(args: Any) -> None:  # noqa: PLR0915
         "resume_instruction": getattr(args, "user_explicit_instruction", None) or "",
         "skills": list(DEFAULT_SKILLS),
         "custom_headers": getattr(args, "custom_headers", None) or [],
+        "allow_direct": bool(getattr(args, "allow_direct", False)),
     }
 
     report_state = ReportState(args.run_name)

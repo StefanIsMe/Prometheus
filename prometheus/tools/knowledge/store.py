@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import json
 import logging
+import os
+import re
 import sqlite3
 import threading
 from datetime import UTC, datetime, timedelta
@@ -242,6 +244,18 @@ class KnowledgeStore:
                 self._conn.execute("ALTER TABLE report_status ADD COLUMN active_h1_version INTEGER")
                 self._conn.commit()
                 logger.info("Migration: added active_h1_version column to report_status")
+
+        # Migration 003 columns: external_priority, external_status, external_id.
+        # Migration 003 also adds the external_submissions table and FTS5 indices;
+        # apply_prometheus_migrations below handles those, but the column adds
+        # need to happen before the backfill (which writes to these columns).
+        with self._lock:
+            cols = [c[1] for c in self._conn.execute("PRAGMA table_info(report_status)").fetchall()]
+            for col in ("external_priority", "external_status", "external_id"):
+                if col not in cols:
+                    self._conn.execute(f"ALTER TABLE report_status ADD COLUMN {col} TEXT")
+                    self._conn.commit()
+                    logger.info("Migration: added %s column to report_status", col)
 
         # Canonical Prometheus product schema. Runs after legacy columns exist
         # so backfills can preserve full_finding_json data.
@@ -665,6 +679,9 @@ class KnowledgeStore:
         Layer 1: Exact hash match (title + endpoint)
         Layer 2: CWE + endpoint match (same vuln class on same endpoint)
         Layer 3: Title similarity (fuzzy match on normalized title)
+        Layer 4: BM25 over report_status (FTS5) — catches rewordings
+        Layer 5: external_submissions (Bugcrowd/H1 prior closures) by
+                 (domain, finding_hash) hash, then BM25 over FTS5
 
         Returns the existing finding if duplicate found, None otherwise.
         """
@@ -718,7 +735,534 @@ class KnowledgeStore:
                 if normalized_title == existing_title:
                     return {"layer": "title_similarity", "finding": dict(row)}
 
+            # Layer 4: BM25 over report_status FTS5 index
+            bm25_match = self._find_duplicate_bm25(finding_title, endpoint, domain=domain)
+            if bm25_match:
+                return bm25_match
+
+            # Layer 5: external_submissions — prior Bugcrowd/H1 closures
+            ext_match = self._find_duplicate_external(finding_title, endpoint, cwe, domain)
+            if ext_match:
+                return ext_match
+
         return None
+
+    def _find_duplicate_bm25(
+        self,
+        finding_title: str,
+        endpoint: str = "",
+        domain: str = "",
+        threshold: float | None = None,
+    ) -> dict[str, Any] | None:
+        """Layer 4: BM25 over report_status FTS5 index.
+
+        Tokenizes the new finding's title, runs an FTS5 MATCH query, returns
+        the top hit if its bm25() score is above the threshold. Threshold
+        default 0.0 (any match is a candidate); the caller decides whether
+        to act. PROMETHEUS_BM25_DEDUP_THRESHOLD env var tunes it.
+        """
+        if threshold is None:
+            try:
+                threshold = float(os.environ.get("PROMETHEUS_BM25_DEDUP_THRESHOLD", "0.0"))
+            except ValueError:
+                threshold = 0.0
+        # Skip empty queries
+        if not finding_title or not finding_title.strip():
+            return None
+        # Build a safe FTS5 query: split on whitespace and punctuation,
+        # join with OR. Skip very short tokens (1 char) and stop words.
+        safe_tokens = []
+        for raw_token in re.findall(r"\w+", finding_title):
+            t = raw_token.lower()
+            if len(t) >= 2 and t not in ("the", "and", "for", "via", "to", "of", "in", "a", "an"):
+                safe_tokens.append(t)
+        if not safe_tokens:
+            return None
+        # Dedupe while preserving order
+        seen = set()
+        query_tokens = []
+        for t in safe_tokens:
+            if t not in seen:
+                seen.add(t)
+                query_tokens.append(t)
+        fts_query = " OR ".join(query_tokens)
+        try:
+            with self._lock:
+                rows = self._conn.execute(
+                    """
+                    SELECT rs.id, rs.finding_title, rs.finding_hash, rs.endpoint, rs.cwe,
+                           rs.status, rs.severity, rs.cvss, rs.external_status,
+                           rs.external_id, rs.notes, bm25(report_status_fts) AS score
+                    FROM report_status_fts
+                    JOIN report_status rs ON rs.id = report_status_fts.rowid
+                    WHERE report_status_fts MATCH ?
+                      AND (? = '' OR rs.domain = ?)
+                    ORDER BY score
+                    LIMIT 5
+                    """,
+                    (fts_query, domain, domain),
+                ).fetchall()
+        except sqlite3.OperationalError as e:
+            logger.debug("BM25 dedup FTS query failed: %s", e)
+            return None
+        if not rows:
+            return None
+        # BM25 returns NEGATIVE scores; smaller (more negative) = better.
+        # threshold=0.0 means "any match is a candidate". We accept the top
+        # hit if its score <= threshold.
+        top = rows[0]
+        score = float(top["score"])
+        if score > threshold:
+            return None
+        return {
+            "layer": "bm25",
+            "score": score,
+            "finding": dict(top),
+        }
+
+    def _find_duplicate_external(
+        self,
+        finding_title: str,
+        endpoint: str = "",
+        cwe: str = "",
+        domain: str = "",
+    ) -> dict[str, Any] | None:
+        """Layer 5: external_submissions (Bugcrowd/H1 prior closures).
+
+        First check the (domain, finding_hash) direct hit. Then BM25 over
+        external_submissions_fts for the user's prior title — this catches
+        the case where the user submitted the finding under a different
+        title and the prometheus-side finding has yet another reworded title.
+        """
+        if not finding_title or not finding_title.strip():
+            return None
+        domain = self._domain_from_url(domain) or domain
+        finding_hash = self._finding_hash(finding_title, endpoint or "")
+
+        with self._lock:
+            # Direct hash match against external_submissions
+            ext_row = self._conn.execute(
+                "SELECT * FROM external_submissions WHERE domain = ? AND finding_hash = ?",
+                (domain, finding_hash),
+            ).fetchone()
+            if ext_row:
+                return {"layer": "external", "external": dict(ext_row), "finding": None}
+
+            # BM25 over external_submissions_fts
+            safe_tokens = []
+            for raw_token in re.findall(r"\w+", finding_title):
+                t = raw_token.lower()
+                if len(t) >= 2 and t not in ("the", "and", "for", "via", "to", "of", "in", "a", "an"):
+                    safe_tokens.append(t)
+            if not safe_tokens:
+                return None
+            seen = set()
+            query_tokens = []
+            for t in safe_tokens:
+                if t not in seen:
+                    seen.add(t)
+                    query_tokens.append(t)
+            fts_query = " OR ".join(query_tokens)
+            try:
+                ext_rows = self._conn.execute(
+                    """
+                    SELECT es.id, es.platform, es.external_id, es.finding_title,
+                           es.finding_hash, es.status, es.priority, es.triager,
+                           es.notes, es.endpoint, es.cwe, es.domain, es.triaged_at,
+                           bm25(external_submissions_fts) AS score
+                    FROM external_submissions_fts
+                    JOIN external_submissions es ON es.id = external_submissions_fts.rowid
+                    WHERE external_submissions_fts MATCH ?
+                      AND es.domain = ?
+                    ORDER BY score
+                    LIMIT 3
+                    """,
+                    (fts_query, domain),
+                ).fetchall()
+            except sqlite3.OperationalError as e:
+                logger.debug("External BM25 dedup query failed: %s", e)
+                return None
+            if not ext_rows:
+                return None
+            top = ext_rows[0]
+            score = float(top["score"])
+            # Same threshold convention as Layer 4
+            if score > 0.0:
+                return None
+            return {
+                "layer": "external_bm25",
+                "score": score,
+                "external": dict(top),
+                "finding": None,
+            }
+
+    def should_revalidate(
+        self,
+        domain: str,
+        finding_title: str,
+        endpoint: str = "",
+        cwe: str = "",
+        cooldown_days: int = 90,
+    ) -> dict[str, Any]:
+        """Decide what to do when a fingerprint collides.
+
+        Returns a dict with:
+          - action: 'archive' | 'revalidate' | 'reopen' | 'no_op'
+          - reason: human-readable explanation
+          - external: the external_submissions row that drove the decision (if any)
+          - existing: the report_status row that drove the decision (if any)
+        """
+        domain = self._domain_from_url(domain) or domain
+        finding_hash = self._finding_hash(finding_title, endpoint or "")
+
+        with self._lock:
+            existing = self._conn.execute(
+                "SELECT * FROM report_status WHERE domain = ? AND finding_hash = ?",
+                (domain, finding_hash),
+            ).fetchone()
+            existing_dict = dict(existing) if existing else None
+            ext_direct = self._conn.execute(
+                "SELECT * FROM external_submissions WHERE domain = ? AND finding_hash = ?",
+                (domain, finding_hash),
+            ).fetchone()
+            external_dict = dict(ext_direct) if ext_direct else None
+            # Fallback: look for an external row whose title or cwe matches
+            if not external_dict:
+                title_prefix = f"%{finding_title[:40]}%"
+                cwe_pattern = f"%{cwe}%" if cwe else "%"
+                fallback = self._conn.execute(
+                    """SELECT * FROM external_submissions
+                       WHERE domain = ?
+                         AND (finding_title LIKE ? OR cwe LIKE ?)
+                       ORDER BY triaged_at DESC LIMIT 1""",
+                    (domain, title_prefix, cwe_pattern),
+                ).fetchone()
+                if fallback:
+                    external_dict = dict(fallback)
+
+        if not existing_dict and not external_dict:
+            return {"action": "no_op", "reason": "no prior record"}
+
+        # External closure within cooldown → archive.
+        if external_dict:
+            ext_status = (external_dict.get("status") or "").lower()
+            triaged_at = external_dict.get("triaged_at")
+            age_days = None
+            if triaged_at:
+                try:
+                    triaged = datetime.fromisoformat(triaged_at.replace("Z", "+00:00"))
+                    age_days = (datetime.now(UTC) - triaged).days
+                except Exception:
+                    age_days = None
+            if ext_status in ("not_reproducible", "na", "informative", "rejected", "duplicate"):
+                if age_days is not None and age_days < cooldown_days:
+                    return {
+                        "action": "archive",
+                        "reason": (
+                            f"external platform closed as '{ext_status}' {age_days}d ago "
+                            f"(cooldown={cooldown_days}d) — do not re-file"
+                        ),
+                        "external": external_dict,
+                        "existing": existing_dict,
+                    }
+                if age_days is not None and age_days >= cooldown_days:
+                    return {
+                        "action": "revalidate",
+                        "reason": (
+                            f"external platform closed as '{ext_status}' {age_days}d ago "
+                            f"(past cooldown={cooldown_days}d) — live-revalidate before re-filing"
+                        ),
+                        "external": external_dict,
+                        "existing": existing_dict,
+                    }
+            if ext_status in ("submitted", "triaged", "needs_info"):
+                return {
+                    "action": "archive",
+                    "reason": (
+                        f"external platform has open submission ({ext_status}) "
+                        f"— do not re-file until current submission is closed"
+                    ),
+                    "external": external_dict,
+                    "existing": existing_dict,
+                }
+            if ext_status == "accepted":
+                return {
+                    "action": "archive",
+                    "reason": (
+                        "external platform already accepted this finding — do not re-file"
+                    ),
+                    "external": external_dict,
+                    "existing": existing_dict,
+                }
+
+        # No external record but local row is already in a terminal state
+        if existing_dict:
+            local_status = (existing_dict.get("status") or "").lower()
+            if local_status in ("submitted", "accepted", "rejected", "revalidated", "duplicate", "archived"):
+                return {
+                    "action": "archive",
+                    "reason": (
+                        f"local report_status is '{local_status}' — no external record, "
+                        f"treat as already-known ground"
+                    ),
+                    "external": external_dict,
+                    "existing": existing_dict,
+                }
+
+        return {"action": "revalidate", "reason": "default policy", "external": external_dict, "existing": existing_dict}
+
+    def propagate_external_to_internal(
+        self,
+        platform: str,
+        external_id: str,
+    ) -> dict[str, Any]:
+        """After an external_submissions row is upserted, mirror its state
+        into the local report_status (if a matching row exists) or create
+        a new archived report_status row so future scans see the closure.
+        """
+        with self._lock:
+            ext = self._conn.execute(
+                "SELECT * FROM external_submissions WHERE platform = ? AND external_id = ?",
+                (platform, external_id),
+            ).fetchone()
+            if not ext:
+                return {"success": False, "error": "external_submissions row not found"}
+            ext_dict = dict(ext)
+            # Try to find a matching report_status row by (domain, finding_hash)
+            rs = self._conn.execute(
+                "SELECT id FROM report_status WHERE domain = ? AND finding_hash = ?",
+                (ext_dict["domain"], ext_dict["finding_hash"]),
+            ).fetchone()
+            now = datetime.now(UTC).isoformat()
+            if rs:
+                # Update existing row's external_* fields + status sentinel
+                sentinel = "external_" + ext_dict["status"]
+                summary = (
+                    f"[{now[:19]}] External {platform}/{external_id} closed as "
+                    f"{ext_dict['status']} by {ext_dict.get('triager') or 'unknown'}: "
+                    f"{(ext_dict.get('notes') or '')[:300]}"
+                )
+                self._conn.execute(
+                    """
+                    UPDATE report_status
+                    SET external_status = ?, external_priority = ?, external_id = ?,
+                        notes = CASE WHEN notes IS NULL OR notes = '' THEN ? ELSE notes END,
+                        updated_at = ?
+                    WHERE id = ?
+                    """,
+                    (
+                        ext_dict["status"],
+                        ext_dict.get("priority"),
+                        external_id,
+                        summary,
+                        now,
+                        rs["id"],
+                    ),
+                )
+                # Add a comment timeline entry
+                self._conn.execute(
+                    """
+                    INSERT INTO finding_comments (finding_id, comment_type, content, created_at)
+                    VALUES (?, 'external_triage', ?, ?)
+                    """,
+                    (rs["id"], summary, now),
+                )
+                self._conn.commit()
+                # Rebuild FTS so the new status text is searchable
+                try:
+                    self._conn.execute("INSERT INTO report_status_fts(report_status_fts) VALUES('rebuild')")
+                    self._conn.execute("INSERT INTO external_submissions_fts(external_submissions_fts) VALUES('rebuild')")
+                    self._conn.commit()
+                except sqlite3.OperationalError:
+                    pass
+                return {"success": True, "report_status_id": rs["id"], "action": "updated"}
+            # No matching report_status — create an archived row so the
+            # dedup layers see it on future scans. Also write an
+            # external_triage comment so future audits have a timeline.
+            cur = self._conn.execute(
+                """
+                INSERT INTO report_status
+                    (domain, scan_id, finding_title, finding_hash, status,
+                     endpoint, cwe, platform, report_url, external_id,
+                     external_status, external_priority, notes,
+                     created_at, updated_at)
+                VALUES (?, 'external_ingest', ?, ?, 'archived',
+                        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    ext_dict["domain"], ext_dict["finding_title"], ext_dict["finding_hash"],
+                    ext_dict.get("endpoint"), ext_dict.get("cwe"),
+                    platform, ext_dict.get("report_url"),
+                    external_id, ext_dict["status"], ext_dict.get("priority"),
+                    f"External {platform}/{external_id}: {ext_dict.get('notes') or ''}",
+                    now, now,
+                ),
+            )
+            new_id = cur.lastrowid
+            summary_create = (
+                f"[{now[:19]}] External {platform}/{external_id} closed as "
+                f"{ext_dict['status']} by {ext_dict.get('triager') or 'unknown'}: "
+                f"{(ext_dict.get('notes') or '')[:300]}"
+            )
+            self._conn.execute(
+                """
+                INSERT INTO finding_comments (finding_id, comment_type, content, created_at)
+                VALUES (?, 'external_triage', ?, ?)
+                """,
+                (new_id, summary_create, now),
+            )
+            self._conn.commit()
+            try:
+                self._conn.execute("INSERT INTO report_status_fts(report_status_fts) VALUES('rebuild')")
+                self._conn.execute("INSERT INTO external_submissions_fts(external_submissions_fts) VALUES('rebuild')")
+                self._conn.commit()
+            except sqlite3.OperationalError:
+                pass
+            return {"success": True, "report_status_id": new_id, "action": "created"}
+
+    def get_external_submission_for_finding(
+        self,
+        domain: str,
+        finding_title: str,
+        endpoint: str = "",
+    ) -> dict[str, Any] | None:
+        """Look up the external_submissions row that drove should_revalidate's
+        decision for a given finding. Returns the row dict or None.
+        """
+        domain = self._domain_from_url(domain) or domain
+        finding_hash = self._finding_hash(finding_title, endpoint or "")
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT * FROM external_submissions WHERE domain = ? AND finding_hash = ?",
+                (domain, finding_hash),
+            ).fetchone()
+        return dict(row) if row else None
+
+    def upsert_external_submission(
+        self,
+        platform: str,
+        external_id: str,
+        domain: str,
+        finding_title: str,
+        endpoint: str = "",
+        cwe: str = "",
+        status: str = "submitted",
+        priority: str | None = None,
+        reward_usd: float | None = None,
+        report_url: str | None = None,
+        triager: str | None = None,
+        triaged_at: str | None = None,
+        notes: str | None = None,
+        raw_export_json: str | None = None,
+    ) -> dict[str, Any]:
+        """Upsert an external_submissions row.
+
+        Returns {success, id, action: 'created'|'updated'}.
+        """
+        domain = self._domain_from_url(domain) or domain
+        finding_hash = self._finding_hash(finding_title, endpoint or "")
+        now = datetime.now(UTC).isoformat()
+        with self._lock:
+            existing = self._conn.execute(
+                "SELECT id, status FROM external_submissions WHERE platform = ? AND external_id = ?",
+                (platform, external_id),
+            ).fetchone()
+            if existing:
+                sets = ["updated_at = ?"]
+                params: list[Any] = [now]
+                for col, val in (
+                    ("domain", domain), ("finding_title", finding_title),
+                    ("finding_hash", finding_hash), ("endpoint", endpoint),
+                    ("cwe", cwe), ("status", status), ("priority", priority),
+                    ("reward_usd", reward_usd), ("report_url", report_url),
+                    ("triager", triager), ("triaged_at", triaged_at),
+                    ("notes", notes), ("raw_export_json", raw_export_json),
+                ):
+                    if val is not None:
+                        sets.append(f"{col} = ?")
+                        params.append(val)
+                params.append(existing["id"])
+                self._conn.execute(
+                    f"UPDATE external_submissions SET {', '.join(sets)} WHERE id = ?",
+                    params,
+                )
+                self._conn.commit()
+                try:
+                    self._conn.execute("INSERT INTO external_submissions_fts(external_submissions_fts) VALUES('rebuild')")
+                    self._conn.commit()
+                except sqlite3.OperationalError:
+                    pass
+                return {"success": True, "id": existing["id"], "action": "updated"}
+            cur = self._conn.execute(
+                """
+                INSERT INTO external_submissions
+                    (platform, external_id, domain, finding_title, finding_hash,
+                     endpoint, cwe, status, priority, reward_usd, report_url,
+                     triager, triaged_at, notes, raw_export_json, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    platform, external_id, domain, finding_title, finding_hash,
+                    endpoint, cwe, status, priority, reward_usd, report_url,
+                    triager, triaged_at, notes, raw_export_json, now, now,
+                ),
+            )
+            self._conn.commit()
+            try:
+                self._conn.execute("INSERT INTO external_submissions_fts(external_submissions_fts) VALUES('rebuild')")
+                self._conn.commit()
+            except sqlite3.OperationalError:
+                pass
+            return {"success": True, "id": cur.lastrowid, "action": "created"}
+
+    def list_external_submissions(
+        self,
+        domain: str | None = None,
+        status: str | None = None,
+        limit: int = 100,
+    ) -> list[dict[str, Any]]:
+        """List external_submissions rows, optionally filtered."""
+        clauses = []
+        params: list[Any] = []
+        if domain:
+            domain = self._domain_from_url(domain) or domain
+            clauses.append("domain = ?")
+            params.append(domain)
+        if status:
+            clauses.append("status = ?")
+            params.append(status)
+        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        with self._lock:
+            rows = self._conn.execute(
+                f"SELECT * FROM external_submissions {where} ORDER BY triaged_at DESC, updated_at DESC LIMIT ?",
+                (*params, limit),
+            ).fetchall()
+        return [dict(r) for r in rows]
+
+    def count_external_closed_recently(
+        self,
+        domain: str,
+        days: int = 90,
+    ) -> int:
+        """Count distinct external_submissions rows for *domain* closed
+        (status in {not_reproducible, na, informative, rejected, duplicate})
+        in the last *days* days. Used by the RL layer to discourage scans
+        against domains that have a recent closure streak.
+        """
+        domain = self._domain_from_url(domain) or domain
+        cutoff = datetime.now(UTC).timestamp() - days * 86400
+        cutoff_iso = datetime.fromtimestamp(cutoff, UTC).isoformat()
+        with self._lock:
+            row = self._conn.execute(
+                """
+                SELECT COUNT(*) AS cnt FROM external_submissions
+                WHERE domain = ? AND status IN
+                    ('not_reproducible', 'na', 'informative', 'rejected', 'duplicate')
+                  AND triaged_at >= ?
+                """,
+                (domain, cutoff_iso),
+            ).fetchone()
+        return int(row["cnt"] or 0) if row else 0
 
     def upsert_report_status(
         self,

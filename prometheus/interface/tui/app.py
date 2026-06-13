@@ -163,7 +163,7 @@ class SplashScreen(Static):  # type: ignore[misc]
         try:
             app = self.app
             args = getattr(app, "args", None)
-            if args and not getattr(args, "browse", False):
+            if args:
                 target_infos = getattr(args, "targets_info", None) or []
                 if target_infos:
                     target_names = [t.get("original", str(t)) for t in target_infos]
@@ -783,6 +783,7 @@ class prometheusTUIApp(App):  # type: ignore[misc]
             "scope_mode": getattr(args, "scope_mode", "auto"),
             "diff_base": getattr(args, "diff_base", None),
             "resume_instruction": getattr(args, "user_explicit_instruction", None) or "",
+            "allow_direct": bool(getattr(args, "allow_direct", False)),
         }
 
     def _setup_cleanup_handlers(self) -> None:
@@ -828,7 +829,7 @@ class prometheusTUIApp(App):  # type: ignore[misc]
             try:
                 import subprocess
                 result = subprocess.run(
-                    ["docker", "ps", "--filter", "ancestor=ghcr.io/usestrix/strix-sandbox:1.0.0",
+                    ["docker", "ps", "--filter", "ancestor=ghcr.io/useprometheus/prometheus-sandbox:1.0.0",
                      "--format", "{{.ID}}"],
                     capture_output=True, text=True, timeout=10,
                 )
@@ -930,11 +931,7 @@ class prometheusTUIApp(App):  # type: ignore[misc]
             tabbed.add_pane(TabPane("Reports", reports_content, id="tab_reports"))
             tabbed.add_pane(TabPane("Security Feeds", feeds_content, id="tab_feeds"))
 
-            # If browse mode, switch to Reports tab
-            if getattr(self.args, "browse", False):
-                self.call_after_refresh(self._switch_to_reports)
-            else:
-                self.call_after_refresh(self._focus_chat_input)
+            self.call_after_refresh(self._focus_chat_input)
 
     def _focus_chat_input(self) -> None:
         if len(self.screen_stack) > 1 or self.show_splash:
@@ -1020,8 +1017,7 @@ class prometheusTUIApp(App):  # type: ignore[misc]
     def _hide_splash_screen(self) -> None:
         self.show_splash = False
 
-        if not getattr(self.args, "browse", False):
-            self._start_scan_thread()
+        self._start_scan_thread()
 
         self.set_interval(0.35, self._update_ui)
 
@@ -1195,11 +1191,6 @@ class prometheusTUIApp(App):  # type: ignore[misc]
         self,
     ) -> tuple[Any, str | None]:
         if not self.selected_agent_id:
-            if getattr(self.args, "browse", False):
-                return self._get_chat_placeholder_content(
-                    "No scan running. Provide targets to start scanning.",
-                    "placeholder-browse-mode",
-                )
             return self._get_startup_progress_content()
 
         events = self._gather_agent_events(self.selected_agent_id)

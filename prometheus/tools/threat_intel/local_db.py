@@ -216,7 +216,7 @@ class ThreatIntelDB:
         """Update feed ingestion status."""
         now = datetime.now(UTC).isoformat()
         self._conn.execute("""
-            INSERT INTO feed_status (feed_name, last_updated, record_count,
+            INSERT OR REPLACE INTO feed_status (feed_name, last_updated, record_count,
                 status, error_message, duration_seconds)
             VALUES (?, ?, ?, ?, ?, ?)
         """, (feed_name, now, record_count, status, error_message, duration_seconds))

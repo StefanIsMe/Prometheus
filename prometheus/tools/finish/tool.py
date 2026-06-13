@@ -134,6 +134,62 @@ def _validate_scan_gates() -> dict[str, Any]:
     except ImportError:
         pass  # factory.py not available (shouldn't happen in production)
 
+    # --- Filed-finding gate ---
+    # The PTG tracks PHASE completion (did the agent run the right tools?)
+    # but not finding filing (did the agent actually call
+    # create_vulnerability_report for what it found?).  An agent can
+    # run nuclei, see a CVE-2025-XXXX, and write "**Major finding**" in
+    # its reasoning, then call finish_scan without ever filing — the
+    # scan exits "completed" with zero findings.  This gate makes sure
+    # the comms stream actually has a tool_call_stream for
+    # create_vulnerability_report (or run_scan_pipeline) from this
+    # scan_id before the report is written.
+    #
+    # Disabled when the comms stream is not active (e.g. dry-run) so
+    # backward-compat is preserved. Bypass-able via the same
+    # escape-hatch mechanism as the gate blocks (counted per agent, so
+    # the existing _consecutive_gate_blocks in execution.py applies).
+    try:
+        from prometheus.core.comms import get_active_run
+        from prometheus.core.execution import _FINDING_FILE_TOOLS
+        from pathlib import Path as _Path
+        run_id = get_active_run()
+        if run_id:
+            status_path = _Path.home() / ".prometheus" / "comms" / run_id / "status.jsonl"
+            filed = False
+            if status_path.exists():
+                with status_path.open() as _f:
+                    for _line in _f:
+                        _line = _line.strip()
+                        if not _line:
+                            continue
+                        try:
+                            import json as _json
+                            _ev = _json.loads(_line)
+                        except ValueError:
+                            continue
+                        if _ev.get("type") != "tool_call_stream":
+                            continue
+                        if _ev.get("data", {}).get("tool") in _FINDING_FILE_TOOLS:
+                            filed = True
+                            break
+            if not filed:
+                return {
+                    "passed": False,
+                    "blocked_reason": (
+                        "No vulnerability has been filed for this scan. "
+                        "You must call create_vulnerability_report (or "
+                        "run_scan_pipeline) at least once with concrete "
+                        "evidence before finish_scan can succeed. "
+                        "If you suspect a finding but have not yet "
+                        "proven exploitability, run the validation tools "
+                        "(e.g. nuclei, exec_command) until you have a "
+                        "reproducible PoC, then file it."
+                    ),
+                }
+    except ImportError:
+        pass  # comms/execution not available (unit-test path)
+
     return {"passed": True, "blocked_reason": None}
 
 

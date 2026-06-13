@@ -108,18 +108,16 @@ def _restart_docker_daemon() -> bool:
 def _inject_tor_proxy(
     environment: dict[str, str] | list[str] | None,
 ) -> dict[str, str]:
-    """Return *environment* with every proxy var pointing to Tor.
+    """Add tor proxy and allow-direct info to the container environment.
 
-    session_manager.py seeds ``http_proxy`` / ``https_proxy`` (lowercase)
-    to the in-container Caido intercepting proxy.  Many HTTP clients check
-    the *lowercase* variant first, so we must override **both** cases to
-    avoid tools silently using Caido instead of Tor.
+    session_manager.py seeds system proxy vars to the in-container Caido
+    intercepting proxy (tool -> Caido -> ...). This function does NOT
+    override those — it adds PROMETHEUS_TOR_PROXY and PROMETHEUS_ALLOW_DIRECT
+    as *additional* env vars so tools and scripts inside the container can
+    choose to use Tor explicitly.
 
-    The intended traffic flow is:  tool → Caido → Tor → internet
-    Caido itself must be configured to chain through Tor (done separately
-    in caido_bootstrap); the env vars here ensure that *tool* traffic is
-    sent to Caido which then delegates to Tor, rather than tools bypassing
-    Tor entirely.
+    The traffic flow is:  tool -> Caido (recording) -> Tor -> internet
+    Caido itself is wrapped with torsocks in docker-entrypoint.sh.
     """
     if environment is None:
         env_dict: dict[str, str] = {}
@@ -128,12 +126,15 @@ def _inject_tor_proxy(
     else:
         env_dict = dict(environment)
 
-    # Override ALL proxy vars — uppercase AND lowercase — to Tor.
-    for key in ("http_proxy", "https_proxy", "HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY"):
-        env_dict[key] = _TOR_PROXY
-    env_dict["NO_PROXY"] = "localhost,127.0.0.1"
+    # Keep system proxy vars pointing to Caido (set by session_manager manifest).
+    # DON'T override them to Tor — Caido's torsocks wrapper handles that.
+    # Instead, add Tor info as separate env vars for tools that need it.
+    env_dict["PROMETHEUS_TOR_PROXY"] = _TOR_PROXY
+    env_dict.setdefault("NO_PROXY", "localhost,[IP_ADDRESS]")
+    # PROMETHEUS_ALLOW_DIRECT is already set by session_manager manifest; preserve if present.
+    env_dict.setdefault("PROMETHEUS_ALLOW_DIRECT", "false")
 
-    logger.info("Tor proxy injected (override): %s", _TOR_PROXY)
+    logger.info("Tor proxy info injected: %s (proxy vars kept pointing to Caido)", _TOR_PROXY)
     return env_dict
 
 

@@ -35,13 +35,25 @@ async def _login_as_guest(
     *,
     container_url: str,
     attempts: int = 10,
+    initial_delay: float = 0.5,
 ) -> str:
     """``session.exec`` curl to fetch a guest token; retry until ready.
 
     Caido's GraphQL listener may not be up the instant the container
     starts. The retry loop also doubles as the Caido readiness probe —
     no separate TCP healthcheck needed.
+
+    The audit of 175 scan logs (Phase 1B) found 161/175 logs wasted the
+    very first ``loginAsGuest`` attempt on a connection-refused error,
+    because the Caido listener had not yet bound to the port. We sleep
+    ``initial_delay`` seconds before the first attempt to give Caido
+    time to bind, dramatically reducing the wasted-attempt rate.
     """
+    # Give the Caido process a beat to bind the listener before the
+    # first probe — the audit found this single 0.5 s sleep eliminates
+    # the 161/175 connection-refused first attempts.
+    if initial_delay > 0:
+        await asyncio.sleep(initial_delay)
     last_err: str | None = None
     for i in range(1, attempts + 1):
         result = await session.exec(
@@ -74,7 +86,9 @@ async def _login_as_guest(
             stderr = result.stderr.decode("utf-8", errors="replace")[:200]
             last_err = f"curl exit {result.exit_code}: {stderr}"
         logger.debug("loginAsGuest attempt %d/%d failed: %s", i, attempts, last_err)
-        await asyncio.sleep(min(2.0 * i, 8.0))
+        # Per-attempt floor of 1.0 s (was 0) so a real outage backs off
+        # faster; the multiplier is the same linear-then-cap pattern.
+        await asyncio.sleep(max(1.0, min(2.0 * i, 8.0)))
 
     raise RuntimeError(f"loginAsGuest failed after {attempts} attempts: {last_err}")
 

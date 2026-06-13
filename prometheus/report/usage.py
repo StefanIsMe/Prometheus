@@ -11,6 +11,57 @@ from agents.usage import Usage, deserialize_usage, serialize_usage
 logger = logging.getLogger(__name__)
 
 
+# Well-known LiteLLM provider prefixes (subset of litellm.provider_list).
+# When a model string uses a prefix NOT in this set, it is almost always a
+# custom OpenAI-compatible proxy (e.g. TokenRouter, Hermes proxy, internal
+# gateway). LiteLLM's completion_cost raises BadRequestError on unknown
+# prefixes, which floods the scan log with one traceback per LLM call.
+# Skipping the lookup for unknown prefixes keeps the log clean and cost
+# tracking honest (we genuinely don't know the per-token price for a
+# private proxy without explicit pricing data).
+_LITELLM_KNOWN_PROVIDER_PREFIXES: frozenset[str] = frozenset(
+    {
+        # OpenAI family
+        "openai",
+        "azure",
+        "azure_ai",
+        "azure_ad",
+        # Anthropic
+        "anthropic",
+        # Google
+        "gemini",
+        "vertex_ai-language-models",
+        "vertex_ai-anthropic_models",
+        "palm",
+        # AWS
+        "bedrock",
+        "sagemaker",
+        # Other major providers with native LiteLLM pricing
+        "cohere",
+        "mistral",
+        "replicate",
+        "huggingface",
+        "together_ai",
+        "fireworks_ai",
+        "anyscale",
+        "openrouter",
+        "ai21",
+        "groq",
+        "deepseek",
+        "perplexity",
+        "xai",
+        "voyage",
+        "nlp_cloud",
+        "deepinfra",
+        "octoai",
+        # litellm_proxy etc. — explicitly routable prefixes
+        "litellm",
+        "litellm_proxy",
+        "any-llm",
+    }
+)
+
+
 class LLMUsageLedger:
     """Aggregate SDK ``Usage`` objects and attach best-effort cost estimates."""
 
@@ -133,6 +184,14 @@ def _estimate_litellm_cost(usage: Usage, model: str | None) -> float | None:
     litellm_model = _litellm_model_name(model)
     if not litellm_model:
         return None
+    # Short-circuit custom OpenAI-compatible proxies — at this point
+    # the model string has been normalized and the provider prefix
+    # added back from the local config.  LiteLLM's completion_cost
+    # raises BadRequestError on unknown prefixes (TokenRouter,
+    # internal gateways, etc.) and the only outcome is noise — we
+    # have no pricing data for a private proxy.
+    if _is_custom_proxy_model(litellm_model):
+        return None
 
     entries = list(usage.request_usage_entries)
     if not entries:
@@ -192,9 +251,11 @@ def _estimate_litellm_entry_cost(entry: Any, model: str) -> float | None:
 
         cached = _int_or_zero(prompt_details.get("cached_tokens", 0))
         uncached = prompt_tokens - cached
-        cost = (cached * cache_hit_price
-                + uncached * cache_miss_price
-                + completion_tokens * output_price)
+        cost = (
+            cached * cache_hit_price
+            + uncached * cache_miss_price
+            + completion_tokens * output_price
+        )
         return max(cost, 0.0)
 
     try:
@@ -207,8 +268,12 @@ def _estimate_litellm_entry_cost(entry: Any, model: str) -> float | None:
             },
             model=model,
         )
-    except Exception:  # noqa: BLE001 - LiteLLM raises plain Exception for unknown model prices.
-        logger.debug("LiteLLM cost estimate unavailable for model %s", model, exc_info=True)
+    except Exception as exc:  # noqa: BLE001 - LiteLLM raises plain Exception for unknown model prices.
+        # Use compact one-line log: the full traceback is unhelpful when
+        # the only useful info is "this model is not priced by litellm".
+        # Use logger.debug with exc_info only if the exception is novel.
+        msg = str(exc).splitlines()[0][:200] if str(exc) else "unknown"
+        logger.debug("LiteLLM cost estimate unavailable for model %s (%s)", model, msg)
         return None
 
     return cost if isinstance(cost, int | float) and cost >= 0 else None
@@ -227,6 +292,7 @@ def _litellm_model_name(model: str | None) -> str | None:
     if "/" not in normalized:
         try:
             from prometheus.config.llm_config import get_config
+
             config = get_config()
             for provider_name, provider in config.providers.items():
                 if normalized in provider.models:
@@ -235,6 +301,25 @@ def _litellm_model_name(model: str | None) -> str | None:
         except Exception:
             pass
     return normalized or None
+
+
+def _is_custom_proxy_model(model: str | None) -> bool:
+    """Return True when ``model`` uses a provider prefix that LiteLLM does
+    not recognise. Custom OpenAI-compatible proxies (TokenRouter, internal
+    gateways, Hermes-routed vendors) fall into this category and must skip
+    the LiteLLM cost-lookup path entirely — otherwise litellm.completion_cost
+    raises BadRequestError on every LLM call.
+    """
+    if not model:
+        return False
+    normalized = model.strip()
+    if "/" not in normalized:
+        # No prefix — LiteLLM will pick a default provider; let it try.
+        return False
+    prefix = normalized.split("/", 1)[0].lower()
+    if prefix in _LITELLM_KNOWN_PROVIDER_PREFIXES:
+        return False
+    return True
 
 
 def _details_to_dict(details: Any) -> dict[str, Any]:

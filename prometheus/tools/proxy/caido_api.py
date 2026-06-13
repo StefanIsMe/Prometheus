@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import os
 import time
 import urllib.request
@@ -52,6 +53,78 @@ _REQ_FIELD_MAP: dict[SortBy, tuple[str, str]] = {
     "response_time": ("resp", "roundtrip"),
     "response_size": ("resp", "length"),
 }
+
+# Retry-on-flake settings for Caido graphql calls. The audit found 59 runs
+# failing on transient ``NetworkUserError`` from the Caido SDK — these are
+# almost always recoverable in <1 s. We retry up to ``_CAIDO_RETRY_MAX`` times
+# with exponential backoff. See tests/test_caido_proxy_retry.py.
+_CAIDO_RETRY_MAX = 3
+_CAIDO_RETRY_BASE_DELAY = 0.5
+_CAIDO_RETRYABLE_EXCEPTIONS: tuple[type[BaseException], ...] = (
+    asyncio.TimeoutError,
+)
+
+
+def _is_caido_retryable(exc: BaseException) -> bool:
+    """Return True if the exception is a transient Caido/network fault.
+
+    The Caido SDK wraps transport failures as ``NetworkUserError`` (a graphql
+    error). We retry on that and on bare ``TimeoutError`` (the SDK sometimes
+    propagates a timed-out HTTP request directly). We do NOT retry on
+    user-input errors (e.g. ``NotFoundUserError``, ``InvalidGlobTermsUserError``)
+    because those are deterministic.
+    """
+    # Imported here to avoid a top-level circular import — caido_sdk_client is
+    # only installed in the main environment, not in the sandbox.
+    try:
+        from caido_sdk_client.errors import NetworkUserError
+    except Exception:  # noqa: BLE001  — pragma: no cover (defensive)
+        NetworkUserError = None  # type: ignore[assignment]
+    if NetworkUserError is not None and isinstance(exc, NetworkUserError):
+        return True
+    if isinstance(exc, asyncio.TimeoutError):
+        return True
+    # httpx / aiohttp / requests transport errors that bubble up unwrapped
+    name = type(exc).__name__
+    if name in {"ConnectError", "ReadError", "WriteError",
+                "RemoteProtocolError", "ChunkedEncodingError"}:
+        return True
+    return False
+
+
+async def caido_retry(
+    op_name: str,
+    fn: Any,
+    *args: Any,
+    attempts: int = _CAIDO_RETRY_MAX,
+    base_delay: float = _CAIDO_RETRY_BASE_DELAY,
+    **kwargs: Any,
+) -> Any:
+    """Call ``fn(*args, **kwargs)`` with retry on transient Caido errors.
+
+    Logs ``WARNING`` on every retry with the attempt number. The final
+    failure propagates the original exception unwrapped so existing
+    callers continue to see the same exception type.
+    """
+    last_exc: BaseException | None = None
+    for attempt in range(1, attempts + 1):
+        try:
+            return await fn(*args, **kwargs)
+        except BaseException as exc:  # noqa: BLE001
+            last_exc = exc
+            if attempt >= attempts or not _is_caido_retryable(exc):
+                raise
+            delay = base_delay * (2 ** (attempt - 1))
+            logging.getLogger(__name__).warning(
+                "%s: transient Caido error (attempt %d/%d): %s; retrying in %.1fs",
+                op_name, attempt, attempts, exc, delay,
+            )
+            await asyncio.sleep(delay)
+    # Unreachable — the loop either returns or raises — but keeps the type
+    # checker happy.
+    if last_exc is not None:
+        raise last_exc
+    return None
 
 
 def caido_url() -> str:
@@ -109,16 +182,19 @@ async def list_requests_with_client(
     sort_order: SortOrder = "desc",
     scope_id: str | None = None,
 ) -> Any:
-    builder = client.request.list().first(first)
-    if httpql_filter:
-        builder = builder.filter(httpql_filter)
-    if after:
-        builder = builder.after(after)
-    if scope_id:
-        builder = builder.scope(scope_id)
-    target, field = _REQ_FIELD_MAP[sort_by]
-    builder = (builder.descending if sort_order == "desc" else builder.ascending)(target, field)
-    return await builder.execute()
+    async def _do() -> Any:
+        builder = client.request.list().first(first)
+        if httpql_filter:
+            builder = builder.filter(httpql_filter)
+        if after:
+            builder = builder.after(after)
+        if scope_id:
+            builder = builder.scope(scope_id)
+        target, field = _REQ_FIELD_MAP[sort_by]
+        builder = (builder.descending if sort_order == "desc" else builder.ascending)(target, field)
+        return await builder.execute()
+
+    return await caido_retry("list_requests", _do)
 
 
 async def get_request_with_client(
@@ -133,8 +209,11 @@ async def get_request_with_client(
     # Passing False for either causes pydantic validation to fail with
     # "Field required" on the missing raw field. Always request both —
     # the caller picks which one to surface via ``part``.
-    opts = RequestGetOptions(request_raw=True, response_raw=True)
-    return await client.request.get(request_id, opts)
+    async def _do() -> Any:
+        opts = RequestGetOptions(request_raw=True, response_raw=True)
+        return await client.request.get(request_id, opts)
+
+    return await caido_retry("get_request", _do)
 
 
 def build_raw_request(
@@ -156,7 +235,7 @@ def build_raw_request(
 
     final_headers = {**headers}
     final_headers.setdefault("Host", parsed.netloc)
-    final_headers.setdefault("User-Agent", "prometheus")
+    final_headers.setdefault("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/IP_ADDRESS Safari/537.36")
     if body and "Content-Length" not in {k.title() for k in final_headers}:
         final_headers["Content-Length"] = str(len(body.encode("utf-8")))
 
@@ -568,79 +647,85 @@ async def list_sitemap_with_client(
     pagination, so we fetch all edges for the requested level and slice
     client-side.
     """
-    if parent_id:
-        raw = await client.graphql.query(
-            _SITEMAP_DESCENDANTS_QUERY,
-            variables={"parentId": parent_id, "depth": depth},
-        )
-        data = raw.get("sitemapDescendantEntries") or {}
-    else:
-        raw = await client.graphql.query(
-            _SITEMAP_ROOTS_QUERY,
-            variables={"scopeId": scope_id},
-        )
-        data = raw.get("sitemapRootEntries") or {}
+    async def _do() -> dict[str, Any]:
+        if parent_id:
+            raw = await client.graphql.query(
+                _SITEMAP_DESCENDANTS_QUERY,
+                variables={"parentId": parent_id, "depth": depth},
+            )
+            data = raw.get("sitemapDescendantEntries") or {}
+        else:
+            raw = await client.graphql.query(
+                _SITEMAP_ROOTS_QUERY,
+                variables={"scopeId": scope_id},
+            )
+            data = raw.get("sitemapRootEntries") or {}
 
-    edges = data.get("edges") or []
-    total = (data.get("count") or {}).get("value", 0)
-    skip = max(0, (page - 1) * page_size)
-    sliced = [edge["node"] for edge in edges[skip : skip + page_size]]
+        edges = data.get("edges") or []
+        total = (data.get("count") or {}).get("value", 0)
+        skip = max(0, (page - 1) * page_size)
+        sliced = [edge["node"] for edge in edges[skip : skip + page_size]]
 
-    cleaned: list[dict[str, Any]] = []
-    for node in sliced:
-        entry = _clean_sitemap_metadata(node)
-        summary = _clean_sitemap_request_summary(node.get("request"))
-        if summary:
-            entry["request"] = summary
-        cleaned.append(entry)
+        cleaned: list[dict[str, Any]] = []
+        for node in sliced:
+            entry = _clean_sitemap_metadata(node)
+            summary = _clean_sitemap_request_summary(node.get("request"))
+            if summary:
+                entry["request"] = summary
+            cleaned.append(entry)
 
-    total_pages = (total + page_size - 1) // page_size if total else 0
-    return {
-        "success": True,
-        "entries": cleaned,
-        "page": page,
-        "page_size": page_size,
-        "total_pages": total_pages,
-        "total_count": total,
-        "has_more": page < total_pages,
-    }
+        total_pages = (total + page_size - 1) // page_size if total else 0
+        return {
+            "success": True,
+            "entries": cleaned,
+            "page": page,
+            "page_size": page_size,
+            "total_pages": total_pages,
+            "total_count": total,
+            "has_more": page < total_pages,
+        }
+
+    return await caido_retry("list_sitemap", _do)
 
 
 async def view_sitemap_entry_with_client(
     client: CaidoClient,
     entry_id: str,
 ) -> dict[str, Any]:
-    raw = await client.graphql.query(_SITEMAP_ENTRY_QUERY, variables={"id": entry_id})
-    entry = raw.get("sitemapEntry")
-    if not entry:
-        return {"success": False, "error": f"Sitemap entry {entry_id} not found"}
+    async def _do() -> dict[str, Any]:
+        raw = await client.graphql.query(_SITEMAP_ENTRY_QUERY, variables={"id": entry_id})
+        entry = raw.get("sitemapEntry")
+        if not entry:
+            return {"success": False, "error": f"Sitemap entry {entry_id} not found"}
 
-    cleaned = _clean_sitemap_metadata(entry)
-    primary = entry.get("request") or {}
-    if primary:
-        primary_clean: dict[str, Any] = {}
-        if primary.get("method"):
-            primary_clean["method"] = primary["method"]
-        if primary.get("path"):
-            primary_clean["path"] = primary["path"]
-        if primary.get("response"):
-            primary_clean["response"] = _clean_sitemap_response(primary["response"])
-        if primary_clean:
-            cleaned["request"] = primary_clean
+        cleaned = _clean_sitemap_metadata(entry)
+        primary = entry.get("request") or {}
+        if primary:
+            primary_clean: dict[str, Any] = {}
+            if primary.get("method"):
+                primary_clean["method"] = primary["method"]
+            if primary.get("path"):
+                primary_clean["path"] = primary["path"]
+            if primary.get("response"):
+                primary_clean["response"] = _clean_sitemap_response(primary["response"])
+            if primary_clean:
+                cleaned["request"] = primary_clean
 
-    related = entry.get("requests") or {}
-    related_edges = related.get("edges") or []
-    related_nodes = [edge["node"] for edge in related_edges]
-    related_clean = [
-        summary
-        for summary in (_clean_sitemap_request_summary(n) for n in related_nodes)
-        if summary is not None
-    ]
-    cleaned["related_requests"] = {
-        "requests": related_clean,
-        "total_count": (related.get("count") or {}).get("value", 0),
-    }
-    return {"success": True, "entry": cleaned}
+        related = entry.get("requests") or {}
+        related_edges = related.get("edges") or []
+        related_nodes = [edge["node"] for edge in related_edges]
+        related_clean = [
+            summary
+            for summary in (_clean_sitemap_request_summary(n) for n in related_nodes)
+            if summary is not None
+        ]
+        cleaned["related_requests"] = {
+            "requests": related_clean,
+            "total_count": (related.get("count") or {}).get("value", 0),
+        }
+        return {"success": True, "entry": cleaned}
+
+    return await caido_retry("view_sitemap_entry", _do)
 
 
 async def list_sitemap(
@@ -671,6 +756,7 @@ __all__ = [
     "SitemapDepth",
     "SortBy",
     "SortOrder",
+    "caido_retry",
     "close_client",
     "get_client",
     "list_requests",

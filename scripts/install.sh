@@ -4,7 +4,7 @@ set -euo pipefail
 
 APP=prometheus
 REPO="useprometheus/prometheus"
-prometheus_IMAGE="ghcr.io/usestrix/strix-sandbox:1.0.0"
+prometheus_IMAGE="ghcr.io/useprometheus/prometheus-sandbox:1.0.0"
 
 MUTED='\033[0;2m'
 RED='\033[0;31m'

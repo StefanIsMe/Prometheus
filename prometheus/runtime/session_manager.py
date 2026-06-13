@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from pathlib import Path
 from typing import Any
 
@@ -326,8 +327,19 @@ def _force_cleanup_container(bundle: dict[str, Any], scan_id: str) -> None:
 
     Used as a fallback when the SDK's ``client.delete`` fails.  Retrieves
     the container ID from the session state and issues direct Docker API
-    calls to stop (10 s timeout) and remove (``force=True``) the container.
+    calls to stop (with retry) and remove (with retry on 409 conflict).
+
+    Phase 2C: the 7 audit runs that hit ``docker.errors.APIError 409
+    cannot remove container`` were the container still spinning up
+    after ``client.delete`` returned. We now retry ``remove(force=True)``
+    up to 3 times with 2-second backoff. We also swallow
+    ``docker.errors.NotFound`` so an already-removed container does not
+    log a WARNING.
     """
+    import docker.errors  # noqa: PLC0415  — kept local so module import
+                           # doesn't pull the docker SDK at top level
+    _ = docker.errors  # silence "imported but unused" warnings
+
     container_id: str | None = None
     try:
         session = bundle.get("session")
@@ -350,18 +362,34 @@ def _force_cleanup_container(bundle: dict[str, Any], scan_id: str) -> None:
         logger.warning("cleanup(%s): no docker_client available for force cleanup", scan_id)
         return
 
-    # Stop the container with a 10-second timeout.
+    # Get the container object (or bail out cleanly if it's already gone).
     try:
         container = docker_client.containers.get(container_id)
+    except docker.errors.NotFound:
+        logger.info(
+            "cleanup(%s): container %s already gone",
+            scan_id, container_id[:12],
+        )
+        return
     except Exception:
         logger.info(
-            "cleanup(%s): container %s already gone", scan_id, container_id[:12],
+            "cleanup(%s): container %s lookup failed; treating as gone",
+            scan_id, container_id[:12],
+            exc_info=True,
         )
         return
 
+    # Stop the container with a 15-second timeout. If it doesn't stop in time,
+    # we still proceed to remove(force=True) below — that stops + removes.
     try:
-        container.stop(timeout=10)
+        container.stop(timeout=15)
         logger.info("cleanup(%s): stopped container %s", scan_id, container_id[:12])
+    except docker.errors.NotFound:
+        logger.info(
+            "cleanup(%s): container %s disappeared during stop",
+            scan_id, container_id[:12],
+        )
+        return
     except Exception:
         logger.debug(
             "cleanup(%s): container.stop() raised (may already be stopped)",
@@ -369,13 +397,43 @@ def _force_cleanup_container(bundle: dict[str, Any], scan_id: str) -> None:
             exc_info=True,
         )
 
-    try:
-        container.remove(force=True)
-        logger.info("cleanup(%s): removed container %s", scan_id, container_id[:12])
-    except Exception:
-        logger.warning(
-            "cleanup(%s): failed to remove container %s; it may need manual reaping",
-            scan_id,
-            container_id[:12],
-            exc_info=True,
-        )
+    # Retry remove(force=True) up to 3 times on 409 conflict (container still
+    # spinning up after client.delete returned, or transient Docker state).
+    for _attempt in range(1, 4):
+        try:
+            container.remove(force=True)
+            logger.info(
+                "cleanup(%s): removed container %s",
+                scan_id, container_id[:12],
+            )
+            return
+        except docker.errors.NotFound:
+            logger.info(
+                "cleanup(%s): container %s already removed",
+                scan_id, container_id[:12],
+            )
+            return
+        except docker.errors.APIError as exc:
+            status = getattr(exc, "status_code", None)
+            if status == 409 and _attempt < 3:
+                logger.warning(
+                    "cleanup(%s): 409 removing %s (attempt %d/3), retrying in 2s",
+                    scan_id, container_id[:12], _attempt,
+                )
+                time.sleep(2.0)
+                continue
+            logger.warning(
+                "cleanup(%s): failed to remove container %s; it may need manual reaping",
+                scan_id,
+                container_id[:12],
+                exc_info=True,
+            )
+            return
+        except Exception:
+            logger.warning(
+                "cleanup(%s): failed to remove container %s; it may need manual reaping",
+                scan_id,
+                container_id[:12],
+                exc_info=True,
+            )
+            return
