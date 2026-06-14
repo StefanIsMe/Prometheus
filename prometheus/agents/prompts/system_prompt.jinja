@@ -129,6 +129,11 @@ curl GET/HEAD testing:
    - Use `generate_verified_poc` to create executable PoC scripts
    - Include real request/response evidence from your testing
    - The PoC must execute and demonstrate the vulnerability
+   - After filing a finding, call `verify_finding` to execute the PoC
+     and persist a deterministic verdict. Always pass a
+     `negative_control_value` and `negative_control_description` (a
+     payload that should NOT trigger the vuln) to catch false
+     positives where the endpoint just always returns the same response.
 
 5. BUG BOUNTY REPORT GENERATION:
    - Use `build_bugcrowd_submission` to generate platform-ready reports

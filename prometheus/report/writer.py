@@ -162,6 +162,47 @@ def render_vulnerability_md(report: dict[str, Any]) -> str:  # noqa: PLR0912, PL
             lines.append("```")
             lines.append("")
 
+    if report.get("verification"):
+        v = report["verification"]
+        verdict = "✅ VERIFIED" if v.get("verified") else "❌ NOT VERIFIED"
+        lines.append("## Verification\n")
+        lines.append(f"**Verdict:** {verdict}")
+        lines.append(f"**Verified at:** {v.get('verified_at', 'unknown')}")
+        if "distinct_responses" in v:
+            lines.append(f"**Distinct response codes:** {v['distinct_responses']}")
+        if v.get("status_groups"):
+            lines.append("")
+            lines.append("**Status groups:**")
+            for status, descs in v["status_groups"].items():
+                lines.append(f"- HTTP {status}: {descs}")
+        if v.get("per_case"):
+            lines.append("")
+            lines.append("**Per-case results:**")
+            lines.append("")
+            lines.append("| # | Description | Value | Status |")
+            lines.append("|---|---|---|---|")
+            for c in v["per_case"]:
+                lines.append(
+                    f"| {c.get('index', '?')} | {c.get('description', '')} "
+                    f"| `{c.get('value', '')}` | {c.get('status', '')} |"
+                )
+        ncp = v.get("negative_control_passed")
+        if ncp is not None:
+            lines.append("")
+            lines.append(
+                f"**Negative control:** {'passed' if ncp else 'FAILED'}"
+            )
+        if v.get("evidence_excerpt"):
+            lines.append("")
+            lines.append("**Evidence:**")
+            lines.append("```")
+            lines.append(str(v["evidence_excerpt"]))
+            lines.append("```")
+        if v.get("error"):
+            lines.append("")
+            lines.append(f"**Error:** {v['error']}")
+        lines.append("")
+
     if report.get("code_locations"):
         lines.append("## Code Analysis\n")
         for i, loc in enumerate(report["code_locations"]):

@@ -47,6 +47,7 @@ from prometheus.tools.deep_audit.tool import (
     lookup_bugcrowd_vrt,
     run_differential_analysis,
 )
+from prometheus.tools.verification.tool import verify_finding
 from prometheus.tools.finish.tool import finish_scan
 from prometheus.tools.hypotheses.tool import (
     check_hypothesis_report_gate,
@@ -1080,6 +1081,7 @@ _BASE_TOOLS: tuple[Tool, ...] = (
     get_auth_flow_trace_script,
     get_deep_audit_plan,
     generate_verified_poc,
+    verify_finding,
     build_bugcrowd_submission,
     lookup_bugcrowd_vrt,
     retrieve_evicted_content,
