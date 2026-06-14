@@ -15,7 +15,7 @@
 
 <a href="https://docs.prometheus.ai"><img src="https://img.shields.io/badge/Docs-docs.prometheus.ai-2b9246?style=for-the-badge&logo=gitbook&logoColor=white" alt="Docs"></a>
 <a href="https://prometheus.ai"><img src="https://img.shields.io/badge/Website-prometheus.ai-f0f0f0?style=for-the-badge&logoColor=000000" alt="Website"></a>
-[![](https://dcbadge.limes.pink/api/server/prometheus-ai)](https://discord.gg/prometheus-ai)
+
 
 <a href="https://deepwiki.com/useprometheus/prometheus"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"></a>
 <a href="https://github.com/useprometheus/prometheus"><img src="https://img.shields.io/github/stars/useprometheus/prometheus?style=flat-square" alt="GitHub Stars"></a>
