@@ -32,8 +32,7 @@ class _CachedEmbeddings:
 
 def _stringify(finding: dict[str, Any]) -> str:
     parts: list[str] = []
-    for key in ("title", "vuln_type", "endpoint", "parameter",
-                "description", "impact"):
+    for key in ("title", "vuln_type", "endpoint", "parameter", "description", "impact"):
         v = finding.get(key)
         if isinstance(v, str):
             parts.append(v)
@@ -63,19 +62,20 @@ def _get_embedder():
         import os
         import httpx
 
-        base = (
-            os.environ.get("OPENAI_BASE_URL")
-            or os.environ.get("LLM_API_BASE")
-            or ""
-        )
+        base = os.environ.get("OPENAI_BASE_URL") or os.environ.get("LLM_API_BASE") or ""
         key = os.environ.get("OPENAI_API_KEY") or os.environ.get("LLM_API_KEY") or ""
         if base and key:
-            client = httpx.Client(base_url=base, timeout=20.0,
-                                   headers={"Authorization": f"Bearer {key}"})
+            client = httpx.Client(
+                base_url=base, timeout=20.0, headers={"Authorization": f"Bearer {key}"}
+            )
+
             def embed(texts: list[str]) -> list[list[float]]:
-                r = client.post("/embeddings", json={"model": "text-embedding-3-small", "input": texts})
+                r = client.post(
+                    "/embeddings", json={"model": "text-embedding-3-small", "input": texts}
+                )
                 r.raise_for_status()
                 return [d["embedding"] for d in r.json()["data"]]
+
             return embed
     except Exception:
         pass
@@ -91,12 +91,13 @@ def _hash_embedder(texts: list[str]) -> list[list[float]]:
     exactly what we want for a fallback.
     """
     import hashlib
+
     out: list[list[float]] = []
     for text in texts:
         vec = [0.0] * 64
         norm = (text or "").lower()
         for i in range(len(norm) - 2):
-            trigram = norm[i:i + 3]
+            trigram = norm[i : i + 3]
             h = int(hashlib.md5(trigram.encode("utf-8")).hexdigest()[:8], 16)
             idx = h % 64
             sign = 1.0 if (h & 1) else -1.0
@@ -162,7 +163,10 @@ def semantic_dedup(
             dropped.append(f)
     logger.info(
         "semantic_dedup: %d in, %d kept, %d dropped (threshold=%.2f)",
-        len(items), len(kept), len(dropped), threshold,
+        len(items),
+        len(kept),
+        len(dropped),
+        threshold,
     )
     return kept, dropped
 

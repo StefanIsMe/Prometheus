@@ -33,6 +33,7 @@ from prometheus.tools.threat_intel.query_engine import (  # noqa: E402
 # 1. Unit: CVE-id extraction
 # ---------------------------------------------------------------------------
 
+
 def test_slugify_extracts_cve_id():
     """A free-form text containing a CVE id should be reduced to that
     CVE id. This is the audit's exact case from scan-13b53eb1."""
@@ -55,6 +56,7 @@ def test_slugify_handles_cve_with_leading_text():
 # ---------------------------------------------------------------------------
 # 2. Unit: fallback to first 5 tokens
 # ---------------------------------------------------------------------------
+
 
 def test_slugify_falls_back_to_tokens():
     """When no CVE id is present, use the first 5 alphanumeric tokens."""
@@ -79,6 +81,7 @@ def test_slugify_truncates_long_slugs():
 # ---------------------------------------------------------------------------
 # 3. Unit: safety
 # ---------------------------------------------------------------------------
+
 
 def test_slugify_handles_empty_string():
     assert slugify_tech("") == ""
@@ -120,6 +123,7 @@ def test_slugify_preserves_package_name_dots_and_dashes():
 # ---------------------------------------------------------------------------
 # 4. E2E log-replay: the audit's worst case
 # ---------------------------------------------------------------------------
+
 
 def _load_log_replay_target() -> Path:
     """Return the path of the worst real log for the slug failure

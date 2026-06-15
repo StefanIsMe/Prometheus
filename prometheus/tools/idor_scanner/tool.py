@@ -44,22 +44,30 @@ logger = logging.getLogger(__name__)
 # Evidence storage
 # ---------------------------------------------------------------------------
 
-EVIDENCE_DIR = Path(os.environ.get("PROMETHEUS_DATA_DIR", str(Path.home() / ".prometheus"))) / "idor_evidence"
+EVIDENCE_DIR = (
+    Path(os.environ.get("PROMETHEUS_DATA_DIR", str(Path.home() / ".prometheus"))) / "idor_evidence"
+)
 EVIDENCE_DIR.mkdir(parents=True, exist_ok=True)
 
 
-def _save_evidence(finding_id: str, account_a_resp: str, account_b_swapped_resp: str,
-                   request_details: dict[str, Any]) -> Path:
+def _save_evidence(
+    finding_id: str,
+    account_a_resp: str,
+    account_b_swapped_resp: str,
+    request_details: dict[str, Any],
+) -> Path:
     """Save IDOR evidence to disk and return the path."""
     evidence = {
         "finding_id": finding_id,
         "timestamp": datetime.now(UTC).isoformat(),
         "request": request_details,
         "account_a_response": account_a_resp[:5000] if account_a_resp else "",
-        "account_b_swapped_response": account_b_swapped_resp[:5000] if account_b_swapped_resp else "",
+        "account_b_swapped_response": account_b_swapped_resp[:5000]
+        if account_b_swapped_resp
+        else "",
         "idor_confirmed": account_a_resp != account_b_swapped_resp
-                          and account_b_swapped_resp is not None
-                          and len(account_b_swapped_resp or "") > 10,
+        and account_b_swapped_resp is not None
+        and len(account_b_swapped_resp or "") > 10,
     }
     path = EVIDENCE_DIR / f"{finding_id}.json"
     path.write_text(json.dumps(evidence, indent=2))
@@ -70,6 +78,7 @@ def _save_evidence(finding_id: str, account_a_resp: str, account_b_swapped_resp:
 # ---------------------------------------------------------------------------
 # HTTP replay via CDP (authenticated — uses Account A's session)
 # ---------------------------------------------------------------------------
+
 
 def _fetch_via_cdp(url: str, method: str = "GET", body: str = "") -> str | None:
     """Make an authenticated HTTP request via the browser's CDP Fetch domain.
@@ -125,6 +134,7 @@ def _fetch_via_cdp(url: str, method: str = "GET", body: str = "") -> str | None:
 # IDOR detection
 # ---------------------------------------------------------------------------
 
+
 def _generate_test_ids(original_id: str, id_type: str) -> list[str]:
     """Generate candidate IDs to swap in for IDOR testing.
 
@@ -135,9 +145,7 @@ def _generate_test_ids(original_id: str, id_type: str) -> list[str]:
     candidates = []
     if id_type == "numeric" and original_id.isdigit():
         num = int(original_id)
-        candidates = [str(num + 1), str(num - 1),
-                      str(num + random.randint(10, 100)),
-                      "1", "0"]
+        candidates = [str(num + 1), str(num - 1), str(num + random.randint(10, 100)), "1", "0"]
     elif id_type == "uuid":
         candidates = [
             "00000000-0000-0000-0000-000000000000",
@@ -173,11 +181,19 @@ def _responses_indicate_idor(original_resp: str | None, swapped_resp: str | None
         return False
 
     # If both are errors, not an IDOR
-    error_patterns = ["404", "403", "401", "not found", "unauthorized", "forbidden",
-                      "invalid", "not allowed", "access denied"]
+    error_patterns = [
+        "404",
+        "403",
+        "401",
+        "not found",
+        "unauthorized",
+        "forbidden",
+        "invalid",
+        "not allowed",
+        "access denied",
+    ]
     both_errors = all(
-        any(p in (r or "").lower() for p in error_patterns)
-        for r in [original_resp, swapped_resp]
+        any(p in (r or "").lower() for p in error_patterns) for r in [original_resp, swapped_resp]
     )
     if both_errors:
         return False
@@ -198,6 +214,7 @@ def _responses_indicate_idor(original_resp: str | None, swapped_resp: str | None
 # Candidate store integration
 # ---------------------------------------------------------------------------
 
+
 def _save_finding_to_store(
     target_name: str,
     endpoint: str,
@@ -215,7 +232,10 @@ def _save_finding_to_store(
     finding_id = str(uuid.uuid4())[:16]
     now = datetime.now(UTC).isoformat()
 
-    db_path = Path(os.environ.get("PROMETHEUS_DATA_DIR", str(Path.home() / ".prometheus"))) / "prometheus.db"
+    db_path = (
+        Path(os.environ.get("PROMETHEUS_DATA_DIR", str(Path.home() / ".prometheus")))
+        / "prometheus.db"
+    )
     conn = sqlite3.connect(str(db_path))
 
     try:
@@ -244,13 +264,15 @@ def _save_finding_to_store(
                 "api_access",
                 f"{target_name}:{endpoint}:{method}:{original_id}",
                 "needs_review",
-                json.dumps({
-                    "original_id": original_id,
-                    "test_id": test_id,
-                    "evidence_file": evidence_path,
-                    "original_response_preview": original_resp[:500] if original_resp else "",
-                    "swapped_response_preview": swapped_resp[:500] if swapped_resp else "",
-                }),
+                json.dumps(
+                    {
+                        "original_id": original_id,
+                        "test_id": test_id,
+                        "evidence_file": evidence_path,
+                        "original_response_preview": original_resp[:500] if original_resp else "",
+                        "swapped_response_preview": swapped_resp[:500] if swapped_resp else "",
+                    }
+                ),
                 now,
                 now,
                 now,
@@ -267,6 +289,7 @@ def _save_finding_to_store(
 # ---------------------------------------------------------------------------
 # Main scanner
 # ---------------------------------------------------------------------------
+
 
 async def run_idor_scan(
     target_name: str,
@@ -288,11 +311,11 @@ async def run_idor_scan(
     Returns list of findings.
     """
     profile = get_target_profile(target_name)
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"IDOR Scanner: {profile.name}")
     print(f"Target: {profile.base_url}")
     print(f"Email prefix: {email_prefix}@{profile.email_domain.lstrip('@')}")
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
 
     if not password:
         password = f"Prometheus{random.randint(10000, 99999)}!"
@@ -391,16 +414,18 @@ async def run_idor_scan(
                     evidence_path=str(evidence_path),
                 )
 
-                findings.append({
-                    "finding_id": finding_id,
-                    "type": "idor",
-                    "endpoint": url,
-                    "swapped_endpoint": swapped_url,
-                    "original_id": original_id,
-                    "test_id": test_id,
-                    "severity": "medium",
-                    "evidence": str(evidence_path),
-                })
+                findings.append(
+                    {
+                        "finding_id": finding_id,
+                        "type": "idor",
+                        "endpoint": url,
+                        "swapped_endpoint": swapped_url,
+                        "original_id": original_id,
+                        "test_id": test_id,
+                        "severity": "medium",
+                        "evidence": str(evidence_path),
+                    }
+                )
                 found_idor = True
                 break
 
@@ -408,12 +433,12 @@ async def run_idor_scan(
             print("no IDOR detected")
 
     # Summary
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"SCAN COMPLETE: {len(findings)} IDOR(s) found")
     for f in findings:
         print(f"  [{f['severity'].upper()}] {f['endpoint']}")
         print(f"    Evidence: {f['evidence']}")
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
 
     return findings
 
@@ -422,22 +447,26 @@ async def run_idor_scan(
 # CLI entry point
 # ---------------------------------------------------------------------------
 
+
 def main():
     parser = argparse.ArgumentParser(
         description="Prometheus IDOR Scanner — automated IDOR detection via browser",
     )
     parser.add_argument(
-        "--target", "-t",
+        "--target",
+        "-t",
         required=True,
         help="Target name (syfe, bullish, or a URL)",
     )
     parser.add_argument(
-        "--email", "-e",
+        "--email",
+        "-e",
         default=f"prometheus{random.randint(1000, 9999)}",
         help="Email prefix for @example.com (default: auto-generated)",
     )
     parser.add_argument(
-        "--password", "-p",
+        "--password",
+        "-p",
         default="",
         help="Password for test accounts (default: auto-generated)",
     )
@@ -456,17 +485,20 @@ def main():
 
     if args.list_targets:
         from prometheus.agents.browser_session import TARGET_PROFILES
+
         print("Available target profiles:")
         for name, profile in TARGET_PROFILES.items():
             print(f"  {name}: {profile.base_url}")
         sys.exit(0)
 
-    asyncio.run(run_idor_scan(
-        target_name=args.target,
-        email_prefix=args.email,
-        password=args.password,
-        headless=args.headless,
-    ))
+    asyncio.run(
+        run_idor_scan(
+            target_name=args.target,
+            email_prefix=args.email,
+            password=args.password,
+            headless=args.headless,
+        )
+    )
 
 
 if __name__ == "__main__":

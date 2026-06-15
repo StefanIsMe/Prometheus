@@ -26,6 +26,7 @@ cover the highest-impact categories from the audit:
   9. ``'str' object has no attribute 'get'`` (Phase 1C)
  10. ``RuntimeError: cannot schedule new futures`` (Phase 2B)
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -72,6 +73,7 @@ from prometheus.tools.todo.tools import _normalize_priority  # noqa: E402
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _find_log_with(pattern: str, glob: str = "prometheus.log") -> Path:
     """Find a log under ``prometheus_runs/`` whose text contains ``pattern``.
 
@@ -91,14 +93,17 @@ def _find_log_with(pattern: str, glob: str = "prometheus.log") -> Path:
 
 def _api_error_with_status(status: int, message: str = "conflict") -> docker.errors.APIError:
     """Build a docker.errors.APIError with the given HTTP status code."""
+
     class _Response:
         status_code = status
+
     return docker.errors.APIError(message, response=_Response())
 
 
 # ---------------------------------------------------------------------------
 # 1. Caido NetworkUserError → recovered by caido_retry
 # ---------------------------------------------------------------------------
+
 
 def test_replay_caido_network_user_error_is_recovered():
     """The audit's NetworkUserError line is recovered by caido_retry."""
@@ -125,6 +130,7 @@ def test_replay_caido_network_user_error_is_recovered():
 # 2. GHSA 'str' object has no attribute 'get' → no longer raises
 # ---------------------------------------------------------------------------
 
+
 def test_replay_ghsa_str_payload_does_not_raise():
     """The audit's ``'str' object has no attribute 'get'`` for GHSA
     payloads is fixed by the defensive ``_cvss_score`` helper."""
@@ -144,6 +150,7 @@ def test_replay_ghsa_str_payload_does_not_raise():
 # 3. Stream event sink → marked dead on first failure
 # ---------------------------------------------------------------------------
 
+
 def test_replay_stream_event_sink_circuit_caps_at_one_log():
     """The audit's 57 ``stream event sink failed for <id>`` lines from
     one agent are reduced to 1 by the per-agent circuit."""
@@ -154,7 +161,7 @@ def test_replay_stream_event_sink_circuit_caps_at_one_log():
     for line in text.splitlines():
         idx = line.find(suffix_marker)
         if idx >= 0:
-            tail = line[idx + len(suffix_marker):].strip()
+            tail = line[idx + len(suffix_marker) :].strip()
             affected.add(tail.split(" ", 1)[0])
     # The log has at least one affected agent.
     assert affected
@@ -172,6 +179,7 @@ def test_replay_stream_event_sink_circuit_caps_at_one_log():
 # ---------------------------------------------------------------------------
 # 4. Docker 409 → retried
 # ---------------------------------------------------------------------------
+
 
 def test_replay_docker_409_retry_recovers():
     """The audit's ``409 cannot remove container`` line is recovered
@@ -193,7 +201,9 @@ def test_replay_docker_409_retry_recovers():
             return container
 
     bundle = {
-        "session": SimpleNamespace(_inner=SimpleNamespace(state=SimpleNamespace(container_id="c-1"))),
+        "session": SimpleNamespace(
+            _inner=SimpleNamespace(state=SimpleNamespace(container_id="c-1"))
+        ),
         "client": SimpleNamespace(docker_client=_Docker()),
     }
 
@@ -219,6 +229,7 @@ class _ReplayContainer:
 # 5. OpenAI max_output_tokens → suppressed by model_options
 # ---------------------------------------------------------------------------
 
+
 def test_replay_openai_max_output_tokens_resolved_by_overrides():
     """The audit's ``Unsupported parameter: max_output_tokens`` is
     handled by the centralised model_options dict."""
@@ -236,6 +247,7 @@ def test_replay_openai_max_output_tokens_resolved_by_overrides():
 # 6. OpenAI 'Item with id … not found' → store=False forced
 # ---------------------------------------------------------------------------
 
+
 def test_replay_openai_item_id_not_found_resolved_by_overrides():
     """The audit's ``Item with id … not found`` line is handled by
     forcing ``store=False`` for the affected model ids."""
@@ -251,6 +263,7 @@ def test_replay_openai_item_id_not_found_resolved_by_overrides():
 # 7. OpenRouter 402 → refused by budget preflight
 # ---------------------------------------------------------------------------
 
+
 def test_replay_openrouter_402_refused_by_preflight():
     """The audit's OpenRouter 402 line is handled by the budget preflight."""
     target = _find_log_with("402", glob="prometheus.log")
@@ -263,16 +276,23 @@ def test_replay_openrouter_402_refused_by_preflight():
     from unittest.mock import AsyncMock
 
     async def _run() -> None:
-        with patch("prometheus.config.load_settings", return_value=SimpleNamespace(
-            llm=SimpleNamespace(provider="openrouter", api_base="https://openrouter.ai/api/v1"),
-        )):
+        with patch(
+            "prometheus.config.load_settings",
+            return_value=SimpleNamespace(
+                llm=SimpleNamespace(provider="openrouter", api_base="https://openrouter.ai/api/v1"),
+            ),
+        ):
             with patch.dict("os.environ", {"OPENROUTER_API_KEY": "test-key"}):
                 mock_client = AsyncMock()
                 mock_client.__aenter__ = AsyncMock(return_value=mock_client)
                 mock_client.__aexit__ = AsyncMock(return_value=None)
-                mock_client.get = AsyncMock(return_value=SimpleNamespace(
-                    status_code=402, headers={}, text="out of credits",
-                ))
+                mock_client.get = AsyncMock(
+                    return_value=SimpleNamespace(
+                        status_code=402,
+                        headers={},
+                        text="out of credits",
+                    )
+                )
                 with patch("httpx.AsyncClient", return_value=mock_client):
                     ok, msg = await _check_llm_budget("scan-test")
         assert ok is False
@@ -284,6 +304,7 @@ def test_replay_openrouter_402_refused_by_preflight():
 # ---------------------------------------------------------------------------
 # 8. Invalid priority → synonym map
 # ---------------------------------------------------------------------------
+
 
 def test_replay_invalid_priority_resolved_by_synonym_map():
     """The audit's ``Invalid priority. Must be one of`` line is
@@ -307,6 +328,7 @@ def test_replay_invalid_priority_resolved_by_synonym_map():
 # 9. loginAsGuest connect-wait — first-attempt waste eliminated
 # ---------------------------------------------------------------------------
 
+
 def test_replay_login_as_guest_sleeps_initial_delay():
     """The audit's 161/175 wasted first-attempt loginAsGuest calls
     are eliminated by the ``initial_delay`` parameter."""
@@ -328,9 +350,9 @@ def test_replay_login_as_guest_sleeps_initial_delay():
             self.call_count += 1
             return SimpleNamespace(
                 ok=lambda: True,
-                stdout=json.dumps({
-                    "data": {"loginAsGuest": {"token": {"accessToken": "tok-1"}}}
-                }).encode(),
+                stdout=json.dumps(
+                    {"data": {"loginAsGuest": {"token": {"accessToken": "tok-1"}}}}
+                ).encode(),
                 stderr=b"",
                 exit_code=0,
             )
@@ -347,6 +369,7 @@ def test_replay_login_as_guest_sleeps_initial_delay():
 # ---------------------------------------------------------------------------
 # 10. executor-shutdown RuntimeError → synthetic failure
 # ---------------------------------------------------------------------------
+
 
 def test_replay_executor_shutdown_runtime_error_translated():
     """The audit's ``RuntimeError: cannot schedule new futures after

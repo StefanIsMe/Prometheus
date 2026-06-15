@@ -17,7 +17,12 @@ if TYPE_CHECKING:
 DEFAULT_MAX_TURNS = 100  # root agent: pipeline handles mechanical work, 100 turns is generous
 
 
-def build_root_task(scan_config: dict[str, Any], *, is_rescan: bool = False, targets_with_knowledge: set[str] | None = None) -> str:
+def build_root_task(
+    scan_config: dict[str, Any],
+    *,
+    is_rescan: bool = False,
+    targets_with_knowledge: set[str] | None = None,
+) -> str:
     targets = scan_config.get("targets", []) or []
     diff_scope = scan_config.get("diff_scope") or {}
     user_instructions = scan_config.get("user_instructions", "") or ""
@@ -208,14 +213,12 @@ def make_model_settings(
     overrides = resolve_model_options(model_id, provider_name=provider_name)
 
     _tool_choice: str | None = "required"
-    _reasoning_active = (
-        supports_thinking
-        or (reasoning_effort is not None and reasoning_effort != "none")
+    _reasoning_active = supports_thinking or (
+        reasoning_effort is not None and reasoning_effort != "none"
     )
-    if (
-        _reasoning_active
-        and (provider_name.lower() in _THINKING_NO_TOOL_CHOICE_PROVIDERS
-             or overrides.drop_tool_choice_with_thinking)
+    if _reasoning_active and (
+        provider_name.lower() in _THINKING_NO_TOOL_CHOICE_PROVIDERS
+        or overrides.drop_tool_choice_with_thinking
     ):
         _tool_choice = None
 

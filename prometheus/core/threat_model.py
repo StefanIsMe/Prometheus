@@ -167,7 +167,7 @@ def _default_web_api_model() -> ThreatModel:
         ],
         cwe_ranked=[
             "CWE-639",  # authz bypass via direct object reference
-            "CWE-89",   # SQLi
+            "CWE-89",  # SQLi
             "CWE-918",  # SSRF
         ],
         hypotheses=[
@@ -209,8 +209,13 @@ def _default_native_model() -> ThreatModel:
         owasp_ranked=[],
         masvs_ranked=[],
         cwe_ranked=[
-            "CWE-119", "CWE-120", "CWE-125", "CWE-787",
-            "CWE-416", "CWE-476", "CWE-190",
+            "CWE-119",
+            "CWE-120",
+            "CWE-125",
+            "CWE-787",
+            "CWE-416",
+            "CWE-476",
+            "CWE-190",
         ],
         hypotheses=[
             "Stack/heap buffer overflow via attacker-controlled input length",

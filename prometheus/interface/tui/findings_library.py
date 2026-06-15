@@ -167,6 +167,7 @@ class SubmissionStatusDialog(ModalScreen[dict[str, Any] | None]):  # type: ignor
                 # Refresh the library panel if visible
                 try:
                     from prometheus.interface.tui.findings_library import FindingsLibraryPanel
+
                     panel = self.app.query_one("#findings_library", FindingsLibraryPanel)
                     panel.refresh_findings()
                 except Exception:
@@ -235,6 +236,7 @@ class AddNoteDialog(ModalScreen[dict[str, Any] | None]):  # type: ignore[misc]
 
                 # Save to DB
                 from prometheus.tools.knowledge.store import KnowledgeStore
+
                 store = KnowledgeStore()
                 result = store.add_comment(
                     finding_id=self.finding["id"],
@@ -366,9 +368,7 @@ class FindingDetailScreen(ModalScreen[None]):  # type: ignore[misc]
                 color = SEVERITY_COLORS.get(value.lower(), "#d4d4d4")
                 text.append(value, style=f"bold {color}")
             elif label == "Status":
-                color = STATUS_COLORS.get(
-                    f.get("status", "new").lower(), "#737373"
-                )
+                color = STATUS_COLORS.get(f.get("status", "new").lower(), "#737373")
                 text.append(value, style=f"bold {color}")
             else:
                 text.append(value, style="#d4d4d4")
@@ -379,6 +379,7 @@ class FindingDetailScreen(ModalScreen[None]):  # type: ignore[misc]
         if full_json_str:
             try:
                 import json as _json
+
                 full = _json.loads(full_json_str)
                 text.append("\n  ─── Full Finding Content ───\n", style="bold #3b82f6")
 
@@ -412,7 +413,10 @@ class FindingDetailScreen(ModalScreen[None]):  # type: ignore[misc]
                     text.append("\n  Code Locations:\n", style="bold #a8a29e")
                     for loc in locations:
                         if isinstance(loc, dict):
-                            text.append(f"    {loc.get('file', '?')}:{loc.get('line', '?')}\n", style="#d4d4d4")
+                            text.append(
+                                f"    {loc.get('file', '?')}:{loc.get('line', '?')}\n",
+                                style="#d4d4d4",
+                            )
                         else:
                             text.append(f"    {loc}\n", style="#d4d4d4")
 
@@ -479,6 +483,7 @@ class FindingDetailScreen(ModalScreen[None]):  # type: ignore[misc]
 
         try:
             from prometheus.tools.knowledge.store import KnowledgeStore
+
             store = KnowledgeStore()
             comments = store.get_comments(finding_id)
         except Exception:
@@ -522,6 +527,7 @@ class FindingDetailScreen(ModalScreen[None]):  # type: ignore[misc]
             # Format timestamp
             try:
                 from datetime import datetime
+
                 dt = datetime.fromisoformat(created.replace("Z", "+00:00"))
                 time_str = dt.strftime("%Y-%m-%d %H:%M")
             except (ValueError, AttributeError):
@@ -604,6 +610,7 @@ class FindingDetailScreen(ModalScreen[None]):  # type: ignore[misc]
         if full_json_str:
             try:
                 import json as _json
+
                 full = _json.loads(full_json_str)
                 rich_fields = [
                     ("Description", full.get("description")),
@@ -633,6 +640,7 @@ class FindingDetailScreen(ModalScreen[None]):  # type: ignore[misc]
 
         try:
             from prometheus.tools.knowledge.store import KnowledgeStore
+
             store = KnowledgeStore()
             draft = store.get_latest_h1_draft(finding_id)
 
@@ -662,13 +670,16 @@ class FindingDetailScreen(ModalScreen[None]):  # type: ignore[misc]
 
         try:
             from prometheus.tools.knowledge.store import KnowledgeStore
+
             store = KnowledgeStore()
             comments = store.get_comments(finding_id)
 
             # Find the latest validation comment
             validations = [c for c in comments if c.get("comment_type") == "validation"]
             if not validations:
-                self.app.notify("No validation found — generate an H1 report first", severity="warning")
+                self.app.notify(
+                    "No validation found — generate an H1 report first", severity="warning"
+                )
                 return
 
             latest_validation = validations[-1]
@@ -680,7 +691,9 @@ class FindingDetailScreen(ModalScreen[None]):  # type: ignore[misc]
                 missing_guidance = content.split("Missing:", 1)[1].strip()
 
             if not missing_guidance:
-                self.app.notify("Latest validation has no missing guidance to address", severity="information")
+                self.app.notify(
+                    "Latest validation has no missing guidance to address", severity="information"
+                )
                 return
 
             # Build regeneration prompt with feedback
@@ -705,6 +718,7 @@ class FindingDetailScreen(ModalScreen[None]):  # type: ignore[misc]
 
         try:
             from prometheus.tools.knowledge.store import KnowledgeStore
+
             store = KnowledgeStore()
             comments = store.get_comments(finding_id)
 
@@ -730,12 +744,19 @@ class FindingDetailScreen(ModalScreen[None]):  # type: ignore[misc]
             full_json_str = f.get("full_finding_json")
             if full_json_str:
                 try:
-                    full = _json.loads(full_json_str) if isinstance(full_json_str, str) else full_json_str
-                    for label, key in [("Description", "description"), ("Impact", "impact"),
-                                       ("Technical Analysis", "technical_analysis"),
-                                       ("PoC Description", "poc_description"),
-                                       ("PoC Code", "poc_script_code"),
-                                       ("Remediation", "remediation_steps")]:
+                    full = (
+                        _json.loads(full_json_str)
+                        if isinstance(full_json_str, str)
+                        else full_json_str
+                    )
+                    for label, key in [
+                        ("Description", "description"),
+                        ("Impact", "impact"),
+                        ("Technical Analysis", "technical_analysis"),
+                        ("PoC Description", "poc_description"),
+                        ("PoC Code", "poc_script_code"),
+                        ("Remediation", "remediation_steps"),
+                    ]:
                         val = full.get(key)
                         if val:
                             lines.extend([f"## {label}", "", val, ""])
@@ -819,9 +840,8 @@ class FindingsLibraryPanel(VerticalScroll):
                     allow_blank=False,
                 ),
                 Select(
-                    [("All Severities", "")] + [
-                        (s.upper(), s) for s in ["critical", "high", "medium", "low", "info"]
-                    ],
+                    [("All Severities", "")]
+                    + [(s.upper(), s) for s in ["critical", "high", "medium", "low", "info"]],
                     value="",
                     id="filter_severity",
                     allow_blank=False,
@@ -875,7 +895,9 @@ class FindingsLibraryPanel(VerticalScroll):
         if self._filter_status:
             findings = [f for f in findings if f.get("status") == self._filter_status]
         if self._filter_severity:
-            findings = [f for f in findings if (f.get("severity") or "").lower() == self._filter_severity]
+            findings = [
+                f for f in findings if (f.get("severity") or "").lower() == self._filter_severity
+            ]
 
         self._filtered_findings = findings
         self._selected_index = min(self._selected_index, max(0, len(findings) - 1))
@@ -939,7 +961,9 @@ class FindingsLibraryPanel(VerticalScroll):
         except (ValueError, IndexError):
             pass
 
-        self._selected_index = max(0, min(len(self._filtered_findings) - 1, self._selected_index + direction))
+        self._selected_index = max(
+            0, min(len(self._filtered_findings) - 1, self._selected_index + direction)
+        )
 
         # Add selected class to new
         try:
@@ -995,6 +1019,7 @@ class FindingsLibraryPanel(VerticalScroll):
 
         try:
             from prometheus.tools.knowledge.store import KnowledgeStore
+
             store = KnowledgeStore()
 
             # Determine domain for filename
@@ -1029,7 +1054,9 @@ class FindingsLibraryPanel(VerticalScroll):
                     lines.append(f"- **Endpoint:** {f.get('endpoint') or 'N/A'}")
                     lines.append(f"- **CVSS:** {f.get('cvss') or 'N/A'}")
                     lines.append(f"- **CWE:** {f.get('cwe') or 'N/A'}")
-                    lines.append(f"- **Status:** {STATUS_LABELS.get(f.get('status', 'new'), 'NEW')}")
+                    lines.append(
+                        f"- **Status:** {STATUS_LABELS.get(f.get('status', 'new'), 'NEW')}"
+                    )
                     lines.append("")
 
                     # Include latest H1 draft if available

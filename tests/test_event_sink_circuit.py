@@ -20,6 +20,7 @@ This file:
      and assert the new code path would have produced ≤ 1 line per
      agent (down from 57+ in the worst run).
 """
+
 from __future__ import annotations
 
 import logging
@@ -54,6 +55,7 @@ def _clear_sink_state() -> None:
 # 1. Unit: _check_event_sink_health / _mark_sink_dead
 # ---------------------------------------------------------------------------
 
+
 def test_check_event_sink_health_returns_true_for_unkilled_agent():
     """A never-failed sink is healthy."""
     assert _check_event_sink_health("agent-fresh") is True
@@ -79,6 +81,7 @@ def test_mark_sink_dead_isolated_per_agent():
 # ---------------------------------------------------------------------------
 # 2. Unit: the loop's behaviour — a sink that always raises is called once
 # ---------------------------------------------------------------------------
+
 
 def test_sink_failing_every_call_is_only_invoked_once(caplog):
     """A sink that raises on every call must be invoked exactly once
@@ -110,6 +113,7 @@ def test_sink_failing_every_call_is_only_invoked_once(caplog):
 # ---------------------------------------------------------------------------
 # 3. Unit: a sink that fails once then succeeds is invoked twice
 # ---------------------------------------------------------------------------
+
 
 def test_sink_recovers_after_single_failure(caplog):
     """A sink that fails on call #1 then succeeds must be invoked twice
@@ -144,6 +148,7 @@ def test_sink_recovers_after_single_failure(caplog):
 # 4. E2E log-replay: the worst log must produce ≤ 1 sink-failed line/agent
 # ---------------------------------------------------------------------------
 
+
 def _worst_sink_failure_log() -> Path:
     """Find the run with the most 'stream event sink failed' lines."""
     runs_root = SOURCE_ROOT / "prometheus_runs"
@@ -177,7 +182,7 @@ def test_log_replay_sink_circuit_would_have_capped_at_one_per_agent():
     for line in text.splitlines():
         idx = line.find(suffix_marker)
         if idx >= 0:
-            tail = line[idx + len(suffix_marker):].strip()
+            tail = line[idx + len(suffix_marker) :].strip()
             # Tail is `agent_id` followed by the traceback header
             agent_id = tail.split(" ", 1)[0]
             affected.add(agent_id)

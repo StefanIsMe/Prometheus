@@ -30,10 +30,13 @@ from prometheus.runtime.caido_bootstrap import _login_as_guest  # noqa: E402
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 class _FakeResult:
     """Mimics an ``ExecResult``-shaped object used by the sandbox session."""
 
-    def __init__(self, *, ok: bool, stdout: bytes = b"", stderr: bytes = b"", exit_code: int = 0) -> None:
+    def __init__(
+        self, *, ok: bool, stdout: bytes = b"", stderr: bytes = b"", exit_code: int = 0
+    ) -> None:
         self._ok = ok
         self.stdout = stdout
         self.stderr = stderr
@@ -46,9 +49,11 @@ class _FakeResult:
 def _ok_token(token: str = "tok-abc") -> _FakeResult:
     return _FakeResult(
         ok=True,
-        stdout=json.dumps({
-            "data": {"loginAsGuest": {"token": {"accessToken": token}}},
-        }).encode(),
+        stdout=json.dumps(
+            {
+                "data": {"loginAsGuest": {"token": {"accessToken": token}}},
+            }
+        ).encode(),
     )
 
 
@@ -60,6 +65,7 @@ def _fail(exit_code: int = 7, msg: str = "connection refused") -> _FakeResult:
 # 1. Unit: happy path — token on first attempt
 # ---------------------------------------------------------------------------
 
+
 def test_login_as_guest_returns_token_on_first_attempt():
     """When the Caido listener is up on the first probe, _login_as_guest
     must return the token without retries (and without the per-attempt
@@ -70,9 +76,7 @@ def test_login_as_guest_returns_token_on_first_attempt():
     # initial_delay=0 to keep the test fast; the new behaviour is opt-in
     # via the initial_delay default of 0.5
     with patch.object(caido_bootstrap.asyncio, "sleep", new=AsyncMockNoop()):
-        token = asyncio.run(
-            _login_as_guest(session, container_url="http://x", initial_delay=0)
-        )
+        token = asyncio.run(_login_as_guest(session, container_url="http://x", initial_delay=0))
     assert token == "tok-1"
     assert session.exec.call_count == 1
 
@@ -80,6 +84,7 @@ def test_login_as_guest_returns_token_on_first_attempt():
 # ---------------------------------------------------------------------------
 # 2. Unit: failure path — every attempt fails
 # ---------------------------------------------------------------------------
+
 
 def test_login_as_guest_raises_after_exhausting_attempts():
     """When every attempt fails, _login_as_guest must raise RuntimeError
@@ -105,6 +110,7 @@ def test_login_as_guest_raises_after_exhausting_attempts():
 # 3. Unit: connect-wait — initial_delay is awaited before the first probe
 # ---------------------------------------------------------------------------
 
+
 def test_login_as_guest_sleeps_initial_delay_before_first_attempt():
     """The new ``initial_delay=0.5`` parameter must be awaited before the
     first ``session.exec`` call. This is the Phase 1B fix that eliminates
@@ -118,11 +124,7 @@ def test_login_as_guest_sleeps_initial_delay_before_first_attempt():
         sleep_calls.append(s)
 
     with patch.object(caido_bootstrap.asyncio, "sleep", new=fake_sleep):
-        token = asyncio.run(
-            _login_as_guest(
-                session, container_url="http://x", initial_delay=0.5
-            )
-        )
+        token = asyncio.run(_login_as_guest(session, container_url="http://x", initial_delay=0.5))
     assert token == "tok-2"
     # First sleep is the initial_delay (0.5), then the per-attempt floor (1.0)
     # at the end of the loop. (The first attempt succeeded, so the floor
@@ -139,14 +141,13 @@ def test_login_as_guest_sleeps_initial_delay_before_first_attempt():
 # 4. Unit: per-attempt sleep floor is at least 1.0 s
 # ---------------------------------------------------------------------------
 
+
 def test_login_as_guest_per_attempt_sleep_floor_is_one_second():
     """After a failed attempt, the backoff must be at least 1.0 s even
     on the first failure (previously the floor was 0)."""
     session = SimpleNamespace()
     # First two attempts fail, third succeeds
-    session.exec = AsyncMockSequence(
-        _fail(), _fail(), _ok_token("tok-3")
-    )
+    session.exec = AsyncMockSequence(_fail(), _fail(), _ok_token("tok-3"))
 
     sleep_calls: list[float] = []
 
@@ -156,7 +157,9 @@ def test_login_as_guest_per_attempt_sleep_floor_is_one_second():
     with patch.object(caido_bootstrap.asyncio, "sleep", new=fake_sleep):
         token = asyncio.run(
             _login_as_guest(
-                session, container_url="http://x", initial_delay=0,
+                session,
+                container_url="http://x",
+                initial_delay=0,
             )
         )
     assert token == "tok-3"
@@ -170,6 +173,7 @@ def test_login_as_guest_per_attempt_sleep_floor_is_one_second():
 # ---------------------------------------------------------------------------
 # Test helpers
 # ---------------------------------------------------------------------------
+
 
 class AsyncMockOK:
     """An async-callable that returns a single pre-set result for every call."""

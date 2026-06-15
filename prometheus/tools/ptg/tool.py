@@ -33,6 +33,7 @@ logger = logging.getLogger(__name__)
 # Phase definition
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class Phase:
     """A single penetration-testing phase."""
@@ -42,7 +43,7 @@ class Phase:
     dependencies: list[str]
     required_tools: set[str]
     completion_criteria: str
-    status: str = "pending"          # pending | in_progress | completed | skipped
+    status: str = "pending"  # pending | in_progress | completed | skipped
     started_at: float | None = None
     completed_at: float | None = None
     notes: list[str] = field(default_factory=list[str])
@@ -52,6 +53,7 @@ class Phase:
 # ---------------------------------------------------------------------------
 # Default phase definitions
 # ---------------------------------------------------------------------------
+
 
 def _default_phases() -> dict[str, Phase]:
     """Return the canonical six-phase pentesting decomposition."""
@@ -154,26 +156,67 @@ def _default_phases() -> dict[str, Phase]:
 # ---------------------------------------------------------------------------
 
 _RECON_PATTERNS = [
-    "subfinder", "amass", "nmap", "masscan", "dnsx", "httpx", "dig ",
-    "whois", "shodan", "censys", "recon-ng", "theharvester", "recon",
-    "sublist3r", "knockpy", "assetfinder",
+    "subfinder",
+    "amass",
+    "nmap",
+    "masscan",
+    "dnsx",
+    "httpx",
+    "dig ",
+    "whois",
+    "shodan",
+    "censys",
+    "recon-ng",
+    "theharvester",
+    "recon",
+    "sublist3r",
+    "knockpy",
+    "assetfinder",
 ]
 
 _FINGERPRINT_PATTERNS = [
-    "whatweb", "wappalyzer", "httpx", "wafw00f", "fingerprint",
-    "nmap -sV", "nmap --version", "nikto",
+    "whatweb",
+    "wappalyzer",
+    "httpx",
+    "wafw00f",
+    "fingerprint",
+    "nmap -sV",
+    "nmap --version",
+    "nikto",
 ]
 
 _VULN_SCAN_PATTERNS = [
-    "nuclei", "sqlmap", "nikto", "wapiti", "burp", "arachni",
-    "openvas", "nessus", "OWASP", "ffuf", "gobuster", "dirsearch",
-    "feroxbuster", "katana",
+    "nuclei",
+    "sqlmap",
+    "nikto",
+    "wapiti",
+    "burp",
+    "arachni",
+    "openvas",
+    "nessus",
+    "OWASP",
+    "ffuf",
+    "gobuster",
+    "dirsearch",
+    "feroxbuster",
+    "katana",
 ]
 
 _EXPLOIT_PATTERNS = [
-    "exploit", "poc", "proof-of-concept", "payload", "reverse_shell",
-    "msfconsole", "metasploit", "msfvenom", "hydra", "medusa",
-    "john", "hashcat", "crack", "brute",
+    "exploit",
+    "poc",
+    "proof-of-concept",
+    "payload",
+    "reverse_shell",
+    "msfconsole",
+    "metasploit",
+    "msfvenom",
+    "hydra",
+    "medusa",
+    "john",
+    "hashcat",
+    "crack",
+    "brute",
 ]
 
 
@@ -186,6 +229,7 @@ def _matches_any(text: str, patterns: list[str]) -> bool:
 # PentestingTaskGraph
 # ---------------------------------------------------------------------------
 
+
 class PentestingTaskGraph:
     """Stateful tracker that enforces structured phase decomposition.
 
@@ -197,8 +241,12 @@ class PentestingTaskGraph:
     def __init__(self) -> None:
         self.phases = _default_phases()
         self._phase_order = [
-            "RECON", "FINGERPRINT", "THREAT_INTEL",
-            "VULNERABILITY_SCAN", "EXPLOITATION", "REPORTING",
+            "RECON",
+            "FINGERPRINT",
+            "THREAT_INTEL",
+            "VULNERABILITY_SCAN",
+            "EXPLOITATION",
+            "REPORTING",
         ]
         # Start the first phase immediately
         self._start_phase("RECON")
@@ -220,20 +268,54 @@ class PentestingTaskGraph:
     _PHASE_SKILL_MAP: dict[str, set[str]] = {
         "THREAT_INTEL": {"threat_intelligence", "threat_feeds"},
         "VULNERABILITY_SCAN": {
-            "nuclei", "nikto", "sqlmap", "zaproxy", "arjun",
-            "ffuf", "dirsearch", "katana", "semgrep",
+            "nuclei",
+            "nikto",
+            "sqlmap",
+            "zaproxy",
+            "arjun",
+            "ffuf",
+            "dirsearch",
+            "katana",
+            "semgrep",
         },
         "EXPLOITATION": {
-            "sql_injection", "xss", "csrf", "ssrf", "cors_misconfiguration",
-            "nosql_injection", "rce", "ssti", "xxe", "command_injection",
-            "path_traversal_lfi_rfi", "idor", "open_redirect", "insecure_file_uploads",
-            "subdomain_takeover", "race_conditions", "ldap_injection", "header_injection",
-            "prototype_pollution", "authentication_jwt", "oauth_vulnerabilities",
-            "graphql_attacks", "clickjacking", "cloud_credential_exploitation",
-            "cloudflare_credentials", "business_logic", "broken_function_level_authorization",
-            "rest_api_security", "mobile_api", "cryptographic_failures", "dns_network",
-            "integrity_failures", "supply_chain", "ai_llm_attacks",
-            "logging_monitoring_failures", "security_misconfiguration", "threat_modeling",
+            "sql_injection",
+            "xss",
+            "csrf",
+            "ssrf",
+            "cors_misconfiguration",
+            "nosql_injection",
+            "rce",
+            "ssti",
+            "xxe",
+            "command_injection",
+            "path_traversal_lfi_rfi",
+            "idor",
+            "open_redirect",
+            "insecure_file_uploads",
+            "subdomain_takeover",
+            "race_conditions",
+            "ldap_injection",
+            "header_injection",
+            "prototype_pollution",
+            "authentication_jwt",
+            "oauth_vulnerabilities",
+            "graphql_attacks",
+            "clickjacking",
+            "cloud_credential_exploitation",
+            "cloudflare_credentials",
+            "business_logic",
+            "broken_function_level_authorization",
+            "rest_api_security",
+            "mobile_api",
+            "cryptographic_failures",
+            "dns_network",
+            "integrity_failures",
+            "supply_chain",
+            "ai_llm_attacks",
+            "logging_monitoring_failures",
+            "security_misconfiguration",
+            "threat_modeling",
         },
     }
 
@@ -287,9 +369,7 @@ class PentestingTaskGraph:
             # completed/skipped: continue to next phase
 
         if completed_any:
-            logger.info(
-                "PTG phases auto-advanced from skill delegation: %s", skills
-            )
+            logger.info("PTG phases auto-advanced from skill delegation: %s", skills)
 
     def mark_recon_from_prior_knowledge(self, knowledge_count: int) -> None:
         """Auto-complete RECON when prior knowledge from previous scans exists.
@@ -344,16 +424,12 @@ class PentestingTaskGraph:
 
     def can_finish(self) -> bool:
         """True if all phases are completed or skipped."""
-        return all(
-            self.phases[n].status in ("completed", "skipped")
-            for n in self._phase_order
-        )
+        return all(self.phases[n].status in ("completed", "skipped") for n in self._phase_order)
 
     def get_progress(self) -> dict[str, Any]:
         """Return a full progress snapshot."""
         completed = sum(
-            1 for n in self._phase_order
-            if self.phases[n].status in ("completed", "skipped")
+            1 for n in self._phase_order if self.phases[n].status in ("completed", "skipped")
         )
         total = len(self._phase_order)
         pct = round(completed / total * 100) if total else 0
@@ -400,19 +476,14 @@ class PentestingTaskGraph:
                         f"tool calls: {', '.join(sorted(missing_tools))}. "
                         f"Criteria: {phase.completion_criteria}"
                     )
-                return (
-                    f"Phase '{name}' is in progress. "
-                    f"Criteria: {phase.completion_criteria}"
-                )
+                return f"Phase '{name}' is in progress. Criteria: {phase.completion_criteria}"
             else:
                 unmet = [
-                    d for d in phase.dependencies
+                    d
+                    for d in phase.dependencies
                     if self.phases[d].status not in ("completed", "skipped")
                 ]
-                return (
-                    f"Phase '{name}' is blocked — waiting for: "
-                    f"{', '.join(unmet)}"
-                )
+                return f"Phase '{name}' is blocked — waiting for: {', '.join(unmet)}"
         return None
 
     def to_prompt_context(self) -> str:
@@ -438,7 +509,9 @@ class PentestingTaskGraph:
                 lines.append(f"       {p.description}")
                 missing = p.required_tools - p.tools_called
                 if missing:
-                    lines.append(f"       Required tools not yet called: {', '.join(sorted(missing))}")
+                    lines.append(
+                        f"       Required tools not yet called: {', '.join(sorted(missing))}"
+                    )
                 lines.append(f"       Criteria: {p.completion_criteria}")
             if p.notes:
                 for note in p.notes[-3:]:  # last 3 notes
@@ -513,10 +586,7 @@ class PentestingTaskGraph:
     def _deps_met(self, name: str) -> bool:
         """Check if all dependencies of a phase are completed/skipped."""
         phase = self.phases[name]
-        return all(
-            self.phases[d].status in ("completed", "skipped")
-            for d in phase.dependencies
-        )
+        return all(self.phases[d].status in ("completed", "skipped") for d in phase.dependencies)
 
     def _auto_start_next(self) -> None:
         """Start the next phase whose deps are now met."""
@@ -555,6 +625,7 @@ def reset_ptg() -> None:
 # function_tool — agent-callable progress query
 # ---------------------------------------------------------------------------
 
+
 @function_tool
 async def get_scan_progress(ctx: RunContextWrapper) -> str:
     """Get the current penetration testing progress across all phases.
@@ -565,9 +636,11 @@ async def get_scan_progress(ctx: RunContextWrapper) -> str:
     """
     ptg = get_active_ptg()
     if ptg is None:
-        return json.dumps({
-            "error": "No active Penetration Task Graph. The PTG is initialized at scan start.",
-        })
+        return json.dumps(
+            {
+                "error": "No active Penetration Task Graph. The PTG is initialized at scan start.",
+            }
+        )
 
     progress = ptg.get_progress()
     return json.dumps(progress, indent=2, default=str)

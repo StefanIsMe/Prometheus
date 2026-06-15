@@ -133,7 +133,8 @@ class CandidateStore:
             # SELECT check and INSERT.  Fall back to a pure UPDATE.
             logger.debug(
                 "IntegrityError during upsert — retrying as update for %s/%s",
-                candidate.domain, candidate.fingerprint,
+                candidate.domain,
+                candidate.fingerprint,
             )
             with self._lock:
                 existing = self._conn.execute(
@@ -195,11 +196,19 @@ class CandidateStore:
             candidate = result.get("candidate") or {}
             if candidate.get("lifecycle_status") == "rejected":
                 rejected += 1
-        return {"success": True, "created": created, "updated": updated, "rejected": rejected, "ids": ids}
+        return {
+            "success": True,
+            "created": created,
+            "updated": updated,
+            "rejected": rejected,
+            "ids": ids,
+        }
 
     def get_candidate(self, finding_id: str) -> dict[str, Any] | None:
         with self._lock:
-            row = self._conn.execute("SELECT * FROM finding_candidates WHERE id = ?", (finding_id,)).fetchone()
+            row = self._conn.execute(
+                "SELECT * FROM finding_candidates WHERE id = ?", (finding_id,)
+            ).fetchone()
         return _row_to_dict(row) if row else None
 
     def get_by_domain_fingerprint(self, domain: str, fingerprint: str) -> dict[str, Any] | None:
@@ -222,7 +231,9 @@ class CandidateStore:
             return self.get_candidate(f"report-{report_id}")
         return None
 
-    def list_candidates(self, *, status: str | None = None, domain: str | None = None, limit: int = 200) -> list[dict[str, Any]]:
+    def list_candidates(
+        self, *, status: str | None = None, domain: str | None = None, limit: int = 200
+    ) -> list[dict[str, Any]]:
         clauses: list[str] = []
         params: list[Any] = []
         if status:
@@ -304,7 +315,16 @@ class CandidateStore:
                     (id, finding_id, validator, status, confidence, output_json, started_at, finished_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                (run_id, finding_id, validator, status, confidence, _json_dumps(output), started_at or now, finished_at or now),
+                (
+                    run_id,
+                    finding_id,
+                    validator,
+                    status,
+                    confidence,
+                    _json_dumps(output),
+                    started_at or now,
+                    finished_at or now,
+                ),
             )
             self._conn.commit()
         return {"success": True, "id": run_id}
@@ -340,7 +360,9 @@ class CandidateStore:
         from_status = str(candidate.get("lifecycle_status") or "new")
         assert_legal_transition(from_status, to_status)
         if to_status == "ready_to_submit" and not self.can_mark_ready_to_submit(finding_id):
-            raise ValueError("ready_to_submit requires stored evidence and a successful validation run")
+            raise ValueError(
+                "ready_to_submit requires stored evidence and a successful validation run"
+            )
         now = datetime.now(UTC).isoformat()
         with self._lock:
             self._conn.execute(
@@ -357,7 +379,12 @@ class CandidateStore:
                 payload={"reason": reason, **(payload or {})},
             )
             self._conn.commit()
-        return {"success": True, "id": finding_id, "from_status": from_status, "to_status": to_status}
+        return {
+            "success": True,
+            "id": finding_id,
+            "from_status": from_status,
+            "to_status": to_status,
+        }
 
     def add_submission_artifact(
         self,
@@ -421,14 +448,21 @@ class CandidateStore:
                 "UPDATE finding_candidates SET lifecycle_status = ?, updated_at = ? WHERE id = ?",
                 (status, now, finding_id),
             )
-            self._update_report_projection_locked(candidate, status, now, platform=platform, report_url=report_url)
+            self._update_report_projection_locked(
+                candidate, status, now, platform=platform, report_url=report_url
+            )
             self._log_event_locked(
                 finding_id=finding_id,
                 event_type="submission_outcome",
                 from_status=str(candidate.get("lifecycle_status") or ""),
                 to_status=status,
                 actor=actor,
-                payload={"outcome": outcome, "comments": comments, "platform": platform, "report_url": report_url},
+                payload={
+                    "outcome": outcome,
+                    "comments": comments,
+                    "platform": platform,
+                    "report_url": report_url,
+                },
             )
             self._update_feedback_rule_locked(candidate, outcome, comments, now)
             self._conn.commit()
@@ -521,7 +555,8 @@ class CandidateStore:
         return None
 
     def _update_feedback_rule_locked(
-        self, candidate: dict[str, Any], outcome: str, comments: str, now: str) -> None:
+        self, candidate: dict[str, Any], outcome: str, comments: str, now: str
+    ) -> None:
         vuln_type = str(candidate.get("vuln_type") or "unknown")
         # Don't cap endpoint for the rule_key; SQLite TEXT is unlimited
         # and a 200-char cap here was dropping the path/query that makes

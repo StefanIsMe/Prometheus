@@ -31,7 +31,9 @@ def generate_submission_artifacts(
 
     root = Path(artifact_root) if artifact_root else _DEFAULT_ARTIFACT_ROOT
     version = store.next_artifact_version(finding_id, platform, "report_markdown")
-    out_dir = root / _safe_name(str(candidate.get("domain") or "unknown")) / finding_id / f"v{version}"
+    out_dir = (
+        root / _safe_name(str(candidate.get("domain") or "unknown")) / finding_id / f"v{version}"
+    )
     out_dir.mkdir(parents=True, exist_ok=True)
 
     bundle = {
@@ -42,11 +44,15 @@ def generate_submission_artifacts(
 
     files: dict[str, Path] = {}
     files["report_markdown"] = out_dir / "report.md"
-    files["report_markdown"].write_text(_render_report_markdown(candidate, evidence), encoding="utf-8")
+    files["report_markdown"].write_text(
+        _render_report_markdown(candidate, evidence), encoding="utf-8"
+    )
 
     if platform == "bugcrowd":
         files["bugcrowd_json"] = out_dir / "bugcrowd.json"
-        files["bugcrowd_json"].write_text(json.dumps(_render_bugcrowd_json(candidate, evidence), indent=2), encoding="utf-8")
+        files["bugcrowd_json"].write_text(
+            json.dumps(_render_bugcrowd_json(candidate, evidence), indent=2), encoding="utf-8"
+        )
     else:
         files["h1_markdown"] = out_dir / "hackerone.md"
         files["h1_markdown"].write_text(_render_h1_markdown(candidate, evidence), encoding="utf-8")
@@ -55,7 +61,9 @@ def generate_submission_artifacts(
     files["poc_script"].write_text(_render_poc_script(candidate, evidence), encoding="utf-8")
 
     files["evidence_bundle"] = out_dir / "evidence_bundle.json"
-    files["evidence_bundle"].write_text(json.dumps(bundle, indent=2, ensure_ascii=False, default=str), encoding="utf-8")
+    files["evidence_bundle"].write_text(
+        json.dumps(bundle, indent=2, ensure_ascii=False, default=str), encoding="utf-8"
+    )
 
     artifacts: list[dict[str, Any]] = []
     for artifact_type, path in files.items():
@@ -67,9 +75,23 @@ def generate_submission_artifacts(
             path=str(path),
             sha256=digest,
         )
-        artifacts.append({"artifact_type": artifact_type, "path": str(path), "sha256": digest, "version": result["version"]})
+        artifacts.append(
+            {
+                "artifact_type": artifact_type,
+                "path": str(path),
+                "sha256": digest,
+                "version": result["version"],
+            }
+        )
 
-    return {"success": True, "finding_id": finding_id, "platform": platform, "version": version, "directory": str(out_dir), "artifacts": artifacts}
+    return {
+        "success": True,
+        "finding_id": finding_id,
+        "platform": platform,
+        "version": version,
+        "directory": str(out_dir),
+        "artifacts": artifacts,
+    }
 
 
 def _render_report_markdown(candidate: dict[str, Any], evidence: list[dict[str, Any]]) -> str:
@@ -85,11 +107,13 @@ def _render_report_markdown(candidate: dict[str, Any], evidence: list[dict[str, 
         "## Evidence",
     ]
     for item in evidence:
-        lines.extend([
-            "",
-            f"### {item.get('evidence_kind')} {item.get('id')}",
-            str(item.get("summary") or ""),
-        ])
+        lines.extend(
+            [
+                "",
+                f"### {item.get('evidence_kind')} {item.get('id')}",
+                str(item.get("summary") or ""),
+            ]
+        )
         if item.get("path"):
             lines.append(f"Path: {item['path']}")
         if item.get("inline_json"):
@@ -98,24 +122,28 @@ def _render_report_markdown(candidate: dict[str, Any], evidence: list[dict[str, 
 
 
 def _render_h1_markdown(candidate: dict[str, Any], evidence: list[dict[str, Any]]) -> str:
-    return "\n".join([
-        f"# {candidate.get('title')}",
-        "",
-        "## Summary",
-        f"{candidate.get('vuln_type')} on {candidate.get('endpoint') or candidate.get('domain')}",
-        "",
-        "## Impact",
-        _impact_from_evidence(evidence),
-        "",
-        "## Steps to Reproduce",
-        _steps_from_evidence(evidence),
-        "",
-        "## Evidence",
-        _render_report_markdown(candidate, evidence),
-    ])
+    return "\n".join(
+        [
+            f"# {candidate.get('title')}",
+            "",
+            "## Summary",
+            f"{candidate.get('vuln_type')} on {candidate.get('endpoint') or candidate.get('domain')}",
+            "",
+            "## Impact",
+            _impact_from_evidence(evidence),
+            "",
+            "## Steps to Reproduce",
+            _steps_from_evidence(evidence),
+            "",
+            "## Evidence",
+            _render_report_markdown(candidate, evidence),
+        ]
+    )
 
 
-def _render_bugcrowd_json(candidate: dict[str, Any], evidence: list[dict[str, Any]]) -> dict[str, Any]:
+def _render_bugcrowd_json(
+    candidate: dict[str, Any], evidence: list[dict[str, Any]]
+) -> dict[str, Any]:
     return {
         "title": candidate.get("title"),
         "target": candidate.get("domain"),
@@ -129,7 +157,9 @@ def _render_bugcrowd_json(candidate: dict[str, Any], evidence: list[dict[str, An
 def _render_poc_script(candidate: dict[str, Any], evidence: list[dict[str, Any]]) -> str:
     commands: list[str] = []
     for item in evidence:
-        text = " ".join(str(item.get(key) or "") for key in ("summary", "inline_json", "metadata_json"))
+        text = " ".join(
+            str(item.get(key) or "") for key in ("summary", "inline_json", "metadata_json")
+        )
         commands.extend(re.findall(r"curl\s+[^\n]+", text))
     if not commands:
         endpoint = candidate.get("endpoint") or candidate.get("domain") or ""
@@ -145,7 +175,9 @@ def _impact_from_evidence(evidence: list[dict[str, Any]]) -> str:
 def _steps_from_evidence(evidence: list[dict[str, Any]]) -> str:
     lines = []
     for idx, item in enumerate(evidence, 1):
-        lines.append(f"{idx}. Review {item.get('evidence_kind')} evidence: {item.get('summary') or item.get('id')}")
+        lines.append(
+            f"{idx}. Review {item.get('evidence_kind')} evidence: {item.get('summary') or item.get('id')}"
+        )
     return "\n".join(lines)
 
 

@@ -47,11 +47,14 @@ _TOR_PROXY = "socks5://host.docker.internal:9050"
 
 # Docker connectivity errors that indicate a daemon restart might help.
 _DOCKER_RECOVERABLE_ERRORS: tuple[type[Exception], ...] = (
-    TimeoutError, ConnectionError, OSError,
+    TimeoutError,
+    ConnectionError,
+    OSError,
 )
 try:
     import requests.exceptions
     from urllib3.exceptions import TimeoutError as Urllib3Timeout
+
     _DOCKER_RECOVERABLE_ERRORS = (
         requests.exceptions.ConnectionError,
         requests.exceptions.Timeout,
@@ -173,13 +176,20 @@ class prometheusDockerSandboxClient(DockerSandboxClient):
         """Create a sandbox container with automatic Docker recovery."""
         try:
             return await _create_container_impl(
-                self, image, manifest=manifest,
-                exposed_ports=exposed_ports, session_id=session_id,
+                self,
+                image,
+                manifest=manifest,
+                exposed_ports=exposed_ports,
+                session_id=session_id,
             )
         except Exception as exc:
             return await _recover_and_retry(
-                exc, self, image, manifest=manifest,
-                exposed_ports=exposed_ports, session_id=session_id,
+                exc,
+                self,
+                image,
+                manifest=manifest,
+                exposed_ports=exposed_ports,
+                session_id=session_id,
             )
 
 
@@ -262,10 +272,12 @@ async def _create_container_impl(
 
     # --- Inject extra bind mounts from session_manager (browser-harness, etc.) ---
     from prometheus.runtime.session_manager import _pending_extra_bind_mounts
+
     if _pending_extra_bind_mounts:
         existing_mounts = create_kwargs.get("mounts", [])
         for bm in _pending_extra_bind_mounts:
             from docker.types import Mount as DockerMount
+
             existing_mounts.append(
                 DockerMount(
                     target=bm["container"],
@@ -337,8 +349,11 @@ async def _recover_and_retry(
     logger.info("Retrying container creation after Docker restart...")
     try:
         return await _create_container_impl(
-            client, image, manifest=manifest,
-            exposed_ports=exposed_ports, session_id=session_id,
+            client,
+            image,
+            manifest=manifest,
+            exposed_ports=exposed_ports,
+            session_id=session_id,
         )
     except Exception as retry_exc:
         retry_type = type(retry_exc).__name__

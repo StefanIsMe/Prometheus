@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Daily threat intelligence summary — reads from /tmp/prometheus-threat-intel/ and outputs a digest."""
+
 import json
 import os
 import glob
@@ -25,9 +26,11 @@ try:
     lines.append(f"📋 CISA KEV: {len(vulns)} total, {len(recent)} added this week")
     if recent:
         for v in recent[:10]:
-            lines.append(f"  • {v['cveID']} — {v.get('vendorProject','')} {v.get('product','')} ({v.get('dateAdded','')})")
+            lines.append(
+                f"  • {v['cveID']} — {v.get('vendorProject', '')} {v.get('product', '')} ({v.get('dateAdded', '')})"
+            )
         if len(recent) > 10:
-            lines.append(f"  ... and {len(recent)-10} more")
+            lines.append(f"  ... and {len(recent) - 10} more")
     lines.append("")
 except Exception as e:
     lines.append(f"📋 CISA KEV: error — {e}")
@@ -51,10 +54,15 @@ try:
     lines.append(f"🐙 GitHub Advisories: {len(ghsa_all)} new high/critical in last 24h")
     if ghsa_all:
         for a in sorted(ghsa_all, key=lambda x: x.get("published_at", ""), reverse=True)[:10]:
-            cve = next((i.get("value","") for i in a.get("identifiers",[]) if i.get("type")=="CVE"), a.get("ghsa_id",""))
-            lines.append(f"  • [{a.get('severity','').upper()}] {cve} — {a.get('summary','')[:80]}")
+            cve = next(
+                (i.get("value", "") for i in a.get("identifiers", []) if i.get("type") == "CVE"),
+                a.get("ghsa_id", ""),
+            )
+            lines.append(
+                f"  • [{a.get('severity', '').upper()}] {cve} — {a.get('summary', '')[:80]}"
+            )
         if len(ghsa_all) > 10:
-            lines.append(f"  ... and {len(ghsa_all)-10} more")
+            lines.append(f"  ... and {len(ghsa_all) - 10} more")
     lines.append("")
 except Exception as e:
     lines.append(f"🐙 GHSA: error — {e}")
@@ -73,9 +81,11 @@ try:
             if published and published >= cutoff_24h:
                 nvd_vulns.append(cve)
 
-    lines.append(f"🗃️ NVD: {nvd_total} high/critical CVEs in last 48h, {len(nvd_vulns)} published today")
+    lines.append(
+        f"🗃️ NVD: {nvd_total} high/critical CVEs in last 48h, {len(nvd_vulns)} published today"
+    )
     if nvd_vulns:
-        for cve in sorted(nvd_vulns, key=lambda c: c.get("published",""), reverse=True)[:10]:
+        for cve in sorted(nvd_vulns, key=lambda c: c.get("published", ""), reverse=True)[:10]:
             cve_id = cve.get("id", "")
             desc = ""
             for d in cve.get("descriptions", []):
@@ -92,7 +102,7 @@ try:
                     break
             lines.append(f"  • [{score}] {cve_id} — {desc}")
         if len(nvd_vulns) > 10:
-            lines.append(f"  ... and {len(nvd_vulns)-10} more")
+            lines.append(f"  ... and {len(nvd_vulns) - 10} more")
     lines.append("")
 except Exception as e:
     lines.append(f"🗃️ NVD: error — {e}")
@@ -101,7 +111,9 @@ except Exception as e:
 # --- Local cached summary ---
 try:
     summary = json.load(open(os.path.join(FEED_DIR, "threat-summary.json")))
-    lines.append(f"📊 Total across all feeds: {sum(v.get('total',0) if isinstance(v,dict) else 0 for v in summary['sources'].values())} entries")
+    lines.append(
+        f"📊 Total across all feeds: {sum(v.get('total', 0) if isinstance(v, dict) else 0 for v in summary['sources'].values())} entries"
+    )
 except:
     pass
 

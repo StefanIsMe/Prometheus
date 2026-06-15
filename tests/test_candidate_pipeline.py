@@ -96,7 +96,11 @@ def test_ready_to_submit_requires_evidence_and_successful_validation(tmp_path) -
     KnowledgeStore(db)
     store = CandidateStore(db)
     result = store.ingest_raw_finding(
-        {"title": "IDOR exposes another user record", "endpoint": "/api/records/1", "vuln_type": "idor"},
+        {
+            "title": "IDOR exposes another user record",
+            "endpoint": "/api/records/1",
+            "vuln_type": "idor",
+        },
         domain="example.com",
         scan_id="scan-1",
     )
@@ -107,8 +111,14 @@ def test_ready_to_submit_requires_evidence_and_successful_validation(tmp_path) -
         store.transition_status(candidate_id, "verified")
         store.transition_status(candidate_id, "ready_to_submit")
 
-    store.add_evidence(finding_id=candidate_id, evidence_kind="control", summary="positive control unauthorized read")
-    store.record_validation_run(finding_id=candidate_id, validator="manual_review", status="success", output={"ok": True})
+    store.add_evidence(
+        finding_id=candidate_id,
+        evidence_kind="control",
+        summary="positive control unauthorized read",
+    )
+    store.record_validation_run(
+        finding_id=candidate_id, validator="manual_review", status="success", output={"ok": True}
+    )
     store.transition_status(candidate_id, "ready_to_submit")
 
     assert store.get_candidate(candidate_id)["lifecycle_status"] == "ready_to_submit"
@@ -134,16 +144,32 @@ def test_report_artifacts_are_versioned_from_stored_evidence(tmp_path) -> None:
     KnowledgeStore(db)
     store = CandidateStore(db)
     result = store.ingest_raw_finding(
-        {"title": "Auth bypass exposes admin panel", "endpoint": "https://example.com/admin", "vuln_type": "auth_bypass", "severity": "high"},
+        {
+            "title": "Auth bypass exposes admin panel",
+            "endpoint": "https://example.com/admin",
+            "vuln_type": "auth_bypass",
+            "severity": "high",
+        },
         domain="example.com",
         scan_id="scan-1",
     )
     candidate_id = result["id"]
-    store.add_evidence(finding_id=candidate_id, evidence_kind="request", summary="GET /admin without auth")
-    store.add_evidence(finding_id=candidate_id, evidence_kind="response", summary="HTTP 200 admin data returned")
-    store.record_validation_run(finding_id=candidate_id, validator="manual_review", status="success", output={"verified": True})
+    store.add_evidence(
+        finding_id=candidate_id, evidence_kind="request", summary="GET /admin without auth"
+    )
+    store.add_evidence(
+        finding_id=candidate_id, evidence_kind="response", summary="HTTP 200 admin data returned"
+    )
+    store.record_validation_run(
+        finding_id=candidate_id,
+        validator="manual_review",
+        status="success",
+        output={"verified": True},
+    )
 
-    artifacts = generate_submission_artifacts(candidate_id, platform="hackerone", artifact_root=tmp_path / "artifacts", db_path=db)
+    artifacts = generate_submission_artifacts(
+        candidate_id, platform="hackerone", artifact_root=tmp_path / "artifacts", db_path=db
+    )
 
     assert artifacts["success"] is True
     assert len(artifacts["artifacts"]) == 4
@@ -165,7 +191,9 @@ def test_outcome_feedback_rejects_similar_future_candidates(tmp_path) -> None:
     candidate_id = result["id"]
     store.transition_status(candidate_id, "validating")
     store.transition_status(candidate_id, "rejected", reason="No readable protected data")
-    store.record_submission_outcome(finding_id=candidate_id, outcome="rejected", comments="No readable protected data")
+    store.record_submission_outcome(
+        finding_id=candidate_id, outcome="rejected", comments="No readable protected data"
+    )
 
     future = store.ingest_raw_finding(
         {"title": "CORS reflected origin again", "endpoint": "/api/public", "vuln_type": "cors"},

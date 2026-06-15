@@ -60,9 +60,7 @@ _REQ_FIELD_MAP: dict[SortBy, tuple[str, str]] = {
 # with exponential backoff. See tests/test_caido_proxy_retry.py.
 _CAIDO_RETRY_MAX = 3
 _CAIDO_RETRY_BASE_DELAY = 0.5
-_CAIDO_RETRYABLE_EXCEPTIONS: tuple[type[BaseException], ...] = (
-    asyncio.TimeoutError,
-)
+_CAIDO_RETRYABLE_EXCEPTIONS: tuple[type[BaseException], ...] = (asyncio.TimeoutError,)
 
 
 def _is_caido_retryable(exc: BaseException) -> bool:
@@ -86,8 +84,13 @@ def _is_caido_retryable(exc: BaseException) -> bool:
         return True
     # httpx / aiohttp / requests transport errors that bubble up unwrapped
     name = type(exc).__name__
-    if name in {"ConnectError", "ReadError", "WriteError",
-                "RemoteProtocolError", "ChunkedEncodingError"}:
+    if name in {
+        "ConnectError",
+        "ReadError",
+        "WriteError",
+        "RemoteProtocolError",
+        "ChunkedEncodingError",
+    }:
         return True
     return False
 
@@ -117,7 +120,11 @@ async def caido_retry(
             delay = base_delay * (2 ** (attempt - 1))
             logging.getLogger(__name__).warning(
                 "%s: transient Caido error (attempt %d/%d): %s; retrying in %.1fs",
-                op_name, attempt, attempts, exc, delay,
+                op_name,
+                attempt,
+                attempts,
+                exc,
+                delay,
             )
             await asyncio.sleep(delay)
     # Unreachable — the loop either returns or raises — but keeps the type
@@ -235,7 +242,10 @@ def build_raw_request(
 
     final_headers = {**headers}
     final_headers.setdefault("Host", parsed.netloc)
-    final_headers.setdefault("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/IP_ADDRESS Safari/537.36")
+    final_headers.setdefault(
+        "User-Agent",
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/IP_ADDRESS Safari/537.36",
+    )
     if body and "Content-Length" not in {k.title() for k in final_headers}:
         final_headers["Content-Length"] = str(len(body.encode("utf-8")))
 
@@ -647,6 +657,7 @@ async def list_sitemap_with_client(
     pagination, so we fetch all edges for the requested level and slice
     client-side.
     """
+
     async def _do() -> dict[str, Any]:
         if parent_id:
             raw = await client.graphql.query(

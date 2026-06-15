@@ -20,13 +20,16 @@ def _get_github_token() -> str | None:
     try:
         result = subprocess.run(
             ["gh", "auth", "token"],
-            capture_output=True, text=True, timeout=5,
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
         if result.returncode == 0 and result.stdout.strip():
             return result.stdout.strip()
     except Exception as exc:
         logger.debug("Could not get gh token: %s", exc)
     return None
+
 
 # ---------------------------------------------------------------------------
 # In-memory caches
@@ -101,12 +104,17 @@ async def warm_threat_intel() -> dict[str, Any]:
             "files": len(ghsa_files),
             "advisories": ghsa_count,
         }
-        logger.info("Threat intel warm: GHSA cache loaded %d advisories from %d files", ghsa_count, len(ghsa_files))
+        logger.info(
+            "Threat intel warm: GHSA cache loaded %d advisories from %d files",
+            ghsa_count,
+            len(ghsa_files),
+        )
     else:
         result["ghsa_cache"] = {"status": "no_cache", "note": "Run update_threat_feeds.sh first"}
         logger.info("Threat intel warm: No GHSA cache found at %s", feed_dir)
 
     return result
+
 
 # Common ecosystem mappings for OSV.dev
 _ECOSYSTEM_MAP: dict[str, str] = {
@@ -187,6 +195,7 @@ def _fingerprint_key(fingerprint: dict[str, str]) -> str:
 # CISA KEV
 # ---------------------------------------------------------------------------
 
+
 async def _fetch_cisa_kev(client: Any) -> list[dict[str, Any]]:
     """Download and cache the CISA Known Exploited Vulnerabilities catalog."""
     global _cisa_kev_cache, _cisa_kev_cache_ts  # noqa: PLW0603
@@ -207,9 +216,7 @@ async def _fetch_cisa_kev(client: Any) -> list[dict[str, Any]]:
         return []
 
 
-def _search_cisa_kev(
-    kev_entries: list[dict[str, Any]], tech: str
-) -> set[str]:
+def _search_cisa_kev(kev_entries: list[dict[str, Any]], tech: str) -> set[str]:
     """Return CVE IDs from CISA KEV that match a technology/product name."""
     tech_lower = tech.lower()
     matches: set[str] = set()
@@ -228,9 +235,8 @@ def _search_cisa_kev(
 # NVD
 # ---------------------------------------------------------------------------
 
-async def _query_nvd(
-    client: Any, tech: str, version: str
-) -> list[dict[str, Any]]:
+
+async def _query_nvd(client: Any, tech: str, version: str) -> list[dict[str, Any]]:
     """Query NVD for CVEs matching a technology and version."""
     keyword = f"{tech} {version}".strip() if version else tech
     url = "https://services.nvd.nist.gov/rest/json/cves/2.0"
@@ -272,14 +278,16 @@ async def _query_nvd(
                     description = desc.get("value", "")[:300]
                     break
 
-            results.append({
-                "cve_id": cve_id,
-                "source": "NVD",
-                "cvss_score": cvss_score,
-                "severity": severity.upper() if severity else "",
-                "has_exploit": has_exploit,
-                "description": description,
-            })
+            results.append(
+                {
+                    "cve_id": cve_id,
+                    "source": "NVD",
+                    "cvss_score": cvss_score,
+                    "severity": severity.upper() if severity else "",
+                    "has_exploit": has_exploit,
+                    "description": description,
+                }
+            )
         return results
     except Exception as exc:
         logger.warning("NVD query failed for '%s %s': %s", tech, version, exc)
@@ -290,9 +298,8 @@ async def _query_nvd(
 # OSV.dev
 # ---------------------------------------------------------------------------
 
-async def _query_osv(
-    client: Any, tech: str, version: str
-) -> list[dict[str, Any]]:
+
+async def _query_osv(client: Any, tech: str, version: str) -> list[dict[str, Any]]:
     """Query OSV.dev for vulnerabilities matching a package and version."""
     ecosystem = _guess_ecosystem(tech)
     if not ecosystem:
@@ -387,14 +394,16 @@ async def _query_osv(
                         has_exploit = True
                         break
 
-                all_results.append({
-                    "cve_id": cve_id,
-                    "source": "OSV.dev",
-                    "cvss_score": cvss_score,
-                    "severity": severity,
-                    "has_exploit": has_exploit,
-                    "description": summary,
-                })
+                all_results.append(
+                    {
+                        "cve_id": cve_id,
+                        "source": "OSV.dev",
+                        "cvss_score": cvss_score,
+                        "severity": severity,
+                        "has_exploit": has_exploit,
+                        "description": summary,
+                    }
+                )
         except Exception as exc:
             logger.warning("OSV query failed for '%s' in '%s': %s", pkg_name, ecosystem, exc)
             continue
@@ -406,9 +415,7 @@ async def _query_osv(
 # GitHub Security Advisories (GHSA)
 # ---------------------------------------------------------------------------
 
-_GHSA_ECOSYSTEM_MAP: dict[str, str] = {
-    k: v.lower() for k, v in _ECOSYSTEM_MAP.items()
-}
+_GHSA_ECOSYSTEM_MAP: dict[str, str] = {k: v.lower() for k, v in _ECOSYSTEM_MAP.items()}
 
 
 def _guess_ghsa_ecosystem(tech: str) -> str | None:
@@ -460,9 +467,7 @@ def _pkg_dict(pkg: Any) -> dict[str, Any]:
     return pkg if isinstance(pkg, dict) else {}
 
 
-async def _query_ghsa(
-    client: Any, tech: str, version: str
-) -> list[dict[str, Any]]:
+async def _query_ghsa(client: Any, tech: str, version: str) -> list[dict[str, Any]]:
     """Query GitHub Security Advisories for a technology.
 
     Strategy:
@@ -495,11 +500,19 @@ async def _query_ghsa(
 
     # --- Strategy 1: GraphQL per-package query ---
     if ecosystem:
-
         # Map common variations
-        eco_map = {"npm": "NPM", "pypi": "PIP", "go": "GO", "maven": "MAVEN",
-                   "nuget": "NUGET", "rubygems": "RUBYGEMS", "crates.io": "RUST",
-                   "packagist": "COMPOSER", "swifturl": "SWIFT", "cocoapods": "COCOAPODS"}
+        eco_map = {
+            "npm": "NPM",
+            "pypi": "PIP",
+            "go": "GO",
+            "maven": "MAVEN",
+            "nuget": "NUGET",
+            "rubygems": "RUBYGEMS",
+            "crates.io": "RUST",
+            "packagist": "COMPOSER",
+            "swifturl": "SWIFT",
+            "cocoapods": "COCOAPODS",
+        }
         gql_eco = eco_map.get(ecosystem, ecosystem.upper())
 
         query = """
@@ -573,18 +586,20 @@ async def _query_ghsa(
                     for ref in adv.get("references", [])
                 )
 
-                all_results.append({
-                    "cve_id": cve_id,
-                    "source": "GHSA",
-                    "cvss_score": cvss_score,
-                    "severity": severity_str,
-                    "has_exploit": has_exploit,
-                    "description": summary[:300],
-                    "ghsa_id": ghsa_id,
-                    "published": adv.get("publishedAt", ""),
-                    "vulnerable_version_range": vuln_range,
-                    "version_match": version_match,
-                })
+                all_results.append(
+                    {
+                        "cve_id": cve_id,
+                        "source": "GHSA",
+                        "cvss_score": cvss_score,
+                        "severity": severity_str,
+                        "has_exploit": has_exploit,
+                        "description": summary[:300],
+                        "ghsa_id": ghsa_id,
+                        "published": adv.get("publishedAt", ""),
+                        "vulnerable_version_range": vuln_range,
+                        "version_match": version_match,
+                    }
+                )
         except Exception as exc:
             logger.warning("GHSA GraphQL query failed for '%s': %s", tech, exc)
 
@@ -657,18 +672,20 @@ async def _query_ghsa(
                         for ref in adv.get("references", [])
                     )
 
-                    all_results.append({
-                        "cve_id": cve_id,
-                        "source": "GHSA",
-                        "cvss_score": cvss_score,
-                        "severity": severity_str,
-                        "has_exploit": has_exploit,
-                        "description": summary[:300],
-                        "ghsa_id": ghsa_id,
-                        "published": adv.get("published_at", ""),
-                        "vulnerable_version_range": vuln_range,
-                        "version_match": version_match,
-                    })
+                    all_results.append(
+                        {
+                            "cve_id": cve_id,
+                            "source": "GHSA",
+                            "cvss_score": cvss_score,
+                            "severity": severity_str,
+                            "has_exploit": has_exploit,
+                            "description": summary[:300],
+                            "ghsa_id": ghsa_id,
+                            "published": adv.get("published_at", ""),
+                            "vulnerable_version_range": vuln_range,
+                            "version_match": version_match,
+                        }
+                    )
             except Exception as exc:
                 logger.warning("GHSA REST query failed for '%s' (%s): %s", tech, severity, exc)
 
@@ -690,6 +707,7 @@ def _version_in_range(version: str, vuln_range: str) -> bool:
 
     try:
         from packaging.version import Version
+
         ver = Version(version)
     except Exception:
         # Can't parse version — assume vulnerable
@@ -749,6 +767,7 @@ def _version_in_range(version: str, vuln_range: str) -> bool:
 # Scoring
 # ---------------------------------------------------------------------------
 
+
 def _score_vulnerability(
     vuln: dict[str, Any],
     cisa_cve_ids: set[str],
@@ -791,9 +810,9 @@ def _score_vulnerability(
     # SCA version-match confidence adjustment (ACM SCA paper findings)
     version_match = (vuln.get("version_match") or "").lower()
     if version_match == "vulnerable":
-        score += 5   # confirmed match — boost priority
+        score += 5  # confirmed match — boost priority
     elif version_match == "not_affected":
-        score -= 5   # still include, but lower priority
+        score -= 5  # still include, but lower priority
 
     return score
 
@@ -836,6 +855,7 @@ def _deduplicate(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
 # Main tool
 # ---------------------------------------------------------------------------
 
+
 async def _query_threat_feeds_impl(
     technologies: list[dict[str, str]],
     *,
@@ -867,7 +887,9 @@ async def _query_threat_feeds_impl(
     if not local_only and local_misses > 0:
         logger.info(
             "Local DB: %d/%d hits. %d misses — falling back to online sources.",
-            local_hits, total_fingerprints, local_misses,
+            local_hits,
+            total_fingerprints,
+            local_misses,
         )
         # Only query online for the fingerprints that missed locally
         missed_fingerprints: list[dict[str, str]] = []
@@ -931,7 +953,8 @@ async def _query_threat_feeds_online(
 
         logger.info(
             "Loaded CISA KEV: %d entries, %d unique CVE IDs",
-            len(kev_entries), len(kev_cve_ids),
+            len(kev_entries),
+            len(kev_cve_ids),
         )
 
         # Build parallel tasks for each technology
@@ -963,6 +986,7 @@ async def _query_threat_feeds_online(
                 _query_npm_advisory,
                 _query_vulnerablecode,
             )
+
             nvd_task = _query_nvd(client, tech, version)
             osv_task = _query_osv(client, tech, version)
             ghsa_task = _query_ghsa(client, tech, version)
@@ -970,7 +994,12 @@ async def _query_threat_feeds_online(
             vc_task = _query_vulnerablecode(client, tech, version)
             npm_task = _query_npm_advisory(client, tech, version)
             results_all = await asyncio.gather(
-                nvd_task, osv_task, ghsa_task, circl_task, vc_task, npm_task,
+                nvd_task,
+                osv_task,
+                ghsa_task,
+                circl_task,
+                vc_task,
+                npm_task,
                 return_exceptions=True,
             )
 
@@ -999,9 +1028,7 @@ async def _query_threat_feeds_online(
                 "nvd_results": len(nvd),
                 "osv_results": len(osv),
                 "ghsa_results": len(ghsa),
-                "cisa_kev_matches": [
-                    v["cve_id"] for v in all_results if v.get("in_cisa_kev")
-                ],
+                "cisa_kev_matches": [v["cve_id"] for v in all_results if v.get("in_cisa_kev")],
                 "vulnerabilities": all_results[:50],  # Cap at 50 per tech
             }
 
@@ -1016,11 +1043,13 @@ async def _query_threat_feeds_online(
     processed: list[dict[str, Any]] = []
     for i, r in enumerate(results):
         if isinstance(r, Exception):
-            processed.append({
-                "technology": technologies[i].get("technology", "unknown"),
-                "version": technologies[i].get("version", ""),
-                "error": str(r),
-            })
+            processed.append(
+                {
+                    "technology": technologies[i].get("technology", "unknown"),
+                    "version": technologies[i].get("version", ""),
+                    "error": str(r),
+                }
+            )
         else:
             processed.append(r)
 
@@ -1096,7 +1125,9 @@ async def query_threat_feeds(
         return json.dumps(result, ensure_ascii=False, default=str)
     except Exception as exc:
         logger.exception("query_threat_feeds failed")
-        return json.dumps({
-            "success": False,
-            "error": f"Threat feed query failed: {exc}",
-        })
+        return json.dumps(
+            {
+                "success": False,
+                "error": f"Threat feed query failed: {exc}",
+            }
+        )

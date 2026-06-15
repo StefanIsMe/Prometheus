@@ -68,6 +68,7 @@ def _get_key_from_env(name: str) -> str | None:
 # Subcommand: list
 # ---------------------------------------------------------------------------
 
+
 def _cmd_list() -> None:
     data = _load()
     providers = data.get("providers", {})
@@ -85,8 +86,11 @@ def _cmd_list() -> None:
     medium = routing.get("medium", {})
     models_list = medium if isinstance(medium, list) else medium.get("models", [])
     if models_list:
-        active = models_list[0] if isinstance(models_list[0], str) else \
-                 f"{models_list[0].get('provider', '?')}/{models_list[0].get('model', '?')}"
+        active = (
+            models_list[0]
+            if isinstance(models_list[0], str)
+            else f"{models_list[0].get('provider', '?')}/{models_list[0].get('model', '?')}"
+        )
 
     if active:
         print(f"Active: {active}\n")
@@ -137,6 +141,7 @@ def _cmd_list() -> None:
 # ---------------------------------------------------------------------------
 # Subcommand: set
 # ---------------------------------------------------------------------------
+
 
 def _cmd_set(model_ref: str) -> None:
     """Set the active model across all routing tiers.
@@ -212,6 +217,7 @@ def _cmd_set(model_ref: str) -> None:
 # Subcommand: add
 # ---------------------------------------------------------------------------
 
+
 def _cmd_add(name: str, base_url: str, model_name: str | None, api_key_env: str | None) -> None:
     """Add a custom OpenAI-compatible endpoint."""
     data = _load()
@@ -255,6 +261,7 @@ def _cmd_add(name: str, base_url: str, model_name: str | None, api_key_env: str 
 # Subcommand: remove
 # ---------------------------------------------------------------------------
 
+
 def _cmd_remove(name: str) -> None:
     """Remove a provider and all its references from routing."""
     data = _load()
@@ -274,16 +281,20 @@ def _cmd_remove(name: str) -> None:
         tier_data = routing.get(tier_name)
         if isinstance(tier_data, dict):
             models_list = tier_data.get("models", [])
-            models_list[:] = [m for m in models_list
-                              if not (isinstance(m, str) and m.startswith(f"{name}/"))]
+            models_list[:] = [
+                m for m in models_list if not (isinstance(m, str) and m.startswith(f"{name}/"))
+            ]
         elif isinstance(tier_data, list):
-            tier_data[:] = [m for m in tier_data
-                            if not (isinstance(m, str) and m.startswith(f"{name}/"))]
+            tier_data[:] = [
+                m for m in tier_data if not (isinstance(m, str) and m.startswith(f"{name}/"))
+            ]
 
     # Remove empty routing entries
     for tier_name in list(routing.keys()):
         tier_data = routing.get(tier_name)
-        models_list = tier_data if isinstance(tier_data, list) else (tier_data or {}).get("models", [])
+        models_list = (
+            tier_data if isinstance(tier_data, list) else (tier_data or {}).get("models", [])
+        )
         if not models_list:
             del routing[tier_name]
 
@@ -294,6 +305,7 @@ def _cmd_remove(name: str) -> None:
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
+
 
 def run_model_cli(args: list[str]) -> None:
     """Dispatch 'prometheus model <subcommand> ...'."""
@@ -310,14 +322,20 @@ def run_model_cli(args: list[str]) -> None:
     elif cmd == "set":
         if not cmd_args:
             print("Usage: prometheus model set <provider/model>")
-            print("  Example: prometheus model set openrouter/nvidia/nemotron-3-ultra-550b-a55b:free")
+            print(
+                "  Example: prometheus model set openrouter/nvidia/nemotron-3-ultra-550b-a55b:free"
+            )
             sys.exit(1)
         _cmd_set(cmd_args[0])
 
     elif cmd == "add":
         if len(cmd_args) < 2:
-            print("Usage: prometheus model add <name> <base_url> [--model MODEL] [--api-key-env VAR]")
-            print("  Example: prometheus model add my-local http://localhost:11434/v1 --model llama3")
+            print(
+                "Usage: prometheus model add <name> <base_url> [--model MODEL] [--api-key-env VAR]"
+            )
+            print(
+                "  Example: prometheus model add my-local http://localhost:11434/v1 --model llama3"
+            )
             sys.exit(1)
         name = cmd_args[0]
         base_url = cmd_args[1]

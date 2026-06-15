@@ -56,19 +56,21 @@ async def run_scan_pipeline(
 
     cmd = f"bash {PIPELINE_SCRIPT} {target_url} /workspace/pipeline-output {tor_flag} {allow_direct_flag} {deep_flag}"
 
-
     # Execute in sandbox via exec_command — don't actually run here
     # This function returns the command for the agent to execute
-    return json.dumps({
-        "command": cmd,
-        "script": PIPELINE_SCRIPT,
-        "tor": bool(tor_flag),
-        "allow_direct": bool(allow_direct_flag),
-        "deep": deep,
-        "instruction": (
-            f"Run this command: {cmd}\n"
-            f"This will execute the full recon→fingerprint→scan pipeline "
-            f"in one shot. Results go to /workspace/pipeline-output/pipeline-summary.json. "
-            f"Read that file with cat or Python to get the structured results."
-        ),
-    }, indent=2)
+    return json.dumps(
+        {
+            "command": cmd,
+            "script": PIPELINE_SCRIPT,
+            "tor": bool(tor_flag),
+            "allow_direct": bool(allow_direct_flag),
+            "deep": deep,
+            "instruction": (
+                f"Run this command: {cmd}\n"
+                f"This will execute the full recon→fingerprint→scan pipeline "
+                f"in one shot. Results go to /workspace/pipeline-output/pipeline-summary.json. "
+                f"Read that file with cat or Python to get the structured results."
+            ),
+        },
+        indent=2,
+    )

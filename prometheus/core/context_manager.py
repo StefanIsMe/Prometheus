@@ -27,10 +27,10 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # === PHASE 0: TRUNCATION LIMITS ===
-MAX_TOOL_OUTPUT_BYTES = 50 * 1024       # 50KB per tool output
-MAX_IMAGE_OUTPUT_BYTES = 500             # Stub for base64 images
-MAX_HTML_OUTPUT_BYTES = 8 * 1024         # 8KB for HTML/curl responses (was 20KB)
-MAX_TERMINAL_OUTPUT_BYTES = 15 * 1024    # 15KB for terminal output (was 50KB)
+MAX_TOOL_OUTPUT_BYTES = 50 * 1024  # 50KB per tool output
+MAX_IMAGE_OUTPUT_BYTES = 500  # Stub for base64 images
+MAX_HTML_OUTPUT_BYTES = 8 * 1024  # 8KB for HTML/curl responses (was 20KB)
+MAX_TERMINAL_OUTPUT_BYTES = 15 * 1024  # 15KB for terminal output (was 50KB)
 
 # === PHASE 1: OBSERVATION MASKING ===
 MASK_AFTER_TURNS = 2  # Mask tool outputs older than this many turns (was 3)
@@ -79,7 +79,8 @@ def truncate_tool_output(output: str, tool_name: str = "") -> tuple[str, str | N
             overflow_key = _compute_hash(output)
             logger.debug(
                 "Truncated base64 image: %dKB → stub (%s)",
-                size_kb, overflow_key,
+                size_kb,
+                overflow_key,
             )
             return stub, overflow_key
         return output, None
@@ -95,7 +96,9 @@ def truncate_tool_output(output: str, tool_name: str = "") -> tuple[str, str | N
         truncated += f"\n\n[Truncated from {original_size // 1024}KB to {len(truncated) // 1024}KB. Full output stored with key: {overflow_key}]"
         logger.debug(
             "Truncated HTML response: %dKB → %dKB (%s)",
-            original_size // 1024, len(truncated) // 1024, overflow_key,
+            original_size // 1024,
+            len(truncated) // 1024,
+            overflow_key,
         )
         return truncated, overflow_key
 
@@ -110,7 +113,9 @@ def truncate_tool_output(output: str, tool_name: str = "") -> tuple[str, str | N
         truncated += f"\n\n[Truncated from {original_size // 1024}KB to {len(truncated) // 1024}KB. Full output stored with key: {overflow_key}]"
         logger.debug(
             "Truncated terminal output: %dKB → %dKB (%s)",
-            original_size // 1024, len(truncated) // 1024, overflow_key,
+            original_size // 1024,
+            len(truncated) // 1024,
+            overflow_key,
         )
         return truncated, overflow_key
 
@@ -155,11 +160,14 @@ def summarize_child_result(output: str, agent_name: str = "") -> str:
                 return json.dumps(data, indent=2)
             # Otherwise summarize
             keys = list(data.keys())
-            return json.dumps({
-                "summary": f"Child agent {agent_name} completed",
-                "keys": keys,
-                "data": data,
-            }, indent=2)
+            return json.dumps(
+                {
+                    "summary": f"Child agent {agent_name} completed",
+                    "keys": keys,
+                    "data": data,
+                },
+                indent=2,
+            )
     except (json.JSONDecodeError, TypeError):
         pass
 
@@ -199,6 +207,7 @@ class ContextOverflowStore:
     def _init_db(self, db_path: str) -> None:
         """Initialize SQLite storage."""
         import sqlite3
+
         try:
             self._conn = sqlite3.connect(db_path)
             self._conn.execute("""
@@ -223,6 +232,7 @@ class ContextOverflowStore:
         if self._conn:
             try:
                 import time
+
                 self._conn.execute(
                     "INSERT OR REPLACE INTO context_overflow (hash_key, full_output, stored_at, size_bytes) VALUES (?, ?, ?, ?)",
                     (key, full_output, time.time(), len(full_output.encode("utf-8"))),
@@ -264,7 +274,9 @@ class ContextOverflowStore:
         # Add DB size if available
         if self._conn:
             try:
-                cursor = self._conn.execute("SELECT COUNT(*), COALESCE(SUM(size_bytes), 0) FROM context_overflow")
+                cursor = self._conn.execute(
+                    "SELECT COUNT(*), COALESCE(SUM(size_bytes), 0) FROM context_overflow"
+                )
                 row = cursor.fetchone()
                 if row:
                     stats["db_entries"] = row[0]

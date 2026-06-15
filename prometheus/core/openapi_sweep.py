@@ -55,6 +55,7 @@ def _resolve_path_params(path: str, params: list[dict[str, Any]] | None) -> str:
     if not params:
         return re.sub(r"\{[^}]+\}", "1", path)
     by_name = {p.get("name"): p for p in params if isinstance(p, dict) and p.get("name")}
+
     def repl(match: re.Match[str]) -> str:
         name = match.group(1)
         spec = by_name.get(name) or {}
@@ -63,6 +64,7 @@ def _resolve_path_params(path: str, params: list[dict[str, Any]] | None) -> str:
         if stype in ("integer", "number"):
             return "1"
         return "test"
+
     return re.sub(r"\{([^}]+)\}", repl, path)
 
 
@@ -71,7 +73,9 @@ def _declared_security_for_op(op: dict[str, Any], doc: dict[str, Any]) -> list[d
     sec = op.get("security")
     if sec is None:
         sec = doc.get("security") or []
-    schemes = doc.get("components", {}).get("securitySchemes") or doc.get("securityDefinitions") or {}
+    schemes = (
+        doc.get("components", {}).get("securitySchemes") or doc.get("securityDefinitions") or {}
+    )
     out: list[dict[str, Any]] = []
     if not isinstance(sec, list):
         return out
@@ -137,7 +141,9 @@ def build_auth_probes(
                         probe_url=full_url,
                         expected_status_with_auth=expected,
                         probe_kind=kind,
-                        notes=[f"declared: {', '.join(s.get('scheme_name', '?') for s in declared)}"],
+                        notes=[
+                            f"declared: {', '.join(s.get('scheme_name', '?') for s in declared)}"
+                        ],
                     )
                 )
     return probes

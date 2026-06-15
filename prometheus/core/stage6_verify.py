@@ -61,15 +61,15 @@ class VerifyResult:
 
 # CVSS 3.1 lookup for a small set of v1 vuln classes.
 _CVSS_VECTORS: dict[str, tuple[str, float]] = {
-    "sqli":          ("CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H", 9.8),
-    "rce":           ("CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H", 9.8),
-    "ssrf":          ("CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:L/I:L/A:L", 8.0),
-    "idor":          ("CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:N/A:N", 6.5),
-    "auth_bypass":   ("CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:N", 9.1),
+    "sqli": ("CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H", 9.8),
+    "rce": ("CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H", 9.8),
+    "ssrf": ("CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:L/I:L/A:L", 8.0),
+    "idor": ("CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:N/A:N", 6.5),
+    "auth_bypass": ("CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:N", 9.1),
     "account_enumeration": ("CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N", 5.3),
-    "cors":          ("CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:C/C:L/I:L/A:N", 4.6),
+    "cors": ("CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:C/C:L/I:L/A:N", 4.6),
     "exposed_unauthenticated": ("CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:N", 9.1),
-    "source_map":    ("CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N", 5.3),
+    "source_map": ("CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N", 5.3),
 }
 
 
@@ -152,7 +152,9 @@ async def deterministic_verify_candidate(
     )
 
 
-async def replay_request(candidate: dict[str, Any], *, timeout_s: float = 15.0) -> dict[str, Any] | None:
+async def replay_request(
+    candidate: dict[str, Any], *, timeout_s: float = 15.0
+) -> dict[str, Any] | None:
     """Best-effort replay of the candidate's original request.
 
     Returns ``{"status": int, "body": str, "headers": dict}`` or ``None``

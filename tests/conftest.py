@@ -63,9 +63,7 @@ def _is_log_replay_test(item) -> bool:
 @pytest.fixture(autouse=True)
 def _skip_log_replay_without_local_data(request):
     runs_dir = os.environ.get("PROMETHEUS_RUNS_DIR")
-    if _is_log_replay_test(request.node) and not (
-        runs_dir and Path(runs_dir).is_dir()
-    ):
+    if _is_log_replay_test(request.node) and not (runs_dir and Path(runs_dir).is_dir()):
         pytest.skip(
             "log-replay test requires local prometheus_runs/ — set "
             "PROMETHEUS_RUNS_DIR=/path/to/prometheus_runs to run"

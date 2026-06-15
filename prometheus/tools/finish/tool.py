@@ -127,8 +127,7 @@ def _validate_scan_gates() -> dict[str, Any]:
             return {
                 "passed": False,
                 "blocked_reason": (
-                    "Nuclei scan required. Run nuclei against at least one target "
-                    "before finishing."
+                    "Nuclei scan required. Run nuclei against at least one target before finishing."
                 ),
             }
     except ImportError:
@@ -153,6 +152,7 @@ def _validate_scan_gates() -> dict[str, Any]:
         from prometheus.core.comms import get_active_run
         from prometheus.core.execution import _FINDING_FILE_TOOLS
         from pathlib import Path as _Path
+
         run_id = get_active_run()
         if run_id:
             status_path = _Path.home() / ".prometheus" / "comms" / run_id / "status.jsonl"
@@ -165,6 +165,7 @@ def _validate_scan_gates() -> dict[str, Any]:
                             continue
                         try:
                             import json as _json
+
                             _ev = _json.loads(_line)
                         except ValueError:
                             continue

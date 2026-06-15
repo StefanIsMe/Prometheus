@@ -4,6 +4,7 @@ Focus: the cost-lookup path must not raise on unknown LiteLLM provider
 prefixes (TokenRouter, internal gateways, etc.) and must not pollute the
 log with full tracebacks for expected unknown-model failures.
 """
+
 from __future__ import annotations
 
 import logging
@@ -135,12 +136,14 @@ def test_estimate_litellm_cost_bare_model_gets_prefix_re_added(monkeypatch, capl
                 name="TokenRouter",
                 base_url="https://api.tokenrouter.com/v1",
                 protocol=Protocol.OPENAI,
-                models={"MiniMax-M3": ModelSpec(
-                    provider_name="TokenRouter",
-                    model_id="MiniMax-M3",
-                    tier=Tier.HARD,
-                    max_tokens=65536,
-                )},
+                models={
+                    "MiniMax-M3": ModelSpec(
+                        provider_name="TokenRouter",
+                        model_id="MiniMax-M3",
+                        tier=Tier.HARD,
+                        max_tokens=65536,
+                    )
+                },
             ),
         }
     )
@@ -175,8 +178,17 @@ def test_known_provider_set_includes_tokenrouter_false():
 
 def test_known_provider_set_covers_all_advertised_providers():
     """Make sure we have a sane coverage of common providers."""
-    expected = {"openai", "anthropic", "gemini", "groq", "openrouter",
-                "deepseek", "bedrock", "huggingface", "replicate"}
+    expected = {
+        "openai",
+        "anthropic",
+        "gemini",
+        "groq",
+        "openrouter",
+        "deepseek",
+        "bedrock",
+        "huggingface",
+        "replicate",
+    }
     missing = expected - _LITELLM_KNOWN_PROVIDER_PREFIXES
     assert missing == set(), f"missing providers from known set: {missing!r}"
 

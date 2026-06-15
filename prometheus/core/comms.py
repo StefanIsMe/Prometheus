@@ -162,6 +162,7 @@ def list_active_runs() -> list[str]:
 def cleanup_comms(run_id: str) -> None:
     """Clean up comms directory for a completed run."""
     import shutil
+
     d = _COMMS_ROOT / run_id
     if d.exists():
         shutil.rmtree(d)

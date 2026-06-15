@@ -50,7 +50,9 @@ _unverified_ctx.check_hostname = False
 _unverified_ctx.verify_mode = ssl.CERT_NONE
 
 
-def _http_get(url: str, *, headers: dict[str, str] | None = None, timeout: int = _PROBE_TIMEOUT) -> tuple[int, str, dict[str, str]]:
+def _http_get(
+    url: str, *, headers: dict[str, str] | None = None, timeout: int = _PROBE_TIMEOUT
+) -> tuple[int, str, dict[str, str]]:
     """Lightweight GET that returns (status, body, response_headers).
 
     Returns (0, '', {}) on any network failure. Does not raise.
@@ -158,14 +160,17 @@ def _probe_account_enumeration(endpoint: str) -> dict[str, Any]:
         payload = json.dumps(payload_template).replace("__EMAIL__", email)
         try:
             req = urllib.request.Request(
-                base, data=payload.encode("utf-8"),
+                base,
+                data=payload.encode("utf-8"),
                 method="POST",
                 headers={
                     "Content-Type": "application/json",
                     "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
                 },
             )
-            with urllib.request.urlopen(req, timeout=_PROBE_TIMEOUT, context=_unverified_ctx) as resp:
+            with urllib.request.urlopen(
+                req, timeout=_PROBE_TIMEOUT, context=_unverified_ctx
+            ) as resp:
                 status = resp.status
                 body = resp.read(_MAX_PROBE_BODY).decode("utf-8", errors="ignore")
                 # Account-enumeration is usually 400 vs 200 vs 302, but the
@@ -302,11 +307,7 @@ def live_revalidate(finding: dict[str, Any]) -> dict[str, Any]:
     """
     if not isinstance(finding, dict):
         return {"changed": "inconclusive", "evidence": "finding is not a dict"}
-    endpoint = (
-        finding.get("endpoint")
-        or finding.get("uri")
-        or ""
-    )
+    endpoint = finding.get("endpoint") or finding.get("uri") or ""
     # If endpoint is the auth URL like /authorize, fall back to the
     # .well-known/openid-configuration for PKCE-style findings.
     title = str(finding.get("finding_title") or "")
@@ -340,6 +341,7 @@ if __name__ == "__main__":
     # CLI for manual invocation. Reads a finding dict from stdin (JSON)
     # and writes the revalidation result to stdout.
     import sys
+
     finding = json.loads(sys.stdin.read() or "{}")
     result = live_revalidate(finding)
     print(json.dumps(result, indent=2, default=str))

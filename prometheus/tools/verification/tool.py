@@ -55,6 +55,7 @@ _PROM_META_PATTERN = re.compile(
 # Pure helpers (no LLM, no I/O — easily unit-testable)
 # ---------------------------------------------------------------------------
 
+
 def _parse_poc_output(stdout: str) -> dict[str, Any]:
     """Deterministic regex parse of ``generate_poc_script``'s standard output.
 
@@ -98,11 +99,7 @@ def _parse_poc_output(stdout: str) -> dict[str, Any]:
     for sm in re.finditer(r"HTTP\s+(\d+):\s*\[([^\]]*)\]", stdout):
         status = sm.group(1)
         cases_raw = sm.group(2)
-        cases = [
-            c.strip().strip("'\"")
-            for c in cases_raw.split(",")
-            if c.strip()
-        ]
+        cases = [c.strip().strip("'\"") for c in cases_raw.split(",") if c.strip()]
         result["status_groups"][status] = cases
 
     for cm in re.finditer(
@@ -110,12 +107,14 @@ def _parse_poc_output(stdout: str) -> dict[str, Any]:
         stdout,
         re.DOTALL,
     ):
-        result["per_case"].append({
-            "index": int(cm.group(1)),
-            "description": cm.group(2).strip(),
-            "value": cm.group(3).strip(),
-            "status": int(cm.group(4)),
-        })
+        result["per_case"].append(
+            {
+                "index": int(cm.group(1)),
+                "description": cm.group(2).strip(),
+                "value": cm.group(3).strip(),
+                "status": int(cm.group(4)),
+            }
+        )
 
     if "[CONFIRMED]" in stdout:
         result["confirmed_line"] = "confirmed"
@@ -162,11 +161,7 @@ def _compute_verdict(
         # Couldn't find the control's response — bad test setup.
         return False, False
 
-    pos_statuses = {
-        c["status"]
-        for c in per_case
-        if c["description"] != negative_control_desc
-    }
+    pos_statuses = {c["status"] for c in per_case if c["description"] != negative_control_desc}
     if not pos_statuses:
         # No positive cases — the control is the only thing that ran.
         return False, False
@@ -204,6 +199,7 @@ def _extract_meta_from_poc(poc_code: str) -> dict[str, Any] | None:
 # Tool
 # ---------------------------------------------------------------------------
 
+
 async def verify_finding_impl(  # noqa: PLR0915 - tool body, not a library function
     finding_id: str,
     *,
@@ -227,33 +223,37 @@ async def verify_finding_impl(  # noqa: PLR0915 - tool body, not a library funct
     """
     state = get_global_report_state()
     if state is None:
-        return json.dumps({
-            "success": False,
-            "error": "no active report state — cannot locate findings",
-        })
+        return json.dumps(
+            {
+                "success": False,
+                "error": "no active report state — cannot locate findings",
+            }
+        )
 
     try:
-        report = next(
-            r for r in state.vulnerability_reports if r["id"] == finding_id
-        )
+        report = next(r for r in state.vulnerability_reports if r["id"] == finding_id)
     except StopIteration:
-        return json.dumps({
-            "success": False,
-            "finding_id": finding_id,
-            "error": f"finding_id {finding_id!r} not found in current run",
-        })
+        return json.dumps(
+            {
+                "success": False,
+                "finding_id": finding_id,
+                "error": f"finding_id {finding_id!r} not found in current run",
+            }
+        )
 
     meta = _extract_meta_from_poc(report.get("poc_script_code", ""))
     if meta is None:
-        return json.dumps({
-            "success": False,
-            "finding_id": finding_id,
-            "error": (
-                "poc_script_code has no PROMETHEUS_META block; cannot "
-                "reconstruct inputs (re-file the finding via "
-                "create_vulnerability_report with a generated PoC)"
-            ),
-        })
+        return json.dumps(
+            {
+                "success": False,
+                "finding_id": finding_id,
+                "error": (
+                    "poc_script_code has no PROMETHEUS_META block; cannot "
+                    "reconstruct inputs (re-file the finding via "
+                    "create_vulnerability_report with a generated PoC)"
+                ),
+            }
+        )
 
     # Augment test cases: optional extras from caller, then the negative
     # control (if any).
@@ -262,21 +262,25 @@ async def verify_finding_impl(  # noqa: PLR0915 - tool body, not a library funct
         try:
             extras = json.loads(extra_test_cases_json)
         except json.JSONDecodeError as exc:
-            return json.dumps({
-                "success": False,
-                "finding_id": finding_id,
-                "error": f"extra_test_cases_json is not valid JSON: {exc}",
-            })
+            return json.dumps(
+                {
+                    "success": False,
+                    "finding_id": finding_id,
+                    "error": f"extra_test_cases_json is not valid JSON: {exc}",
+                }
+            )
         if isinstance(extras, list):
             test_cases.extend(extras)
 
     neg_desc: str | None = None
     if negative_control_value and negative_control_description:
-        test_cases.append({
-            "value": negative_control_value,
-            "expected_status": 200,
-            "description": negative_control_description,
-        })
+        test_cases.append(
+            {
+                "value": negative_control_value,
+                "expected_status": 200,
+                "description": negative_control_description,
+            }
+        )
         neg_desc = negative_control_description
 
     # Regenerate the script with the augmented test cases.
@@ -321,11 +325,14 @@ async def verify_finding_impl(  # noqa: PLR0915 - tool body, not a library funct
                 state.save_run_data()
             except Exception:  # noqa: BLE001 - persistence is best-effort
                 logger.exception("save_run_data failed after timeout")
-            return json.dumps({
-                "success": False,
-                "finding_id": finding_id,
-                **verification,
-            }, default=str)
+            return json.dumps(
+                {
+                    "success": False,
+                    "finding_id": finding_id,
+                    **verification,
+                },
+                default=str,
+            )
 
         parsed = _parse_poc_output(result.stdout)
         verified, neg_passed = _compute_verdict(parsed, neg_desc)
@@ -346,18 +353,23 @@ async def verify_finding_impl(  # noqa: PLR0915 - tool body, not a library funct
         except Exception:  # noqa: BLE001 - persistence is best-effort
             logger.exception("save_run_data failed after verification")
 
-        return json.dumps({
-            "success": True,
-            "finding_id": finding_id,
-            **verification,
-        }, default=str)
+        return json.dumps(
+            {
+                "success": True,
+                "finding_id": finding_id,
+                **verification,
+            },
+            default=str,
+        )
     except Exception as exc:  # noqa: BLE001 - last-resort safety net
         logger.exception("verify_finding failed for %s", finding_id)
-        return json.dumps({
-            "success": False,
-            "finding_id": finding_id,
-            "error": f"verify_finding crashed: {exc!s}",
-        })
+        return json.dumps(
+            {
+                "success": False,
+                "finding_id": finding_id,
+                "error": f"verify_finding crashed: {exc!s}",
+            }
+        )
     finally:
         if script_path is not None:
             script_path.unlink(missing_ok=True)

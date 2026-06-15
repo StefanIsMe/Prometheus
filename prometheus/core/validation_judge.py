@@ -17,6 +17,7 @@ from typing import Any
 # Data model
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class ValidationVerdict:
     """Result of validating a single finding against type-specific criteria.
@@ -53,9 +54,12 @@ VALIDATION_CRITERIA: dict[str, dict[str, dict[str, Any]]] = {
     "ssr_hostname_leak": {
         "validated": {
             "keywords": [
-                "used.*internal.*hostname.*access", "accessed.*internal.*service.*via",
-                "ssrf.*to.*internal.*hostname", "internal.*service.*data.*exfiltrat",
-                "railway.*internal.*accessed.*data", "internal.*hostname.*unauthorized.*access",
+                "used.*internal.*hostname.*access",
+                "accessed.*internal.*service.*via",
+                "ssrf.*to.*internal.*hostname",
+                "internal.*service.*data.*exfiltrat",
+                "railway.*internal.*accessed.*data",
+                "internal.*hostname.*unauthorized.*access",
             ],
             "description": (
                 "Used leaked internal hostname to access internal service and extract data"
@@ -63,15 +67,26 @@ VALIDATION_CRITERIA: dict[str, dict[str, dict[str, Any]]] = {
         },
         "speculative": {
             "keywords": [
-                "internal.*hostname.*found", "railway.*internal.*hostname",
-                "ssr.*data.*leak", "nuxt.*data.*leak", "next.*data.*leak",
-                "angular.*data.*leak", "_nuxt_data.*leak", "_ssr_data.*leak",
-                "internal.*server.*address", "private.*ip.*disclosure",
-                "hostname.*in.*response", "server.*address.*in.*response",
+                "internal.*hostname.*found",
+                "railway.*internal.*hostname",
+                "ssr.*data.*leak",
+                "nuxt.*data.*leak",
+                "next.*data.*leak",
+                "angular.*data.*leak",
+                "_nuxt_data.*leak",
+                "_ssr_data.*leak",
+                "internal.*server.*address",
+                "private.*ip.*disclosure",
+                "hostname.*in.*response",
+                "server.*address.*in.*response",
             ],
             "negation_keywords": [
-                "used.*to.*access", "accessed.*internal.*service", "exfiltrated",
-                "unauthorized.*access", "data.*breach", "sensitive.*data.*exposed",
+                "used.*to.*access",
+                "accessed.*internal.*service",
+                "exfiltrated",
+                "unauthorized.*access",
+                "data.*breach",
+                "sensitive.*data.*exposed",
             ],
             "description": (
                 "Internal hostname/IP discovered in SSR response but not used for exploitation. "
@@ -81,37 +96,52 @@ VALIDATION_CRITERIA: dict[str, dict[str, dict[str, Any]]] = {
         },
         "false_positive": {
             "keywords": [
-                "public.*api", "public.*endpoint", "intentionally.*exposed",
-                "cloud.*platform.*expected", "infrastructure.*normal",
+                "public.*api",
+                "public.*endpoint",
+                "intentionally.*exposed",
+                "cloud.*platform.*expected",
+                "infrastructure.*normal",
             ],
-            "description": (
-                "Internal addressing is expected cloud infrastructure behavior"
-            ),
+            "description": ("Internal addressing is expected cloud infrastructure behavior"),
         },
     },
     "fingerprinting": {
         "validated": {
             "keywords": [
-                "used.*version.*exploit", "cve.*exploit.*confirmed",
-                "version.*specific.*attack.*successful", "outdated.*component.*exploited",
+                "used.*version.*exploit",
+                "cve.*exploit.*confirmed",
+                "version.*specific.*attack.*successful",
+                "outdated.*component.*exploited",
             ],
-            "description": (
-                "Used discovered version information to exploit a known vulnerability"
-            ),
+            "description": ("Used discovered version information to exploit a known vulnerability"),
         },
         "speculative": {
             "keywords": [
-                "version.*disclosure", "banner.*disclosure", "fingerprint.*found",
-                "technology.*identified", "framework.*version.*detected",
-                "server.*header.*reveals", "x-powered-by.*header",
-                "nginx.*version", "apache.*version", "express.*version",
-                "next.*version", "nuxt.*version", "angular.*version",
-                "react.*version", "vue.*version", "django.*version",
-                "laravel.*version", "rails.*version",
+                "version.*disclosure",
+                "banner.*disclosure",
+                "fingerprint.*found",
+                "technology.*identified",
+                "framework.*version.*detected",
+                "server.*header.*reveals",
+                "x-powered-by.*header",
+                "nginx.*version",
+                "apache.*version",
+                "express.*version",
+                "next.*version",
+                "nuxt.*version",
+                "angular.*version",
+                "react.*version",
+                "vue.*version",
+                "django.*version",
+                "laravel.*version",
+                "rails.*version",
             ],
             "negation_keywords": [
-                "cve.*exploit", "used.*to.*attack", "vulnerability.*confirmed",
-                "outdated.*exploit", "version.*specific.*exploit",
+                "cve.*exploit",
+                "used.*to.*attack",
+                "vulnerability.*confirmed",
+                "outdated.*exploit",
+                "version.*specific.*exploit",
             ],
             "description": (
                 "Version/banner disclosure is reconnaissance. To be reportable, the finding must "
@@ -120,35 +150,47 @@ VALIDATION_CRITERIA: dict[str, dict[str, dict[str, Any]]] = {
         },
         "false_positive": {
             "keywords": [
-                "public.*information", "documentation.*available",
-                "changelog.*public", "version.*public",
+                "public.*information",
+                "documentation.*available",
+                "changelog.*public",
+                "version.*public",
             ],
-            "description": (
-                "Version information is publicly available in documentation"
-            ),
+            "description": ("Version information is publicly available in documentation"),
         },
     },
     "missing_header": {
         "validated": {
             "keywords": [
-                "clickjack.*sensitive.*action", "iframe.*exploit.*confirmed",
-                "xss.*via.*missing.*csp", "csrf.*via.*missing.*header",
+                "clickjack.*sensitive.*action",
+                "iframe.*exploit.*confirmed",
+                "xss.*via.*missing.*csp",
+                "csrf.*via.*missing.*header",
             ],
-            "description": (
-                "Demonstrated concrete attack enabled by missing header"
-            ),
+            "description": ("Demonstrated concrete attack enabled by missing header"),
         },
         "speculative": {
             "keywords": [
-                "missing.*header", "missing.*policy", "missing.*csp",
-                "missing.*x-frame", "missing.*hsts", "missing.*content-type",
-                "missing.*referrer-policy", "missing.*permissions-policy",
-                "header.*not.*set", "header.*absent", "header.*missing",
-                "weak.*csp", "weak.*hsts", "insecure.*header",
+                "missing.*header",
+                "missing.*policy",
+                "missing.*csp",
+                "missing.*x-frame",
+                "missing.*hsts",
+                "missing.*content-type",
+                "missing.*referrer-policy",
+                "missing.*permissions-policy",
+                "header.*not.*set",
+                "header.*absent",
+                "header.*missing",
+                "weak.*csp",
+                "weak.*hsts",
+                "insecure.*header",
             ],
             "negation_keywords": [
-                "clickjack.*exploit", "iframe.*attack", "xss.*injection",
-                "csrf.*exploit", "demonstrated.*attack",
+                "clickjack.*exploit",
+                "iframe.*attack",
+                "xss.*injection",
+                "csrf.*exploit",
+                "demonstrated.*attack",
             ],
             "description": (
                 "Missing security header without demonstrated impact. This is informational only. "
@@ -157,33 +199,46 @@ VALIDATION_CRITERIA: dict[str, dict[str, dict[str, Any]]] = {
         },
         "false_positive": {
             "keywords": [
-                "public.*page", "non.*sensitive", "static.*content",
+                "public.*page",
+                "non.*sensitive",
+                "static.*content",
                 "no.*sensitive.*action",
             ],
-            "description": (
-                "Missing header on non-sensitive page with no exploitable action"
-            ),
+            "description": ("Missing header on non-sensitive page with no exploitable action"),
         },
     },
     "cors": {
         "validated": {
             "keywords": [
-                "read.*response", "response.*body", "exfil", "stole.*token",
-                "extracted.*data", "cross.origin.*read", "accessed.*data",
-                "document\\\\.cookie", "fetch.*response", "xhr.*response",
-                "csrf.*performed", "state.changing", "unauthorized.*action",
+                "read.*response",
+                "response.*body",
+                "exfil",
+                "stole.*token",
+                "extracted.*data",
+                "cross.origin.*read",
+                "accessed.*data",
+                "document\\\\.cookie",
+                "fetch.*response",
+                "xhr.*response",
+                "csrf.*performed",
+                "state.changing",
+                "unauthorized.*action",
                 # Origin reflected + credentials enabled = browser allows reading
                 "allow.credentials.*true.*origin.*reflect",
                 "origin.*reflect.*allow.credentials.*true",
                 "credentials.*true.*reflected",
                 "reflected.*credentials.*true",
                 # Response body actually returned with evil origin (MUST have body evidence)
-                "response.*length.*bytes", "body.*length.*bytes",
-                "response.*readable.*evil", "body.*readable.*evil",
+                "response.*length.*bytes",
+                "body.*length.*bytes",
+                "response.*readable.*evil",
+                "body.*readable.*evil",
                 # Combined pattern: origin in ACAO + body evidence
-                "origin.*reflected.*response.*body", "response.*body.*origin.*reflected",
+                "origin.*reflected.*response.*body",
+                "response.*body.*origin.*reflected",
                 # Email enumeration via reflected origin (proves data returned)
-                "email.*enumerat.*origin.*reflect", "isEmailAvailable.*origin",
+                "email.*enumerat.*origin.*reflect",
+                "isEmailAvailable.*origin",
             ],
             "description": (
                 "PoC shows JS reading response body cross-origin, OR "
@@ -193,58 +248,86 @@ VALIDATION_CRITERIA: dict[str, dict[str, dict[str, Any]]] = {
         },
         "speculative": {
             "keywords": [
-                "preflight", "access-control-allow-origin",
-                "reflects.*origin", "cors.*header", "origin.*reflected",
+                "preflight",
+                "access-control-allow-origin",
+                "reflects.*origin",
+                "cors.*header",
+                "origin.*reflected",
             ],
             "negation_keywords": [
-                "read.*response", "response.*body", "exfil", "extracted",
-                "stole", "cross.origin.*read",
+                "read.*response",
+                "response.*body",
+                "exfil",
+                "extracted",
+                "stole",
+                "cross.origin.*read",
                 "allow.credentials.*true.*origin.*reflect",
                 "origin.*reflect.*allow.credentials.*true",
                 "credentials.*true.*reflected",
-                "response.*length.*bytes", "body.*length.*bytes",
+                "response.*length.*bytes",
+                "body.*length.*bytes",
                 "email.*enumerat.*origin.*reflect",
             ],
             "description": "Only preflight headers shown, no actual response tested",
         },
         "false_positive": {
             "keywords": [
-                "public.*api", "no.*sensitive", "public.*endpoint",
-                "aca[c-o].*\\\\*", "without.*aca[c-o]",
+                "public.*api",
+                "no.*sensitive",
+                "public.*endpoint",
+                "aca[c-o].*\\\\*",
+                "without.*aca[c-o]",
             ],
-            "description": (
-                "ACAO: * without ACAC, or public API with no sensitive data"
-            ),
+            "description": ("ACAO: * without ACAC, or public API with no sensitive data"),
         },
     },
     "sqli": {
         "validated": {
             "keywords": [
-                "table.*name", "extracted.*record", "dumped.*database",
-                "credentials.*extracted", "data.*exfiltrat", "union.*select",
-                "information_schema", "pg_sleep", "benchmark\\(",
-                "sleep\\(.*\\)", "rows.*returned", "column.*name",
+                "table.*name",
+                "extracted.*record",
+                "dumped.*database",
+                "credentials.*extracted",
+                "data.*exfiltrat",
+                "union.*select",
+                "information_schema",
+                "pg_sleep",
+                "benchmark\\(",
+                "sleep\\(.*\\)",
+                "rows.*returned",
+                "column.*name",
             ],
             "description": (
-                "Data extracted (table names, records, credentials), "
-                "not just error messages"
+                "Data extracted (table names, records, credentials), not just error messages"
             ),
         },
         "speculative": {
             "keywords": [
-                "sql.*error", "syntax.*error", "mysql.*error", "postgres.*error",
-                "sqlite.*error", "ora-\\d+", "unclosed.*quotation",
+                "sql.*error",
+                "syntax.*error",
+                "mysql.*error",
+                "postgres.*error",
+                "sqlite.*error",
+                "ora-\\d+",
+                "unclosed.*quotation",
                 "unterminated.*string",
             ],
             "negation_keywords": [
-                "extracted", "dumped", "table.*name", "record", "credential",
+                "extracted",
+                "dumped",
+                "table.*name",
+                "record",
+                "credential",
             ],
             "description": "Error-based detection without data extraction",
         },
         "false_positive": {
             "keywords": [
-                "generic.*500", "unrelated.*syntax", "not.*injection",
-                "false.*positive", "server.*error.*unrelated",
+                "generic.*500",
+                "unrelated.*syntax",
+                "not.*injection",
+                "false.*positive",
+                "server.*error.*unrelated",
             ],
             "description": "Generic 500 errors, syntax errors unrelated to injection",
         },
@@ -252,66 +335,100 @@ VALIDATION_CRITERIA: dict[str, dict[str, dict[str, Any]]] = {
     "idor": {
         "validated": {
             "keywords": [
-                "other.*user.*data", "another.*user", "cross.*user.*access",
-                "changed.*id.*and.*got", "replaced.*id.*received",
-                "different.*user.*profile", "accessed.*account.*of",
-                "id.*swap", "sequential.*id.*accessed",
+                "other.*user.*data",
+                "another.*user",
+                "cross.*user.*access",
+                "changed.*id.*and.*got",
+                "replaced.*id.*received",
+                "different.*user.*profile",
+                "accessed.*account.*of",
+                "id.*swap",
+                "sequential.*id.*accessed",
             ],
             "description": "Accessed another user's data by changing ID",
         },
         "speculative": {
             "keywords": [
-                "sequential.*id", "predictable.*id", "increment.*id",
-                "id.*pattern", "guessable.*id",
+                "sequential.*id",
+                "predictable.*id",
+                "increment.*id",
+                "id.*pattern",
+                "guessable.*id",
             ],
             "negation_keywords": [
-                "other.*user.*data", "another.*user", "cross.*user",
-                "different.*user", "accessed.*account.*of",
+                "other.*user.*data",
+                "another.*user",
+                "cross.*user",
+                "different.*user",
+                "accessed.*account.*of",
             ],
             "description": "Sequential IDs without confirmed cross-user access",
         },
         "false_positive": {
             "keywords": [
-                "403.*other.*user", "404.*other.*user", "access.*denied",
-                "id.*ignored", "returns.*own.*data", "own.*profile.*returned",
+                "403.*other.*user",
+                "404.*other.*user",
+                "access.*denied",
+                "id.*ignored",
+                "returns.*own.*data",
+                "own.*profile.*returned",
                 "unauthorized.*access",
             ],
-            "description": (
-                "Got 403/404 on other user's ID, or ID ignored (returns own data)"
-            ),
+            "description": ("Got 403/404 on other user's ID, or ID ignored (returns own data)"),
         },
     },
     "xss": {
         "validated": {
             "keywords": [
-                "script.*execut", "alert\\(", "document\\.cookie",
-                "document\\.domain", "dom.*manipulat", "payload.*execut",
-                "injected.*script", "xss.*fires", "reflected.*execut",
-                "stored.*execut", "onerror.*=", "onload.*=",
-                "javascript:", "eval\\(", "innerHTML",
+                "script.*execut",
+                "alert\\(",
+                "document\\.cookie",
+                "document\\.domain",
+                "dom.*manipulat",
+                "payload.*execut",
+                "injected.*script",
+                "xss.*fires",
+                "reflected.*execut",
+                "stored.*execut",
+                "onerror.*=",
+                "onload.*=",
+                "javascript:",
+                "eval\\(",
+                "innerHTML",
             ],
             "description": (
-                "Script executes in browser context "
-                "(document.cookie, alert, DOM manipulation)"
+                "Script executes in browser context (document.cookie, alert, DOM manipulation)"
             ),
         },
         "speculative": {
             "keywords": [
-                "payload.*reflect", "reflected.*payload", "input.*echoed",
-                "reflected.*in.*response", "unsanitized.*input",
+                "payload.*reflect",
+                "reflected.*payload",
+                "input.*echoed",
+                "reflected.*in.*response",
+                "unsanitized.*input",
                 "user.*input.*render",
             ],
             "negation_keywords": [
-                "execut", "alert\\(", "document\\.cookie", "fires",
-                "triggered", "pop-up", "popup",
+                "execut",
+                "alert\\(",
+                "document\\.cookie",
+                "fires",
+                "triggered",
+                "pop-up",
+                "popup",
             ],
             "description": "Payload reflected but not confirmed execution",
         },
         "false_positive": {
             "keywords": [
-                "html.*encod", "output.*encod", "csp.*block",
-                "content.security.*block", "inline.*script.*block",
-                "sanitiz.*output", "escaped.*output",
+                "html.*encod",
+                "output.*encod",
+                "csp.*block",
+                "content.security.*block",
+                "inline.*script.*block",
+                "sanitiz.*output",
+                "escaped.*output",
             ],
             "description": "HTML-encoded output, CSP blocks inline scripts",
         },
@@ -319,31 +436,45 @@ VALIDATION_CRITERIA: dict[str, dict[str, dict[str, Any]]] = {
     "ssrf": {
         "validated": {
             "keywords": [
-                "169\\.254\\.169\\.254", "metadata.*endpoint", "localhost.*access",
-                "internal.*service.*access", "127\\.0\\.0\\.1.*reached",
-                "internal.*hostname.*resolved", "cloud.*metadata",
-                "aws.*metadata", "gcp.*metadata", "azure.*metadata",
+                "169\\.254\\.169\\.254",
+                "metadata.*endpoint",
+                "localhost.*access",
+                "internal.*service.*access",
+                "127\\.0\\.0\\.1.*reached",
+                "internal.*hostname.*resolved",
+                "cloud.*metadata",
+                "aws.*metadata",
+                "gcp.*metadata",
+                "azure.*metadata",
             ],
             "description": (
-                "Accessed internal service "
-                "(169.254.169.254, localhost, internal hostname)"
+                "Accessed internal service (169.254.169.254, localhost, internal hostname)"
             ),
         },
         "speculative": {
             "keywords": [
-                "user.*controlled.*url", "url.*parameter", "fetch.*url",
-                "redirect.*to.*internal", "url.*input",
+                "user.*controlled.*url",
+                "url.*parameter",
+                "fetch.*url",
+                "redirect.*to.*internal",
+                "url.*input",
             ],
             "negation_keywords": [
-                "169\\.254", "metadata", "localhost.*access", "internal.*reached",
+                "169\\.254",
+                "metadata",
+                "localhost.*access",
+                "internal.*reached",
                 "127\\.0\\.0\\.1.*access",
             ],
             "description": "User-controlled URL without confirmed internal access",
         },
         "false_positive": {
             "keywords": [
-                "blocks.*internal.*ip", "url.*validation.*present",
-                "allowlist.*enforced", "ssrf.*filter", "ip.*blocklist",
+                "blocks.*internal.*ip",
+                "url.*validation.*present",
+                "allowlist.*enforced",
+                "ssrf.*filter",
+                "ip.*blocklist",
                 "dns.*rebind.*prevent",
             ],
             "description": "Server blocks all internal IPs, URL validation present",
@@ -352,28 +483,39 @@ VALIDATION_CRITERIA: dict[str, dict[str, dict[str, Any]]] = {
     "csrf": {
         "validated": {
             "keywords": [
-                "state.changing.*cross.origin", "action.*performed.*cross",
-                "forged.*request.*succeeded", "csrf.*exploit",
-                "cross.origin.*request.*modified", "without.*token.*action",
+                "state.changing.*cross.origin",
+                "action.*performed.*cross",
+                "forged.*request.*succeeded",
+                "csrf.*exploit",
+                "cross.origin.*request.*modified",
+                "without.*token.*action",
                 "account.*modified.*cross.origin",
             ],
             "description": "State-changing action performed cross-origin without token",
         },
         "speculative": {
             "keywords": [
-                "missing.*csrf.*token", "no.*csrf.*token", "csrf.*token.*absent",
+                "missing.*csrf.*token",
+                "no.*csrf.*token",
+                "csrf.*token.*absent",
                 "anti.*forgery.*missing",
             ],
             "negation_keywords": [
-                "cross.origin.*succeed", "action.*performed", "exploit",
-                "modified.*data", "created.*account",
+                "cross.origin.*succeed",
+                "action.*performed",
+                "exploit",
+                "modified.*data",
+                "created.*account",
             ],
             "description": "Missing CSRF token but action not tested cross-origin",
         },
         "false_positive": {
             "keywords": [
-                "get.*only", "non.*sensitive", "read.*only",
-                "idempotent.*action", "no.*state.*change",
+                "get.*only",
+                "non.*sensitive",
+                "read.*only",
+                "idempotent.*action",
+                "no.*state.*change",
             ],
             "description": "GET-only endpoints, non-sensitive actions",
         },
@@ -381,64 +523,93 @@ VALIDATION_CRITERIA: dict[str, dict[str, dict[str, Any]]] = {
     "info_disclosure": {
         "validated": {
             "keywords": [
-                "used.*to.*access", "called.*api.*with.*key",
-                "authenticated.*with.*found", "retrieved.*data.*using",
-                "accessed.*service.*with", "unauthorized.*access.*achieved",
-                "exfiltrated.*using", "logged.*in.*with.*found",
+                "used.*to.*access",
+                "called.*api.*with.*key",
+                "authenticated.*with.*found",
+                "retrieved.*data.*using",
+                "accessed.*service.*with",
+                "unauthorized.*access.*achieved",
+                "exfiltrated.*using",
+                "logged.*in.*with.*found",
             ],
-            "description": (
-                "Credential/key used to access unauthorized data or service"
-            ),
+            "description": ("Credential/key used to access unauthorized data or service"),
         },
         "speculative": {
             "keywords": [
-                "found.*key", "found.*token", "found.*secret",
-                "found.*credential", "exposed.*key", "leaked.*key",
-                "hardcoded.*key", "hardcoded.*token", "hardcoded.*secret",
-                "contains.*api.*key", "contains.*token",
+                "found.*key",
+                "found.*token",
+                "found.*secret",
+                "found.*credential",
+                "exposed.*key",
+                "leaked.*key",
+                "hardcoded.*key",
+                "hardcoded.*token",
+                "hardcoded.*secret",
+                "contains.*api.*key",
+                "contains.*token",
             ],
             "negation_keywords": [
-                "used.*to.*access", "called.*api", "authenticated.*with",
-                "retrieved.*data", "accessed.*service", "exfiltrated",
+                "used.*to.*access",
+                "called.*api",
+                "authenticated.*with",
+                "retrieved.*data",
+                "accessed.*service",
+                "exfiltrated",
             ],
             "description": "Key/credential found but not tested",
         },
         "false_positive": {
             "keywords": [
-                "oauth.*client.*id", "public.*credential", "firebase.*api.*key.*by.*design",
-                "client.*id.*public", "non.*secret", "by.*design.*public",
+                "oauth.*client.*id",
+                "public.*credential",
+                "firebase.*api.*key.*by.*design",
+                "client.*id.*public",
+                "non.*secret",
+                "by.*design.*public",
                 "default.*credential.*public",
             ],
-            "description": (
-                "Public credentials (OAuth client IDs, Firebase API keys by design)"
-            ),
+            "description": ("Public credentials (OAuth client IDs, Firebase API keys by design)"),
         },
     },
     "auth_bypass": {
         "validated": {
             "keywords": [
-                "accessed.*protected.*resource", "bypassed.*auth",
-                "admin.*panel.*access", "unauthorized.*data.*access",
-                "escalated.*privilege", "accessed.*without.*credential",
-                "jwt.*forged", "token.*forged", "session.*hijack",
+                "accessed.*protected.*resource",
+                "bypassed.*auth",
+                "admin.*panel.*access",
+                "unauthorized.*data.*access",
+                "escalated.*privilege",
+                "accessed.*without.*credential",
+                "jwt.*forged",
+                "token.*forged",
+                "session.*hijack",
             ],
             "description": "Accessed protected resource without valid credentials",
         },
         "speculative": {
             "keywords": [
-                "auth.*check.*missing", "no.*auth.*check", "authentication.*absent",
-                "missing.*authorization", "no.*access.*control",
+                "auth.*check.*missing",
+                "no.*auth.*check",
+                "authentication.*absent",
+                "missing.*authorization",
+                "no.*access.*control",
             ],
             "negation_keywords": [
-                "accessed.*data", "bypassed", "admin.*panel", "escalated",
-                "forged", "hijack",
+                "accessed.*data",
+                "bypassed",
+                "admin.*panel",
+                "escalated",
+                "forged",
+                "hijack",
             ],
             "description": "Auth check missing but not tested with actual data access",
         },
         "false_positive": {
             "keywords": [
-                "public.*endpoint", "appears.*protected.*but",
-                "actually.*public", "intentionally.*public",
+                "public.*endpoint",
+                "appears.*protected.*but",
+                "actually.*public",
+                "intentionally.*public",
                 "publicly.*accessible.*by.*design",
             ],
             "description": "Public endpoints that appear protected but aren't",
@@ -447,29 +618,44 @@ VALIDATION_CRITERIA: dict[str, dict[str, dict[str, Any]]] = {
     "rce": {
         "validated": {
             "keywords": [
-                "command.*executed", "arbitrary.*command", "shell.*obtained",
-                "reverse.*shell", "whoami.*returned", "id.*returned",
-                "exec\\(.*result", "system\\(.*result", "subprocess.*output",
-                "command.*injection.*success", "popen.*output",
+                "command.*executed",
+                "arbitrary.*command",
+                "shell.*obtained",
+                "reverse.*shell",
+                "whoami.*returned",
+                "id.*returned",
+                "exec\\(.*result",
+                "system\\(.*result",
+                "subprocess.*output",
+                "command.*injection.*success",
+                "popen.*output",
             ],
             "description": "Arbitrary command executed on server",
         },
         "speculative": {
             "keywords": [
-                "command.*injection.*point", "inject.*into.*command",
-                "user.*input.*in.*command", "os.*command.*parameter",
+                "command.*injection.*point",
+                "inject.*into.*command",
+                "user.*input.*in.*command",
+                "os.*command.*parameter",
                 "exec.*parameter.*controllable",
             ],
             "negation_keywords": [
-                "executed", "returned.*output", "shell.*obtained", "whoami",
-                "result.*of.*command", "command.*output",
+                "executed",
+                "returned.*output",
+                "shell.*obtained",
+                "whoami",
+                "result.*of.*command",
+                "command.*output",
             ],
             "description": "Command injection point without confirmed execution",
         },
         "false_positive": {
             "keywords": [
-                "error.*message.*not.*output", "looks.*like.*command.*but",
-                "not.*actual.*command", "false.*positive.*rce",
+                "error.*message.*not.*output",
+                "looks.*like.*command.*but",
+                "not.*actual.*command",
+                "false.*positive.*rce",
                 "error.*string.*not.*injection",
             ],
             "description": "Error messages that look like command output but aren't",
@@ -478,27 +664,39 @@ VALIDATION_CRITERIA: dict[str, dict[str, dict[str, Any]]] = {
     "ssti": {
         "validated": {
             "keywords": [
-                "\\{\\{.*\\*.*\\}\\}.*=.*49", "template.*evaluated",
-                "expression.*evaluated", "7\\*7.*=.*49", "\\{\\{.*\\}\\}.*rendered",
-                "jinja.*exploit", "twig.*exploit", "freemarker.*exploit",
+                "\\{\\{.*\\*.*\\}\\}.*=.*49",
+                "template.*evaluated",
+                "expression.*evaluated",
+                "7\\*7.*=.*49",
+                "\\{\\{.*\\}\\}.*rendered",
+                "jinja.*exploit",
+                "twig.*exploit",
+                "freemarker.*exploit",
                 "server.*side.*template.*inject.*confirmed",
             ],
             "description": "Template expressions evaluated (e.g., {{7*7}} = 49)",
         },
         "speculative": {
             "keywords": [
-                "user.*input.*in.*template", "template.*context",
-                "template.*injection.*possible", "render.*user.*input",
+                "user.*input.*in.*template",
+                "template.*context",
+                "template.*injection.*possible",
+                "render.*user.*input",
             ],
             "negation_keywords": [
-                "evaluated", "=.*49", "exploit.*confirmed", "expression.*result",
+                "evaluated",
+                "=.*49",
+                "exploit.*confirmed",
+                "expression.*result",
             ],
             "description": "User input in template context without confirmed evaluation",
         },
         "false_positive": {
             "keywords": [
-                "html.*template.*literal", "client.*side.*template",
-                "not.*server.*side", "string.*interpolation",
+                "html.*template.*literal",
+                "client.*side.*template",
+                "not.*server.*side",
+                "string.*interpolation",
                 "es6.*template.*literal",
             ],
             "description": "HTML template literal, not server-side evaluation",
@@ -507,31 +705,43 @@ VALIDATION_CRITERIA: dict[str, dict[str, dict[str, Any]]] = {
     "xxe": {
         "validated": {
             "keywords": [
-                "internal.*file.*read", "etc.*passwd.*read",
-                "file://.*read", "ssrf.*via.*xml", "xxe.*exploit",
-                "external.*entity.*resolv", "xml.*injection.*confirmed",
-                "billion.*laugh", "parameter.*entity.*expanded",
+                "internal.*file.*read",
+                "etc.*passwd.*read",
+                "file://.*read",
+                "ssrf.*via.*xml",
+                "xxe.*exploit",
+                "external.*entity.*resolv",
+                "xml.*injection.*confirmed",
+                "billion.*laugh",
+                "parameter.*entity.*expanded",
             ],
             "description": "Internal file read or SSRF via XML injection",
         },
         "speculative": {
             "keywords": [
-                "xml.*parser.*accept.*external", "external.*entity.*accept",
-                "xxe.*possible", "xml.*entity.*injection.*possible",
+                "xml.*parser.*accept.*external",
+                "external.*entity.*accept",
+                "xxe.*possible",
+                "xml.*entity.*injection.*possible",
                 "dtd.*accepted",
             ],
             "negation_keywords": [
-                "file.*read", "etc.*passwd", "ssrf.*confirm", "exploit",
-                "resolved.*entity", "expanded",
+                "file.*read",
+                "etc.*passwd",
+                "ssrf.*confirm",
+                "exploit",
+                "resolved.*entity",
+                "expanded",
             ],
-            "description": (
-                "XML parser accepts external entities without confirmed exploitation"
-            ),
+            "description": ("XML parser accepts external entities without confirmed exploitation"),
         },
         "false_positive": {
             "keywords": [
-                "xml.*parser.*reject.*external", "external.*entity.*reject",
-                "xxe.*blocked", "xml.*parser.*secure", "dtd.*disallow",
+                "xml.*parser.*reject.*external",
+                "external.*entity.*reject",
+                "xxe.*blocked",
+                "xml.*parser.*secure",
+                "dtd.*disallow",
             ],
             "description": "XML parser rejects external entities",
         },
@@ -539,29 +749,40 @@ VALIDATION_CRITERIA: dict[str, dict[str, dict[str, Any]]] = {
     "lfi": {
         "validated": {
             "keywords": [
-                "etc.*passwd.*read", "file.*content.*retrieved",
-                "internal.*file.*read", "path.*traversal.*confirmed",
-                "directory.*listing", "source.*code.*read",
-                "lfi.*exploit.*confirmed", "/etc/shadow",
+                "etc.*passwd.*read",
+                "file.*content.*retrieved",
+                "internal.*file.*read",
+                "path.*traversal.*confirmed",
+                "directory.*listing",
+                "source.*code.*read",
+                "lfi.*exploit.*confirmed",
+                "/etc/shadow",
             ],
             "description": "Read internal file (e.g., /etc/passwd)",
         },
         "speculative": {
             "keywords": [
-                "path.*traversal.*possible", "traversal.*sequence.*accept",
-                "user.*input.*in.*path", "file.*path.*controllable",
+                "path.*traversal.*possible",
+                "traversal.*sequence.*accept",
+                "user.*input.*in.*path",
+                "file.*path.*controllable",
                 "\\./\\.\\./.*accepted",
             ],
             "negation_keywords": [
-                "etc.*passwd", "file.*content.*read", "source.*code",
-                "directory.*listing", "confirmed.*read",
+                "etc.*passwd",
+                "file.*content.*read",
+                "source.*code",
+                "directory.*listing",
+                "confirmed.*read",
             ],
             "description": "Path traversal without confirmed file read",
         },
         "false_positive": {
             "keywords": [
-                "waf.*block.*traversal", "traversal.*blocked",
-                "path.*sanitiz", "directory.*traversal.*prevent",
+                "waf.*block.*traversal",
+                "traversal.*blocked",
+                "path.*sanitiz",
+                "directory.*traversal.*prevent",
                 "\\./\\.\\/*.*block",
             ],
             "description": "WAF blocks traversal sequences",
@@ -585,16 +806,24 @@ VALIDATION_CRITERIA: dict[str, dict[str, dict[str, Any]]] = {
         },
         "speculative": {
             "keywords": [
-                "plain.*method.*in.*discovery", "code_challenge_methods_supported.*plain",
-                "pkce.*metadata.*mismatch", "oauth.*misconfiguration",
-                "plain.*pkce.*advertised", "insecure.*pkce.*method",
-                "pkce.*not.*enforced", "missing.*pkce.*enforcement",
+                "plain.*method.*in.*discovery",
+                "code_challenge_methods_supported.*plain",
+                "pkce.*metadata.*mismatch",
+                "oauth.*misconfiguration",
+                "plain.*pkce.*advertised",
+                "insecure.*pkce.*method",
+                "pkce.*not.*enforced",
+                "missing.*pkce.*enforcement",
                 "no.*code_challenge.*required",
                 # These are metadata-only — informational, not reportable
-                "plain.*method.*advertised", "code_challenge_methods.*plain",
-                "pkce.*downgrade.*confirmed", "plain.*pkce.*accepted",
-                "authorize.*accept.*plain", "discovery.*advertises.*plain",
-                "metadata.*plain.*pkce", "oauth.*downgrade.*confirmed",
+                "plain.*method.*advertised",
+                "code_challenge_methods.*plain",
+                "pkce.*downgrade.*confirmed",
+                "plain.*pkce.*accepted",
+                "authorize.*accept.*plain",
+                "discovery.*advertises.*plain",
+                "metadata.*plain.*pkce",
+                "oauth.*downgrade.*confirmed",
                 "cve.2025.4144",
             ],
             "negation_keywords": [
@@ -613,23 +842,29 @@ VALIDATION_CRITERIA: dict[str, dict[str, dict[str, Any]]] = {
         },
         "false_positive": {
             "keywords": [
-                "s256.*only", "plain.*rejected", "pkce.*enforced",
-                "token.*reject.*plain", "invalid_request.*missing.*code_challenge",
+                "s256.*only",
+                "plain.*rejected",
+                "pkce.*enforced",
+                "token.*reject.*plain",
+                "invalid_request.*missing.*code_challenge",
                 "plain.*not.*supported",
             ],
-            "description": (
-                "Server correctly rejects plain PKCE or enforces S256 only"
-            ),
+            "description": ("Server correctly rejects plain PKCE or enforces S256 only"),
         },
     },
     "oauth_misconfiguration": {
         "validated": {
             "keywords": [
-                "token.*leak.*via.*redirect", "open.*redirect.*oauth",
-                "authorization.*code.*intercept", "token.*theft.*via",
-                "oauth.*account.*takeover", "jwt.*none.*algorithm",
-                "jwt.*algorithm.*confusion", "refresh.*token.*reuse",
-                "state.*parameter.*missing.*exploit", "csrf.*oauth.*confirmed",
+                "token.*leak.*via.*redirect",
+                "open.*redirect.*oauth",
+                "authorization.*code.*intercept",
+                "token.*theft.*via",
+                "oauth.*account.*takeover",
+                "jwt.*none.*algorithm",
+                "jwt.*algorithm.*confusion",
+                "refresh.*token.*reuse",
+                "state.*parameter.*missing.*exploit",
+                "csrf.*oauth.*confirmed",
             ],
             "description": (
                 "OAuth misconfiguration exploited: token theft, account takeover, "
@@ -638,14 +873,21 @@ VALIDATION_CRITERIA: dict[str, dict[str, dict[str, Any]]] = {
         },
         "speculative": {
             "keywords": [
-                "oauth.*misconfiguration", "oauth.*weakness",
-                "missing.*state.*parameter", "open.*redirect.*potential",
-                "jwt.*weakness", "token.*storage.*insecure",
-                "oauth.*config.*issue", "oidc.*misconfiguration",
+                "oauth.*misconfiguration",
+                "oauth.*weakness",
+                "missing.*state.*parameter",
+                "open.*redirect.*potential",
+                "jwt.*weakness",
+                "token.*storage.*insecure",
+                "oauth.*config.*issue",
+                "oidc.*misconfiguration",
             ],
             "negation_keywords": [
-                "exploit.*confirmed", "token.*stolen", "account.*takeover",
-                "bypass.*confirmed", "code.*intercepted",
+                "exploit.*confirmed",
+                "token.*stolen",
+                "account.*takeover",
+                "bypass.*confirmed",
+                "code.*intercepted",
             ],
             "description": (
                 "OAuth configuration issue observed without confirmed exploitation. "
@@ -654,8 +896,10 @@ VALIDATION_CRITERIA: dict[str, dict[str, dict[str, Any]]] = {
         },
         "false_positive": {
             "keywords": [
-                "oauth.*working.*correctly", "standard.*oauth.*flow",
-                "expected.*behavior", "oauth.*properly.*configured",
+                "oauth.*working.*correctly",
+                "standard.*oauth.*flow",
+                "expected.*behavior",
+                "oauth.*properly.*configured",
             ],
             "description": "OAuth flow working as designed",
         },
@@ -729,38 +973,123 @@ _EXPLOITATION_SIGNALS: list[str] = [
 
 _TYPE_KEYWORDS: dict[str, list[str]] = {
     "ssr_hostname_leak": [
-        "ssr.*hostname", "internal.*hostname", "railway.*internal",
-        "nuxt.*data.*leak", "next.*data.*leak", "angular.*data.*leak",
-        "_nuxt_data", "_ssr_data", "ssr.*internal", "server.*address.*leak",
+        "ssr.*hostname",
+        "internal.*hostname",
+        "railway.*internal",
+        "nuxt.*data.*leak",
+        "next.*data.*leak",
+        "angular.*data.*leak",
+        "_nuxt_data",
+        "_ssr_data",
+        "ssr.*internal",
+        "server.*address.*leak",
     ],
     "fingerprinting": [
-        "version.*disclosure", "banner.*disclosure", "fingerprint",
-        "technology.*identified", "framework.*version", "server.*header.*reveals",
+        "version.*disclosure",
+        "banner.*disclosure",
+        "fingerprint",
+        "technology.*identified",
+        "framework.*version",
+        "server.*header.*reveals",
     ],
     "missing_header": [
-        "missing.*header", "missing.*policy", "missing.*csp", "missing.*x-frame",
-        "missing.*hsts", "header.*not.*set", "header.*absent", "weak.*csp",
+        "missing.*header",
+        "missing.*policy",
+        "missing.*csp",
+        "missing.*x-frame",
+        "missing.*hsts",
+        "header.*not.*set",
+        "header.*absent",
+        "weak.*csp",
     ],
     "cors": ["cors", "cross-origin resource sharing", "access-control-allow-origin"],
-    "sqli": ["sql injection", "sqli", "sql inject", "blind sql", "union select", "database injection"],
+    "sqli": [
+        "sql injection",
+        "sqli",
+        "sql inject",
+        "blind sql",
+        "union select",
+        "database injection",
+    ],
     "idor": ["idor", "insecure direct object", "idor", "direct object reference"],
-    "xss": ["xss", "cross-site scripting", "cross site scripting", "reflected xss", "stored xss", "dom xss", "dom-based xss"],
+    "xss": [
+        "xss",
+        "cross-site scripting",
+        "cross site scripting",
+        "reflected xss",
+        "stored xss",
+        "dom xss",
+        "dom-based xss",
+    ],
     "ssrf": ["ssrf", "server-side request forgery", "server side request forgery"],
     "csrf": ["csrf", "cross-site request forgery", "cross site request forgery", "csrf token"],
-    "info_disclosure": ["information disclosure", "info disclosure", "sensitive data exposure", "credential exposure", "api key exposure", "secret exposure", "token exposure", "data leak", "data leakage", "hardcoded credential", "hardcoded secret"],
-    "auth_bypass": ["authentication bypass", "auth bypass", "authorization bypass", "privilege escalation", "broken authentication", "broken authorization", "access control bypass"],
-    "rce": ["remote code execution", "rce", "command injection", "code injection", "arbitrary code execution", "os command injection"],
-    "ssti": ["server-side template injection", "ssti", "template injection", "server side template injection"],
+    "info_disclosure": [
+        "information disclosure",
+        "info disclosure",
+        "sensitive data exposure",
+        "credential exposure",
+        "api key exposure",
+        "secret exposure",
+        "token exposure",
+        "data leak",
+        "data leakage",
+        "hardcoded credential",
+        "hardcoded secret",
+    ],
+    "auth_bypass": [
+        "authentication bypass",
+        "auth bypass",
+        "authorization bypass",
+        "privilege escalation",
+        "broken authentication",
+        "broken authorization",
+        "access control bypass",
+    ],
+    "rce": [
+        "remote code execution",
+        "rce",
+        "command injection",
+        "code injection",
+        "arbitrary code execution",
+        "os command injection",
+    ],
+    "ssti": [
+        "server-side template injection",
+        "ssti",
+        "template injection",
+        "server side template injection",
+    ],
     "xxe": ["xxe", "xml external entity", "xml injection", "xml entity injection"],
-    "lfi": ["local file inclusion", "lfi", "path traversal", "directory traversal", "file inclusion"],
+    "lfi": [
+        "local file inclusion",
+        "lfi",
+        "path traversal",
+        "directory traversal",
+        "file inclusion",
+    ],
     "pkce_downgrade": [
-        "pkce", "code_challenge", "code_verifier", "proof key for code exchange",
-        "pkce downgrade", "plain pkce", "s256", "code_challenge_method",
+        "pkce",
+        "code_challenge",
+        "code_verifier",
+        "proof key for code exchange",
+        "pkce downgrade",
+        "plain pkce",
+        "s256",
+        "code_challenge_method",
     ],
     "oauth_misconfiguration": [
-        "oauth", "oidc", "openid connect", "authorization code", "token endpoint",
-        "authorize endpoint", "oauth misconfiguration", "jwt", "refresh token",
-        "bearer token", "oauth flow", "oauth bypass",
+        "oauth",
+        "oidc",
+        "openid connect",
+        "authorization code",
+        "token endpoint",
+        "authorize endpoint",
+        "oauth misconfiguration",
+        "jwt",
+        "refresh token",
+        "bearer token",
+        "oauth flow",
+        "oauth bypass",
     ],
 }
 
@@ -796,6 +1125,7 @@ def classify_finding_type(title: str, description: str) -> str:
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _check_keywords(text: str, keywords: list[str]) -> list[str]:
     """Return which *keywords* match somewhere in *text*."""
     matches: list[str] = []
@@ -827,6 +1157,7 @@ def _has_observation_only(text: str) -> bool:
 # ---------------------------------------------------------------------------
 # Core validation
 # ---------------------------------------------------------------------------
+
 
 def validate_finding(finding: dict[str, Any]) -> ValidationVerdict:
     """Validate a single finding against type-specific criteria.
@@ -1053,6 +1384,7 @@ def _validate_generic(
 # ---------------------------------------------------------------------------
 # Batch validation
 # ---------------------------------------------------------------------------
+
 
 def validate_findings_batch(findings: list[dict[str, Any]]) -> list[ValidationVerdict]:
     """Validate a batch of findings and return verdicts sorted by confidence.

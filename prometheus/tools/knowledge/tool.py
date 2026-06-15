@@ -140,12 +140,17 @@ async def _auto_cve_lookup(
         # (long strings with many words, sentences, etc.)
         value_stripped = tech_value.strip()
         if len(value_stripped) > 100:
-            logger.debug("Auto CVE lookup: value too long (%d chars), likely description, skipping", len(value_stripped))
+            logger.debug(
+                "Auto CVE lookup: value too long (%d chars), likely description, skipping",
+                len(value_stripped),
+            )
             return None
 
         word_count = len(value_stripped.split())
         if word_count > 8:
-            logger.debug("Auto CVE lookup: value has %d words, likely description, skipping", word_count)
+            logger.debug(
+                "Auto CVE lookup: value has %d words, likely description, skipping", word_count
+            )
             return None
 
         # Guard: reject keys that look like descriptions too
@@ -181,7 +186,10 @@ async def _auto_cve_lookup(
 
         # Guard: validate technology looks like a real tech name
         if len(technology) > 60 or len(technology.split()) > 4:
-            logger.debug("Auto CVE lookup: extracted technology '%s' too long/complex, skipping", technology[:60])
+            logger.debug(
+                "Auto CVE lookup: extracted technology '%s' too long/complex, skipping",
+                technology[:60],
+            )
             return None
 
         # Clean up version (remove trailing garbage)
@@ -206,7 +214,9 @@ async def _auto_cve_lookup(
         return all_vulns if all_vulns else None
 
     except Exception as exc:
-        logger.warning("Auto CVE lookup failed for %s/%s: %s", tech_key, tech_value, exc, exc_info=True)
+        logger.warning(
+            "Auto CVE lookup failed for %s/%s: %s", tech_key, tech_value, exc, exc_info=True
+        )
         return None
 
 
@@ -409,7 +419,10 @@ async def get_report_details(
         )
         if report is None:
             return json.dumps(
-                {"success": False, "error": f"No report found for '{finding_title}' on {target_id}"},
+                {
+                    "success": False,
+                    "error": f"No report found for '{finding_title}' on {target_id}",
+                },
                 default=str,
             )
 
@@ -421,8 +434,11 @@ async def get_report_details(
         )
         # Filter to entries that mention the finding title
         title_lower = finding_title.lower()
-        related = [k for k in knowledge if title_lower in k.get("key", "").lower()
-                    or title_lower in k.get("value", "").lower()]
+        related = [
+            k
+            for k in knowledge
+            if title_lower in k.get("key", "").lower() or title_lower in k.get("value", "").lower()
+        ]
 
     except Exception as exc:
         logger.exception("get_report_details failed")

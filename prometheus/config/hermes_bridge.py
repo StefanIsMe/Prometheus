@@ -73,9 +73,7 @@ def _base_url_uses_anthropic_protocol(base_url: str | None, provider: str | None
     return any(marker in haystack for marker in _ANTHROPIC_PROTOCOL_MARKERS)
 
 
-def _resolve_openai_compatible_base_url(
-    base_url: str | None, provider: str | None
-) -> str | None:
+def _resolve_openai_compatible_base_url(base_url: str | None, provider: str | None) -> str | None:
     """Return a base_url that is guaranteed to speak OpenAI Chat-Completions.
 
     If the active profile's base_url is Anthropic-protocol but the provider
@@ -130,7 +128,8 @@ def _patch_openai_codex_responses_replay() -> None:
     def patched(self: Any, list_input: list[Any]) -> list[Any]:
         cleaned = original(self, list_input)
         return [
-            item for item in cleaned
+            item
+            for item in cleaned
             if not (isinstance(item, dict) and item.get("type") == "reasoning")
         ]
 
@@ -182,9 +181,7 @@ def _patch_chat_completions_invalid_function_arguments() -> None:
         return
 
     original_items_to_messages = Converter.items_to_messages
-    original_message_to_output_items = getattr(
-        Converter, "message_to_output_items", None
-    )
+    original_message_to_output_items = getattr(Converter, "message_to_output_items", None)
 
     import json as _json
     from typing import Iterable as _Iterable, cast as _cast
@@ -291,9 +288,10 @@ def _patch_chat_completions_invalid_function_arguments() -> None:
                         "arguments is not a JSON object", arguments or "", 0
                     )
                     logger.warning(
-                        "Sanitizing invalid tool-call arguments for call_id=%s "
-                        "tool=%s: %s",
-                        call_id, name, parse_exc,
+                        "Sanitizing invalid tool-call arguments for call_id=%s tool=%s: %s",
+                        call_id,
+                        name,
+                        parse_exc,
                     )
                     # Mutate the item in place so the original SDK path sees
                     # valid JSON when it walks the assistant message.
@@ -324,9 +322,7 @@ def _patch_chat_completions_invalid_function_arguments() -> None:
                                 "name": name,
                                 "arguments": "{}",
                             }
-                    synthesized = _maybe_synthesize_output(
-                        call_id, name, arguments, parse_exc
-                    )
+                    synthesized = _maybe_synthesize_output(call_id, name, arguments, parse_exc)
                     if synthesized is not None:
                         cleaned.append(synthesized)
             return original_items_to_messages.__func__(
@@ -561,11 +557,7 @@ def _token_is_expired(state: dict[str, Any], token_field: str, provider: str) ->
     try:
         from datetime import datetime, timezone
 
-        expiry_field = (
-            "agent_key_expires_at"
-            if token_field == "agent_key"
-            else "expires_at"
-        )
+        expiry_field = "agent_key_expires_at" if token_field == "agent_key" else "expires_at"
         expiry = state.get(expiry_field)
         if not isinstance(expiry, str) or not expiry.strip():
             return False  # unknown expiry, assume usable

@@ -68,7 +68,8 @@ class ScanScheduler:
         # Paused targets
         self._paused_targets: set[str] = set()
         logger.info(
-            "ScanScheduler initialised (check_interval=%ds)", self._check_interval,
+            "ScanScheduler initialised (check_interval=%ds)",
+            self._check_interval,
         )
 
     # ------------------------------------------------------------------
@@ -115,7 +116,8 @@ class ScanScheduler:
             self._schedule_overrides[target_id] = max(1, interval_hours)
         logger.info(
             "Schedule override: target=%s interval=%dh",
-            target_id, interval_hours,
+            target_id,
+            interval_hours,
         )
 
     def pause_schedule(self, target_id: str) -> None:
@@ -185,7 +187,6 @@ class ScanScheduler:
 
         registry = TargetRegistry()
         with self._lock:
-
             paused = set(self._paused_targets)
             vulns = set(self._targets_with_vulns)
             overrides = dict(self._schedule_overrides)
@@ -203,15 +204,17 @@ class ScanScheduler:
             interval = overrides.get(tid, schedule.get("interval_hours", _DEFAULT_INTERVAL_HOURS))
             if tid in vulns and tid not in overrides:
                 interval = _VULN_INTERVAL_HOURS
-            result.append({
-                "target_id": tid,
-                "domain": target.get("domain", ""),
-                "interval_hours": interval,
-                "next_scan_at": schedule.get("next_scan_at"),
-                "last_scan_id": schedule.get("last_scan_id"),
-                "paused": tid in paused,
-                "had_vulns": tid in vulns,
-            })
+            result.append(
+                {
+                    "target_id": tid,
+                    "domain": target.get("domain", ""),
+                    "interval_hours": interval,
+                    "next_scan_at": schedule.get("next_scan_at"),
+                    "last_scan_id": schedule.get("last_scan_id"),
+                    "paused": tid in paused,
+                    "had_vulns": tid in vulns,
+                }
+            )
         return result
 
     # ------------------------------------------------------------------
@@ -264,20 +267,21 @@ class ScanScheduler:
         # Never scanned — immediate
         if not rows:
             logger.info(
-                "Target=%s never scanned, scheduling immediately", target_id,
+                "Target=%s never scanned, scheduling immediately",
+                target_id,
             )
             return 0
 
         # Check if last 3 scans found nothing → slow interval
         if len(rows) >= 3:
             all_empty = all(
-                (row["findings_count"] or 0) == 0 and row["status"] == "completed"
-                for row in rows
+                (row["findings_count"] or 0) == 0 and row["status"] == "completed" for row in rows
             )
             if all_empty:
                 logger.info(
                     "Target=%s: last 3 scans clean, using %dh interval",
-                    target_id, _SLOW_INTERVAL_HOURS,
+                    target_id,
+                    _SLOW_INTERVAL_HOURS,
                 )
                 return _SLOW_INTERVAL_HOURS
 
@@ -286,7 +290,8 @@ class ScanScheduler:
         if has_findings:
             logger.info(
                 "Target=%s: recent scan had findings, using %dh interval",
-                target_id, _VULN_INTERVAL_HOURS,
+                target_id,
+                _VULN_INTERVAL_HOURS,
             )
             return _VULN_INTERVAL_HOURS
 
@@ -340,7 +345,8 @@ class ScanScheduler:
             if active_count >= max_concurrent:
                 logger.info(
                     "Orchestrator at capacity (%d/%d), deferring remaining targets",
-                    active_count, max_concurrent,
+                    active_count,
+                    max_concurrent,
                 )
                 break
 
@@ -381,6 +387,7 @@ class ScanScheduler:
         registry: Any,
     ) -> None:
         """Poll until the scan finishes, then update the schedule."""
+
         def _watcher() -> None:
             try:
                 while self._running:
@@ -394,7 +401,9 @@ class ScanScheduler:
                 self._update_schedule_fields(registry, target_id, next_scan, scan_id)
                 logger.info(
                     "Updated schedule for target=%s: next_scan=%s last_scan=%s",
-                    target_id, next_scan.isoformat(), scan_id,
+                    target_id,
+                    next_scan.isoformat(),
+                    scan_id,
                 )
             except Exception:
                 logger.exception("Completion watcher failed for scan=%s", scan_id)
@@ -418,17 +427,26 @@ class ScanScheduler:
 
         with registry._lock:
             row = registry._conn.execute(
-                "SELECT schedule FROM targets WHERE id = ?", (target_id,),
+                "SELECT schedule FROM targets WHERE id = ?",
+                (target_id,),
             ).fetchone()
             if row is None:
                 return
-            schedule = json.loads(row["schedule"]) if isinstance(row["schedule"], str) else dict(row["schedule"])
+            schedule = (
+                json.loads(row["schedule"])
+                if isinstance(row["schedule"], str)
+                else dict(row["schedule"])
+            )
             schedule["next_scan_at"] = next_scan.isoformat()
             if scan_id is not None:
                 schedule["last_scan_id"] = scan_id
             registry._conn.execute(
                 "UPDATE targets SET schedule = ?, updated_at = ? WHERE id = ?",
-                (json.dumps(schedule, ensure_ascii=False), datetime.now(UTC).isoformat(), target_id),
+                (
+                    json.dumps(schedule, ensure_ascii=False),
+                    datetime.now(UTC).isoformat(),
+                    target_id,
+                ),
             )
             registry._conn.commit()
 

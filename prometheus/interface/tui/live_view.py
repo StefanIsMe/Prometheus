@@ -24,10 +24,12 @@ class TuiLiveView:
         self.system_messages: list[dict[str, Any]] = []
 
     def add_system_message(self, message: str) -> None:
-        self.system_messages.append({
-            "message": message,
-            "timestamp": datetime.now(UTC).isoformat(),
-        })
+        self.system_messages.append(
+            {
+                "message": message,
+                "timestamp": datetime.now(UTC).isoformat(),
+            }
+        )
         # Keep only the last 50 messages to avoid unbounded growth
         if len(self.system_messages) > 50:
             self.system_messages = self.system_messages[-30:]

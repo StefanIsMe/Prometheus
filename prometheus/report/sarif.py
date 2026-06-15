@@ -63,11 +63,7 @@ class SarifResult:
 
 
 def _sarif_level(finding: dict[str, Any]) -> str:
-    sev = (
-        str(finding.get("severity") or "")
-        .strip()
-        .lower()
-    )
+    sev = str(finding.get("severity") or "").strip().lower()
     if not sev:
         cvss = finding.get("cvss_score")
         if isinstance(cvss, (int, float)):
@@ -99,17 +95,23 @@ def _sarif_location(finding: dict[str, Any]) -> dict[str, Any] | None:
 def finding_to_result(finding: dict[str, Any]) -> SarifResult:
     """Convert a Prometheus finding to a SARIF result."""
     rule_id = str(
-        finding.get("vuln_type")
-        or finding.get("rule_id")
-        or finding.get("id")
-        or "unknown"
+        finding.get("vuln_type") or finding.get("rule_id") or finding.get("id") or "unknown"
     )
     title = str(finding.get("title") or finding.get("summary") or rule_id)
     message = str(finding.get("description") or title)
 
     properties: dict[str, Any] = {}
-    for key in ("id", "cwe", "cvss", "cvss_score", "cvss_vector", "evidence",
-                "chain_id", "chain_title", "engagement"):
+    for key in (
+        "id",
+        "cwe",
+        "cvss",
+        "cvss_score",
+        "cvss_vector",
+        "evidence",
+        "chain_id",
+        "chain_title",
+        "engagement",
+    ):
         v = finding.get(key)
         if v is not None and v != "":
             properties[key] = v
@@ -214,8 +216,17 @@ def sarif_to_findings(document: dict[str, Any]) -> list[dict[str, Any]]:
                 "description": result.get("message", {}).get("text", ""),
             }
             props = result.get("properties") or {}
-            for key in ("id", "cwe", "cvss", "cvss_score", "cvss_vector",
-                        "evidence", "chain_id", "chain_title", "engagement"):
+            for key in (
+                "id",
+                "cwe",
+                "cvss",
+                "cvss_score",
+                "cvss_vector",
+                "evidence",
+                "chain_id",
+                "chain_title",
+                "engagement",
+            ):
                 if key in props:
                     finding[key] = props[key]
             # 'id' is not always in properties; fall back to ruleId.

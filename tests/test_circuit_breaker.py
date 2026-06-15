@@ -5,6 +5,7 @@ errors (ENOSPC, network, Docker) from logical errors and apply very
 different thresholds.  The original bug: 10 transient disk-full errors
 killed the entire DNN scanner sub-agent and ended the scan.
 """
+
 from __future__ import annotations
 
 import logging
@@ -51,6 +52,7 @@ def _reset_breaker_state(agent_id: str) -> None:
 # _is_tool_output_error: existing behaviour must still hold
 # ---------------------------------------------------------------------------
 
+
 def test_is_tool_output_error_detects_exit_code_2():
     """The original 'Process exited with code 2' check must still work."""
     out = "sh: 1: cannot create /tmp/x.pid: No space left on device\nProcess exited with code 2"
@@ -73,6 +75,7 @@ def test_is_tool_output_error_ignores_empty_and_non_string():
 # _is_infrastructure_error: new detector
 # ---------------------------------------------------------------------------
 
+
 def test_is_infra_detects_enospc():
     """The exact failure mode from the ENOSPC reproducer: PTY pidfile ENOSPC."""
     out = "sh: 1: cannot create /tmp/sandbox-docker-archive/abc_pty.pid: No space left on device"
@@ -93,7 +96,12 @@ def test_is_infra_detects_dns_failure():
 
 
 def test_is_infra_detects_docker_daemon_down():
-    assert _is_infrastructure_error("Cannot connect to the Docker daemon: docker.sock: connect: no such file") is True
+    assert (
+        _is_infrastructure_error(
+            "Cannot connect to the Docker daemon: docker.sock: connect: no such file"
+        )
+        is True
+    )
 
 
 def test_is_infra_detects_oom():
@@ -120,6 +128,7 @@ def test_is_infra_case_insensitive():
 # _classify_infra_error: stable category for operator grep
 # ---------------------------------------------------------------------------
 
+
 def test_classify_enospc():
     out = "sh: cannot create /tmp/sandbox-docker-archive/x_pty.pid: No space left on device"
     assert _classify_infra_error(out) == "ENOSPC"
@@ -134,7 +143,10 @@ def test_classify_dns():
 
 
 def test_classify_docker():
-    assert _classify_infra_error("Cannot connect to the Docker daemon: docker.sock: connect:") == "docker"
+    assert (
+        _classify_infra_error("Cannot connect to the Docker daemon: docker.sock: connect:")
+        == "docker"
+    )
 
 
 def test_classify_fallback():
@@ -158,6 +170,7 @@ def test_classify_pidfile_uses_sandbox_category():
 # ---------------------------------------------------------------------------
 # _check_consecutive_tool_errors: the actual breaker
 # ---------------------------------------------------------------------------
+
 
 def test_breaker_does_not_kill_agent_on_infra_errors_within_threshold(caplog):
     """The exact ENOSPC reproducer: 10 ENOSPC errors must NOT trip the breaker.
@@ -195,8 +208,7 @@ def test_breaker_breaks_at_higher_infra_threshold(caplog):
     agent_id = "test-agent-enospc-broken"
     _reset_breaker_state(agent_id)
     infra_output = (
-        "sh: 1: cannot create /tmp/sandbox-docker-archive/xyz_pty.pid: "
-        "No space left on device"
+        "sh: 1: cannot create /tmp/sandbox-docker-archive/xyz_pty.pid: No space left on device"
     )
     raised = False
     with caplog.at_level(logging.WARNING, logger="prometheus.core.execution"):
@@ -240,9 +252,7 @@ def test_breaker_resets_infra_counter_on_logical_error(caplog):
 
     # One logical error — should reset infra counter
     _check_consecutive_tool_errors(agent_id, _fake_event(name="tool_called"))
-    _check_consecutive_tool_errors(
-        agent_id, _fake_event(name="tool_output", output=logical_output)
-    )
+    _check_consecutive_tool_errors(agent_id, _fake_event(name="tool_output", output=logical_output))
     assert _consecutive_infra_errors.get(agent_id, 0) == 0, (
         "infra counter should reset when a logical error follows"
     )
@@ -264,9 +274,7 @@ def test_breaker_resets_infra_counter_on_success(caplog):
     assert _consecutive_infra_errors.get(agent_id) == 5
 
     _check_consecutive_tool_errors(agent_id, _fake_event(name="tool_called"))
-    _check_consecutive_tool_errors(
-        agent_id, _fake_event(name="tool_output", output=success_output)
-    )
+    _check_consecutive_tool_errors(agent_id, _fake_event(name="tool_output", output=success_output))
     assert _consecutive_infra_errors.get(agent_id, 0) == 0
     _reset_breaker_state(agent_id)
 

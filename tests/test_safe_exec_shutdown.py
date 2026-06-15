@@ -16,6 +16,7 @@ This file:
   3. Unit-tests that a normal happy-path exec passes through unchanged.
   4. Unit-tests that a non-matching RuntimeError still propagates.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -34,6 +35,7 @@ from prometheus.core.runner import _SyntheticExecResult  # noqa: E402
 # 1. Synthetic failure shape
 # ---------------------------------------------------------------------------
 
+
 def test_synthetic_failure_ok_is_false():
     """The synthetic failure must report ok() == False so existing
     call-sites that inspect .ok() see a normal failure."""
@@ -48,10 +50,12 @@ def test_synthetic_failure_ok_is_false():
 # 2. Wrapper logic: shutdown RuntimeError -> synthetic failure
 # ---------------------------------------------------------------------------
 
+
 def test_safe_exec_translates_shutdown_runtime_error():
     """When session.exec raises ``RuntimeError('cannot schedule new
     futures after shutdown')``, the wrapper must return the synthetic
     failure (NOT re-raise)."""
+
     class _FakeSession:
         def __init__(self) -> None:
             self.call_count = 0
@@ -78,9 +82,11 @@ def test_safe_exec_translates_shutdown_runtime_error():
 # 3. Wrapper logic: happy path passes through unchanged
 # ---------------------------------------------------------------------------
 
+
 def test_safe_exec_passes_through_normal_result():
     """A session that returns a normal result must be passed through
     unchanged — no wrapping, no extra logic."""
+
     class _NormalResult:
         def ok(self) -> bool:
             return True
@@ -111,10 +117,12 @@ def test_safe_exec_passes_through_normal_result():
 # 4. Wrapper logic: non-matching RuntimeError propagates
 # ---------------------------------------------------------------------------
 
+
 def test_safe_exec_propagates_unrelated_runtime_error():
     """A RuntimeError that does NOT match the shutdown pattern must
     propagate — we only catch the executor-shutdown case, not all
     RuntimeErrors."""
+
     class _BadSession:
         async def exec(self, *args, **kwargs):
             raise RuntimeError("something else entirely")
@@ -128,6 +136,7 @@ def test_safe_exec_propagates_unrelated_runtime_error():
             return _SyntheticExecResult()
 
     import pytest
+
     session = _BadSession()
     with pytest.raises(RuntimeError, match="something else entirely"):
         asyncio.run(_safe_exec(session, "sh", "-c", "echo hi"))

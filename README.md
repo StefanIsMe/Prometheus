@@ -58,8 +58,9 @@ an **Always-Rejected matrix** (≥20 reject rules) and a
 **Conditionally-Valid chain table** (≥12 chain patterns), and finally
 de-duplicated and chained before being written to the report.
 
-The full pipeline, gates, and playbooks are documented in
-[INTEGRATION_PLAN.md](INTEGRATION_PLAN.md).
+The full pipeline, gates, and playbooks are documented under
+[prometheus/playbooks/](prometheus/playbooks/) and
+[prometheus/skills/](prometheus/skills/).
 
 ---
 
@@ -87,8 +88,7 @@ Prometheus is a hard fork of [Strix](https://github.com/usestrix/strix)
 
 Per-file attribution is preserved in the module docstrings under
 `prometheus/` and the playbook headers under `prometheus/playbooks/`. The
-full lineage plan is in [INTEGRATION_PLAN.md](INTEGRATION_PLAN.md); see
-[AUTHORS](AUTHORS) for a structured attribution list.
+full attribution is in [AUTHORS](AUTHORS).
 
 ---
 

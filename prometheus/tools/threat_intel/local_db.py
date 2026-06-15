@@ -131,7 +131,8 @@ class ThreatIntelDB:
             except (json.JSONDecodeError, TypeError):
                 pass
 
-        self._conn.execute("""
+        self._conn.execute(
+            """
             INSERT INTO cve (cve_id, description, severity, cvss_score,
                 epss_score, epss_percentile, cisa_kev, has_exploit,
                 published_at, updated_at, sources, raw_data)
@@ -148,14 +149,24 @@ class ThreatIntelDB:
                 updated_at = ?,
                 sources = ?,
                 raw_data = CASE WHEN excluded.raw_data IS NOT NULL THEN excluded.raw_data ELSE cve.raw_data END
-        """, (
-            cve_id, description, severity, cvss_score,
-            epss_score, epss_percentile,
-            1 if cisa_kev else 0, 1 if has_exploit else 0,
-            published_at, now, json.dumps(merged_sources),
-            json.dumps(raw_data) if raw_data else None,
-            now, json.dumps(merged_sources),
-        ))
+        """,
+            (
+                cve_id,
+                description,
+                severity,
+                cvss_score,
+                epss_score,
+                epss_percentile,
+                1 if cisa_kev else 0,
+                1 if has_exploit else 0,
+                published_at,
+                now,
+                json.dumps(merged_sources),
+                json.dumps(raw_data) if raw_data else None,
+                now,
+                json.dumps(merged_sources),
+            ),
+        )
 
     def upsert_epss(
         self,
@@ -178,7 +189,8 @@ class ThreatIntelDB:
         patched_version: str = "",
     ) -> None:
         """Insert or update an affected package entry."""
-        self._conn.execute("""
+        self._conn.execute(
+            """
             INSERT INTO cve_packages (cve_id, ecosystem, package_name,
                 vulnerable_version_range, patched_version)
             VALUES (?, ?, ?, ?, ?)
@@ -191,7 +203,9 @@ class ThreatIntelDB:
                     WHEN excluded.patched_version != ''
                     THEN excluded.patched_version
                     ELSE cve_packages.patched_version END
-        """, (cve_id, ecosystem, package_name, vulnerable_version_range, patched_version))
+        """,
+            (cve_id, ecosystem, package_name, vulnerable_version_range, patched_version),
+        )
 
     def upsert_reference(
         self,
@@ -200,10 +214,13 @@ class ThreatIntelDB:
         ref_type: str = "",
     ) -> None:
         """Insert a CVE reference (exploit, PoC, advisory, patch)."""
-        self._conn.execute("""
+        self._conn.execute(
+            """
             INSERT OR IGNORE INTO cve_references (cve_id, url, ref_type)
             VALUES (?, ?, ?)
-        """, (cve_id, url, ref_type))
+        """,
+            (cve_id, url, ref_type),
+        )
 
     def update_feed_status(
         self,
@@ -215,11 +232,14 @@ class ThreatIntelDB:
     ) -> None:
         """Update feed ingestion status."""
         now = datetime.now(UTC).isoformat()
-        self._conn.execute("""
+        self._conn.execute(
+            """
             INSERT OR REPLACE INTO feed_status (feed_name, last_updated, record_count,
                 status, error_message, duration_seconds)
             VALUES (?, ?, ?, ?, ?, ?)
-        """, (feed_name, now, record_count, status, error_message, duration_seconds))
+        """,
+            (feed_name, now, record_count, status, error_message, duration_seconds),
+        )
         self._conn.commit()
 
     def get_feed_freshness(self, max_age_seconds: int = 86400) -> set[str]:
@@ -295,6 +315,7 @@ class ThreatIntelDB:
             # Version range filtering
             if version and result.get("vulnerable_version_range"):
                 from prometheus.tools.threat_intel.tool import _version_in_range
+
                 if not _version_in_range(version, result["vulnerable_version_range"]):
                     continue  # Skip — version is not in vulnerable range
                 result["version_match"] = "vulnerable"
@@ -307,9 +328,7 @@ class ThreatIntelDB:
 
     def query_by_cve(self, cve_id: str) -> dict[str, Any] | None:
         """Get full CVE data including packages and references."""
-        row = self._conn.execute(
-            "SELECT * FROM cve WHERE cve_id = ?", (cve_id,)
-        ).fetchone()
+        row = self._conn.execute("SELECT * FROM cve WHERE cve_id = ?", (cve_id,)).fetchone()
         if not row:
             return None
 
@@ -336,9 +355,7 @@ class ThreatIntelDB:
 
     def query_kev_cves(self) -> list[str]:
         """Return all CVE IDs in CISA KEV."""
-        rows = self._conn.execute(
-            "SELECT cve_id FROM cve WHERE cisa_kev = 1"
-        ).fetchall()
+        rows = self._conn.execute("SELECT cve_id FROM cve WHERE cisa_kev = 1").fetchall()
         return [r["cve_id"] for r in rows]
 
     def get_epss_scores(self, cve_ids: list[str]) -> dict[str, dict[str, float]]:
@@ -365,8 +382,12 @@ class ThreatIntelDB:
         total_packages = self._conn.execute("SELECT COUNT(*) FROM cve_packages").fetchone()[0]
         total_refs = self._conn.execute("SELECT COUNT(*) FROM cve_references").fetchone()[0]
         kev_count = self._conn.execute("SELECT COUNT(*) FROM cve WHERE cisa_kev = 1").fetchone()[0]
-        exploit_count = self._conn.execute("SELECT COUNT(*) FROM cve WHERE has_exploit = 1").fetchone()[0]
-        epss_count = self._conn.execute("SELECT COUNT(*) FROM cve WHERE epss_score IS NOT NULL").fetchone()[0]
+        exploit_count = self._conn.execute(
+            "SELECT COUNT(*) FROM cve WHERE has_exploit = 1"
+        ).fetchone()[0]
+        epss_count = self._conn.execute(
+            "SELECT COUNT(*) FROM cve WHERE epss_score IS NOT NULL"
+        ).fetchone()[0]
 
         # Severity breakdown
         severity_rows = self._conn.execute(

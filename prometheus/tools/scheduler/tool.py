@@ -19,11 +19,13 @@ logger = logging.getLogger(__name__)
 
 def _scheduler() -> Any:
     from prometheus.core.scheduler import ScanScheduler
+
     return ScanScheduler()
 
 
 def _registry() -> Any:
     from prometheus.core.target_registry import TargetRegistry
+
     return TargetRegistry()
 
 
@@ -52,7 +54,9 @@ async def get_schedule(
     if target_id:
         sched = [s for s in sched if s["target_id"] == target_id]
         if not sched:
-            return json.dumps({"success": False, "error": f"Target '{target_id}' not found or has no schedule"})
+            return json.dumps(
+                {"success": False, "error": f"Target '{target_id}' not found or has no schedule"}
+            )
 
     return json.dumps(
         {"success": True, "schedules": sched},

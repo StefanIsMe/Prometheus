@@ -189,9 +189,7 @@ def render_vulnerability_md(report: dict[str, Any]) -> str:  # noqa: PLR0912, PL
         ncp = v.get("negative_control_passed")
         if ncp is not None:
             lines.append("")
-            lines.append(
-                f"**Negative control:** {'passed' if ncp else 'FAILED'}"
-            )
+            lines.append(f"**Negative control:** {'passed' if ncp else 'FAILED'}")
         if v.get("evidence_excerpt"):
             lines.append("")
             lines.append("**Evidence:**")

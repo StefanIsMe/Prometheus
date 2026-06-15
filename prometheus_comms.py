@@ -16,7 +16,9 @@ def watch(run_id: str, poll_interval: float = 5.0):
 
     if not status_path.exists():
         print(f"ERROR: No comms directory for run {run_id}")
-        print(f"Active runs: {[d.name for d in COMMS_ROOT.iterdir()] if COMMS_ROOT.exists() else 'none'}")
+        print(
+            f"Active runs: {[d.name for d in COMMS_ROOT.iterdir()] if COMMS_ROOT.exists() else 'none'}"
+        )
         sys.exit(1)
 
     last_line = 0
@@ -75,7 +77,9 @@ def watch(run_id: str, poll_interval: float = 5.0):
             if len(findings) > last_finding_count:
                 new_findings = findings[last_finding_count:]
                 for f in new_findings:
-                    print(f"  *** NEW FINDING: {f.get('title', f.get('description', 'unknown'))} ***")
+                    print(
+                        f"  *** NEW FINDING: {f.get('title', f.get('description', 'unknown'))} ***"
+                    )
                 last_finding_count = len(findings)
         except (json.JSONDecodeError, FileNotFoundError):
             pass

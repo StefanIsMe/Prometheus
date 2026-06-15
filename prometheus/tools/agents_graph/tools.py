@@ -445,8 +445,7 @@ async def create_agent(
         active_children = sum(
             1
             for aid, st in coordinator.statuses.items()
-            if st in _ACTIVE_STATUSES
-            and coordinator.parent_of.get(aid) is not None
+            if st in _ACTIVE_STATUSES and coordinator.parent_of.get(aid) is not None
         )
     if active_children >= _MAX_CONCURRENT_CHILDREN:
         return json.dumps(
@@ -478,7 +477,9 @@ async def create_agent(
     # Inject acceptance criteria into task if provided
     criteria_list = list(coerce_to_list(acceptance_criteria) or [])
     if criteria_list:
-        criteria_block = "\n\nACCEPTANCE CRITERIA (you MUST address each in your agent_finish report):\n"
+        criteria_block = (
+            "\n\nACCEPTANCE CRITERIA (you MUST address each in your agent_finish report):\n"
+        )
         for i, c in enumerate(criteria_list, 1):
             criteria_block += f"  {i}. {c}\n"
         task = task + criteria_block

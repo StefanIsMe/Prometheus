@@ -70,8 +70,17 @@ def _load_rules() -> tuple[RejectionRule, ...]:
 
 def _finding_text(finding: dict[str, Any]) -> str:
     parts: list[str] = []
-    for key in ("title", "summary", "description", "vuln_type", "endpoint",
-                "request", "response", "evidence", "impact"):
+    for key in (
+        "title",
+        "summary",
+        "description",
+        "vuln_type",
+        "endpoint",
+        "request",
+        "response",
+        "evidence",
+        "impact",
+    ):
         v = finding.get(key)
         if isinstance(v, str):
             parts.append(v)

@@ -98,6 +98,7 @@ async def run_prometheus_scan(
     progress_callback: Callable[[str], None] | None = None,
 ) -> RunResultBase | None:
     """Run or resume one prometheus scan against a sandbox."""
+
     def _progress(msg: str) -> None:
         logger.info("[scan %s] %s", scan_id, msg)
         if progress_callback:
@@ -121,11 +122,14 @@ async def run_prometheus_scan(
     # full scan launch when the account is out of credits.
     try:
         from prometheus.core.runner import _check_llm_budget
+
         budget_ok, budget_msg = await _check_llm_budget(scan_id)
         if not budget_ok:
             _progress(f"Budget preflight FAILED: {budget_msg}")
             logger.error(
-                "LLM budget preflight failed for scan %s: %s", scan_id, budget_msg,
+                "LLM budget preflight failed for scan %s: %s",
+                scan_id,
+                budget_msg,
             )
             return None
     except Exception as exc:
@@ -137,6 +141,7 @@ async def run_prometheus_scan(
     try:
         from prometheus.tools.threat_intel.feeds import ingest_all
         from prometheus.tools.threat_intel.local_db import ThreatIntelDB
+
         _progress("  Connecting to local threat intel database...")
         intel_db = ThreatIntelDB()
         try:
@@ -148,15 +153,21 @@ async def run_prometheus_scan(
             _progress(f"  Threat intel refreshed: {total_records} records in {total_duration:.1f}s")
             db_stats = intel_summary.get("db_stats", {})
             if db_stats:
-                _progress(f"  Local DB: {db_stats.get('total_cves', 0)} CVEs, "
-                         f"{db_stats.get('cisa_kev_count', 0)} KEV, "
-                         f"{db_stats.get('exploit_count', 0)} with exploits")
+                _progress(
+                    f"  Local DB: {db_stats.get('total_cves', 0)} CVEs, "
+                    f"{db_stats.get('cisa_kev_count', 0)} KEV, "
+                    f"{db_stats.get('exploit_count', 0)} with exploits"
+                )
             if errors:
                 _progress(f"  Warning: {len(errors)} feed(s) had errors (continuing)")
                 for err in errors[:3]:
                     _progress(f"    - {err}")
-            logger.info("Pre-scan threat intel refreshed: %d records in %.1fs, %d errors",
-                        total_records, total_duration, len(errors))
+            logger.info(
+                "Pre-scan threat intel refreshed: %d records in %.1fs, %d errors",
+                total_records,
+                total_duration,
+                len(errors),
+            )
         finally:
             intel_db.close()
     except Exception as exc:
@@ -167,6 +178,7 @@ async def run_prometheus_scan(
     _threat_intel_context: str = ""
     try:
         from prometheus.tools.threat_intel.query_engine import query_threats
+
         # Build fingerprints from scan_config for local DB lookup
         _ti_fingerprints = _build_threat_fingerprints(scan_config)
         if _ti_fingerprints:
@@ -187,20 +199,33 @@ async def run_prometheus_scan(
     _pre_scan_fingerprints: dict[str, str] = {}
     try:
         import subprocess
+
         _progress("Running offline HTTP fingerprint...")
         for target in scan_config.get("targets", []) or []:
-            url = (target.get("details", {}).get("target_url")
-                   or target.get("original") or "")
+            url = target.get("details", {}).get("target_url") or target.get("original") or ""
             if not url or not url.startswith("http"):
                 continue
             domain = url.split("/")[2] if "//" in url else url
             try:
                 result = subprocess.run(
-                    ["curl", "-sS", "-o", "/dev/null", "-D", "-",
-                     "--connect-timeout", "10", "--max-time", "15",
-                     "-H", "User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/IP_ADDRESS Safari/537.36",
-                     url],
-                    capture_output=True, text=True, timeout=20,
+                    [
+                        "curl",
+                        "-sS",
+                        "-o",
+                        "/dev/null",
+                        "-D",
+                        "-",
+                        "--connect-timeout",
+                        "10",
+                        "--max-time",
+                        "15",
+                        "-H",
+                        "User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/IP_ADDRESS Safari/537.36",
+                        url,
+                    ],
+                    capture_output=True,
+                    text=True,
+                    timeout=20,
                 )
                 headers = result.stdout[:2000]
                 status_line = headers.split("\n")[0] if headers else "no response"
@@ -213,10 +238,20 @@ async def run_prometheus_scan(
                         server = line.strip()
                 ssl_info = ""
                 ssl_result = subprocess.run(
-                    ["curl", "-sS", "-o", "/dev/null", "-w",
-                     "SSL:%{ssl_verify_result}|TLS:%{ssl_version}|Issuer:%{ssl_issuer}",
-                     "--connect-timeout", "10", url],
-                    capture_output=True, text=True, timeout=15,
+                    [
+                        "curl",
+                        "-sS",
+                        "-o",
+                        "/dev/null",
+                        "-w",
+                        "SSL:%{ssl_verify_result}|TLS:%{ssl_version}|Issuer:%{ssl_issuer}",
+                        "--connect-timeout",
+                        "10",
+                        url,
+                    ],
+                    capture_output=True,
+                    text=True,
+                    timeout=15,
                 )
                 if ssl_result.returncode == 0:
                     ssl_info = ssl_result.stdout.strip()[:500]
@@ -231,14 +266,20 @@ async def run_prometheus_scan(
                 _pre_scan_fingerprints[domain] = fingerprint
                 logger.info(
                     "Pre-scan fingerprint for %s: %s (headers=%d bytes)",
-                    domain, status_line.strip(), len(headers),
+                    domain,
+                    status_line.strip(),
+                    len(headers),
                 )
             except Exception as exc:
                 logger.warning("Pre-scan fingerprint failed for %s: %s", url, exc)
     except Exception as exc:
         logger.warning("Pre-scan HTTP fingerprint failed (non-fatal): %s", exc)
 
-    write_status(scan_id, "scan_start", {"targets": [t.get("original", "") for t in scan_config.get("targets", [])]})
+    write_status(
+        scan_id,
+        "scan_start",
+        {"targets": [t.get("original", "") for t in scan_config.get("targets", [])]},
+    )
 
     agents_path = state_dir / "agents.json"
     agents_db = state_dir / "agents.db"
@@ -263,8 +304,12 @@ async def run_prometheus_scan(
         raise RuntimeError(
             "No LLM model configured. Set provider API keys and check ~/.prometheus/llm.yaml.",
         )
-    logger.info("LLM model resolved: %s (provider=%s, tier=%s)",
-                resolved_model, resolution.provider_name, resolution.tier.value)
+    logger.info(
+        "LLM model resolved: %s (provider=%s, tier=%s)",
+        resolved_model,
+        resolution.provider_name,
+        resolution.tier.value,
+    )
     chat_completions_tools = uses_chat_completions_tool_schema(resolved_model, settings)
 
     if coordinator is None:
@@ -415,7 +460,8 @@ async def run_prometheus_scan(
     if session:
         try:
             nuc_result = await _safe_exec(
-                "sh", "-c",
+                "sh",
+                "-c",
                 "which nuclei && nuclei -update-templates -silent 2>&1 || echo 'nuclei not installed'",
                 timeout=60,
             )
@@ -432,14 +478,14 @@ async def run_prometheus_scan(
         # skipping fingerprinting tools and then being blocked by gates.
         try:
             for target in scan_config.get("targets", []) or []:
-                url = (target.get("details", {}).get("target_url")
-                       or target.get("original") or "")
+                url = target.get("details", {}).get("target_url") or target.get("original") or ""
                 if not url or not url.startswith("http"):
                     continue
                 domain = url.split("/")[2] if "//" in url else url
                 try:
                     tech_result = await _safe_exec(
-                        "sh", "-c",
+                        "sh",
+                        "-c",
                         f"httpx -u {url} -tech-detect -json -silent -timeout 15 2>&1",
                         timeout=30,
                     )
@@ -448,11 +494,13 @@ async def run_prometheus_scan(
                         _pre_scan_technologies[domain] = tech_out
                         logger.info(
                             "Pre-scan tech detection for %s: %d bytes",
-                            domain, len(tech_out),
+                            domain,
+                            len(tech_out),
                         )
                         # Save technology data to knowledge store for PTG
                         try:
                             import json as _json
+
                             tech_data = _json.loads(tech_out.split("\n")[0])
                             tech_names = tech_data.get("tech", [])
                             if tech_names:
@@ -464,10 +512,13 @@ async def run_prometheus_scan(
                                 )
                                 logger.info(
                                     "Saved %d technologies for %s to knowledge store",
-                                    len(tech_names), domain,
+                                    len(tech_names),
+                                    domain,
                                 )
                         except Exception:
-                            logger.debug("Failed to parse httpx output for %s", domain, exc_info=True)
+                            logger.debug(
+                                "Failed to parse httpx output for %s", domain, exc_info=True
+                            )
                 except Exception as exc:
                     logger.warning("Pre-scan tech detection failed for %s: %s", url, exc)
             if _pre_scan_technologies:
@@ -479,6 +530,7 @@ async def run_prometheus_scan(
                     is_wordpress = False
                     try:
                         import json as _json
+
                         tech_data = _json.loads(tech_json.split("\n")[0])
                         tech_names = [t.lower() for t in tech_data.get("tech", [])]
                         is_wordpress = "wordpress" in tech_names
@@ -512,7 +564,9 @@ async def run_prometheus_scan(
                             # Save findings to knowledge store
                             findings = parse_wpscan_results(wpscan_data, domain)
                             entries = findings_to_knowledge_entries(
-                                findings, domain, scan_id=scan_id,
+                                findings,
+                                domain,
+                                scan_id=scan_id,
                             )
                             for entry in entries:
                                 ks.store(
@@ -531,7 +585,9 @@ async def run_prometheus_scan(
                                 f"({k_count} saved to knowledge store)"
                             )
                         else:
-                            _progress(f"WPScan failed for {domain}: {wpscan_data.get('message', 'Unknown error')}")
+                            _progress(
+                                f"WPScan failed for {domain}: {wpscan_data.get('message', 'Unknown error')}"
+                            )
                     except ImportError:
                         logger.warning("WPScan tool module not available — skipping")
                     except Exception as exc:
@@ -581,9 +637,9 @@ async def run_prometheus_scan(
                     f"\n=== TARGET PROFILE: {domain} ===",
                     f"Total scans: {p.get('scan_count', 0)}",
                     f"Total findings: {p.get('total_findings', 0)} "
-                    f"(C:{p.get('critical_count',0)} H:{p.get('high_count',0)} "
-                    f"M:{p.get('medium_count',0)} L:{p.get('low_count',0)} "
-                    f"I:{p.get('info_count',0)})",
+                    f"(C:{p.get('critical_count', 0)} H:{p.get('high_count', 0)} "
+                    f"M:{p.get('medium_count', 0)} L:{p.get('low_count', 0)} "
+                    f"I:{p.get('info_count', 0)})",
                     f"First scan: {p.get('first_scan_at', 'unknown')}",
                     f"Last scan: {p.get('last_scan_at', 'unknown')} ({p.get('last_status', 'unknown')})",
                 ]
@@ -600,13 +656,15 @@ async def run_prometheus_scan(
                 # Include previous findings explicitly
                 prev_findings = ks.get_findings_for_domain(domain)
                 if prev_findings:
-                    findings_header = f"\n=== PREVIOUS FINDINGS for {domain} ({len(prev_findings)} total) ==="
+                    findings_header = (
+                        f"\n=== PREVIOUS FINDINGS for {domain} ({len(prev_findings)} total) ==="
+                    )
                     finding_lines = [findings_header]
                     for f_entry in prev_findings:
                         finding_lines.append(
-                            f"  [{f_entry.get('lifecycle_status','?')}] {f_entry.get('title','')} "
-                            f"(severity: {f_entry.get('severity','?')}, "
-                            f"endpoint: {f_entry.get('endpoint','?')})"
+                            f"  [{f_entry.get('lifecycle_status', '?')}] {f_entry.get('title', '')} "
+                            f"(severity: {f_entry.get('severity', '?')}, "
+                            f"endpoint: {f_entry.get('endpoint', '?')})"
                         )
                     previous_findings_blocks.append("\n".join(finding_lines))
 
@@ -616,14 +674,11 @@ async def run_prometheus_scan(
                 for ve in vuln_entries:
                     ve_key = ve.get("key", "").lower()
                     # Check if this knowledge entry has a corresponding finding
-                    already_filed = any(
-                        ve_key in ft or ft in ve_key
-                        for ft in finding_titles_lower
-                    )
+                    already_filed = any(ve_key in ft or ft in ve_key for ft in finding_titles_lower)
                     if not already_filed:
                         unassessed_knowledge.append(
-                            f"  [{ve.get('category','?')}] {ve.get('key','')}: "
-                            f"{str(ve.get('value',''))[:200]}"
+                            f"  [{ve.get('category', '?')}] {ve.get('key', '')}: "
+                            f"{str(ve.get('value', ''))[:200]}"
                         )
 
                 if failed:
@@ -640,11 +695,17 @@ async def run_prometheus_scan(
                 profile_blocks.append("\n".join(block_lines))
 
             profile_section = "\n".join(profile_blocks) if profile_blocks else ""
-            findings_section = "\n".join(previous_findings_blocks) if previous_findings_blocks else ""
+            findings_section = (
+                "\n".join(previous_findings_blocks) if previous_findings_blocks else ""
+            )
             unassessed_section = (
-                "\n=== UNASSESSED KNOWLEDGE (discovered but NOT yet filed as findings) ===\n"
-                + "\n".join(unassessed_knowledge[:20])
-            ) if unassessed_knowledge else ""
+                (
+                    "\n=== UNASSESSED KNOWLEDGE (discovered but NOT yet filed as findings) ===\n"
+                    + "\n".join(unassessed_knowledge[:20])
+                )
+                if unassessed_knowledge
+                else ""
+            )
 
             # Rescan-specific mandatory directive
             rescan_directive = """
@@ -682,8 +743,7 @@ RESCAN MODE — EFFICIENCY DIRECTIVES:
         # Inject pre-scan HTTP fingerprint if available (no LLM needed for this data)
         if _pre_scan_fingerprints:
             fp_block = "\n\n".join(
-                f"--- {domain} ---\n{fp}"
-                for domain, fp in _pre_scan_fingerprints.items()
+                f"--- {domain} ---\n{fp}" for domain, fp in _pre_scan_fingerprints.items()
             )
             root_task = (
                 f"OFFLINE PRE-SCAN FINGERPRINT (gathered without LLM, use directly):\n"
@@ -698,8 +758,7 @@ RESCAN MODE — EFFICIENCY DIRECTIVES:
         # Inject pre-scan technology detection if available
         if _pre_scan_technologies:
             tech_block = "\n\n".join(
-                f"--- {domain} ---\n{tech}"
-                for domain, tech in _pre_scan_technologies.items()
+                f"--- {domain} ---\n{tech}" for domain, tech in _pre_scan_technologies.items()
             )
             root_task = (
                 f"OFFLINE TECHNOLOGY DETECTION (gathered via httpx -tech-detect, use directly):\n"
@@ -713,9 +772,9 @@ RESCAN MODE — EFFICIENCY DIRECTIVES:
         # Inject WPScan results if available
         if _wpscan_results:
             from prometheus.tools.wpscan.tool import build_wpscan_context_block
+
             wpscan_block = "\n\n".join(
-                build_wpscan_context_block(data, domain)
-                for domain, data in _wpscan_results.items()
+                build_wpscan_context_block(data, domain) for domain, data in _wpscan_results.items()
             )
             root_task = (
                 f"WPSCAN RESULTS (run pre-scan through Tor, use directly):\n"
@@ -835,6 +894,7 @@ RESCAN MODE — EFFICIENCY DIRECTIVES:
         managed_session._overflow = overflow_store
         # Phase 4: Register overflow store for the paging tools
         from prometheus.tools.context_paging import set_overflow_store
+
         set_overflow_store(overflow_store)
         sessions_to_close.append(root_session)
         await coordinator.attach_runtime(root_id, session=managed_session)
@@ -972,10 +1032,12 @@ RESCAN MODE — EFFICIENCY DIRECTIVES:
                                     cwe=str(f.get("cwe") or ""),
                                 )
                                 if policy.get("action") == "archive":
-                                    blocked.append({
-                                        "title": f.get("title"),
-                                        "reason": policy.get("reason"),
-                                    })
+                                    blocked.append(
+                                        {
+                                            "title": f.get("title"),
+                                            "reason": policy.get("reason"),
+                                        }
+                                    )
                                     continue
                                 filtered_findings.append(f)
                             except Exception:
@@ -987,7 +1049,8 @@ RESCAN MODE — EFFICIENCY DIRECTIVES:
                             logger.info(
                                 "runner.py: scan-end dedup blocked %d finding(s) on %s "
                                 "from being re-registered: %s",
-                                len(blocked), domain,
+                                len(blocked),
+                                domain,
                                 [b.get("title") for b in blocked],
                             )
                         sync_result = ks.sync_scan_findings(
@@ -997,7 +1060,8 @@ RESCAN MODE — EFFICIENCY DIRECTIVES:
                         )
                         logger.info(
                             "Synced %d new findings to report_status for %s",
-                            sync_result.get("created", 0), domain,
+                            sync_result.get("created", 0),
+                            domain,
                         )
                     except Exception:
                         logger.exception("Failed to sync findings to report_status for %s", domain)
@@ -1005,7 +1069,9 @@ RESCAN MODE — EFFICIENCY DIRECTIVES:
                     logger.debug("No findings to sync for %s", domain)
                 logger.info(
                     "Recorded scan end in target profile for %s: %d findings, status=%s",
-                    domain, len(findings_list), scan_status,
+                    domain,
+                    len(findings_list),
+                    scan_status,
                 )
 
                 # Post-scan: detect knowledge entries that were never filed as findings
@@ -1015,7 +1081,8 @@ RESCAN MODE — EFFICIENCY DIRECTIVES:
                         logger.warning(
                             "UNFILED KNOWLEDGE: %d vulnerability knowledge entries for %s "
                             "have no corresponding finding. These were discovered but never filed.",
-                            len(unfiled), domain,
+                            len(unfiled),
+                            domain,
                         )
                         for uf in unfiled[:10]:
                             logger.warning(
@@ -1040,7 +1107,7 @@ RESCAN MODE — EFFICIENCY DIRECTIVES:
 # ---------------------------------------------------------------------------
 
 _CHILD_DRAIN_TIMEOUT = 300  # seconds to wait for children to finish
-_CHILD_DRAIN_POLL = 5       # seconds between status checks
+_CHILD_DRAIN_POLL = 5  # seconds between status checks
 
 
 async def _wait_for_children(
@@ -1057,17 +1124,15 @@ async def _wait_for_children(
     """
     # Collect child IDs
     async with coordinator._lock:
-        child_ids = [
-            aid for aid, parent in coordinator.parent_of.items()
-            if parent == root_id
-        ]
+        child_ids = [aid for aid, parent in coordinator.parent_of.items() if parent == root_id]
 
     if not child_ids:
         return
 
     logger.info(
         "Waiting for %d child agent(s) to finish (timeout=%ds)...",
-        len(child_ids), _CHILD_DRAIN_TIMEOUT,
+        len(child_ids),
+        _CHILD_DRAIN_TIMEOUT,
     )
 
     deadline = time.monotonic() + _CHILD_DRAIN_TIMEOUT
@@ -1077,15 +1142,15 @@ async def _wait_for_children(
     while time.monotonic() < deadline:
         async with coordinator._lock:
             still_running = [
-                aid for aid in child_ids
-                if coordinator.statuses.get(aid) not in terminal
+                aid for aid in child_ids if coordinator.statuses.get(aid) not in terminal
             ]
         if not still_running:
             logger.info("All %d child agent(s) finished.", len(child_ids))
             return
         logger.debug(
             "%d/%d children still running: %s",
-            len(still_running), len(child_ids),
+            len(still_running),
+            len(child_ids),
             ", ".join(still_running),
         )
         await asyncio.sleep(_CHILD_DRAIN_POLL)
@@ -1110,6 +1175,7 @@ async def _wait_for_children(
 # ---------------------------------------------------------------------------
 # Threat intel helpers (used by the pre-scan injection above)
 # ---------------------------------------------------------------------------
+
 
 def _build_threat_fingerprints(scan_config: dict[str, Any]) -> list[dict[str, str]]:
     """Extract technology fingerprints from scan_config for threat intel lookup.
@@ -1163,6 +1229,7 @@ async def _check_llm_budget(scan_id: str) -> tuple[bool, str]:
     """
     try:
         from prometheus.config import load_settings
+
         settings = load_settings()
         provider_name = (settings.llm.provider or "").lower()
     except Exception as exc:  # noqa: BLE001
@@ -1175,10 +1242,12 @@ async def _check_llm_budget(scan_id: str) -> tuple[bool, str]:
     try:
         import httpx
         from prometheus.config.llm_config import _PROVIDER_ENV_KEY_MAP
+
         api_key_env = _PROVIDER_ENV_KEY_MAP.get(provider_name)
         if not api_key_env:
             return True, f"no API key env mapping for provider '{provider_name}'"
         import os
+
         api_key = os.environ.get(api_key_env)
         if not api_key:
             return True, f"no API key in env {api_key_env}; skipping preflight"
@@ -1211,8 +1280,10 @@ async def _check_llm_budget(scan_id: str) -> tuple[bool, str]:
 def _format_threat_intel_context(result: dict[str, Any]) -> str:
     """Format threat intel query results for injection into agent context."""
     lines: list[str] = []
-    lines.append(f"Total: {result.get('total_vulnerabilities', 0)} vulnerabilities "
-                 f"across {result.get('technologies_queried', 0)} technologies")
+    lines.append(
+        f"Total: {result.get('total_vulnerabilities', 0)} vulnerabilities "
+        f"across {result.get('technologies_queried', 0)} technologies"
+    )
     if result.get("cisa_kev_matches_total"):
         lines.append(f"CISA KEV matches: {result['cisa_kev_matches_total']}")
     lines.append("")
@@ -1238,7 +1309,9 @@ def _format_threat_intel_context(result: dict[str, Any]) -> str:
 
         # SCA confidence warnings for this technology
         if sca_conf == "low":
-            lines.append("  ** VERSION MATCHING UNCONFIRMED - manually verify this technology/version against NVD **")
+            lines.append(
+                "  ** VERSION MATCHING UNCONFIRMED - manually verify this technology/version against NVD **"
+            )
         elif sca_conf in ("medium", "mixed"):
             lines.append("  Version range not confirmed - test regardless")
 
@@ -1261,8 +1334,7 @@ def _format_threat_intel_context(result: dict[str, Any]) -> str:
 
             desc = (v.get("description") or "")[:80]
             lines.append(
-                f"  [{severity} CVSS:{cvss} Score:{score}] {cve_id}"
-                f"{kev}{exploit}{sca_tag} — {desc}"
+                f"  [{severity} CVSS:{cvss} Score:{score}] {cve_id}{kev}{exploit}{sca_tag} — {desc}"
             )
         if len(vulns) > 15:
             lines.append(f"  ... and {len(vulns) - 15} more")

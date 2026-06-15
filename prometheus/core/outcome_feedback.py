@@ -26,5 +26,8 @@ def rejection_hint_for_candidate(candidate: dict[str, Any]) -> str | None:
         duplicates = int(rule.get("duplicate_count") or 0)
         accepted = int(rule.get("accepted_count") or 0)
         if rejected + duplicates > accepted:
-            return str(rule.get("rejection_hint") or "Similar past reports were rejected or marked duplicate")
+            return str(
+                rule.get("rejection_hint")
+                or "Similar past reports were rejected or marked duplicate"
+            )
     return None

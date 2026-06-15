@@ -76,8 +76,7 @@ class EvidenceFinding:
 
 
 _NAME_PATTERNS: tuple[re.Pattern[str], ...] = tuple(
-    re.compile(rf"(?i)({re.escape(name)})\s*[=:]\s*([^\s'\"&;]+)")
-    for name in _SENSITIVE_NAMES
+    re.compile(rf"(?i)({re.escape(name)})\s*[=:]\s*([^\s'\"&;]+)") for name in _SENSITIVE_NAMES
 )
 
 
@@ -187,9 +186,18 @@ def scan_image_for_secrets(path: str) -> list[EvidenceFinding]:
     if shutil.which("exiftool"):
         try:
             r = subprocess.run(
-                ["exiftool", "-Comment", "-Description", "-UserComment",
-                 "-ImageDescription", "-XPComment", str(p)],
-                capture_output=True, text=True, timeout=10,
+                [
+                    "exiftool",
+                    "-Comment",
+                    "-Description",
+                    "-UserComment",
+                    "-ImageDescription",
+                    "-XPComment",
+                    str(p),
+                ],
+                capture_output=True,
+                text=True,
+                timeout=10,
             )
             for hit in scan_text_for_secrets(r.stdout, location=f"exiftool:{p.name}"):
                 findings.append(hit)
@@ -199,7 +207,9 @@ def scan_image_for_secrets(path: str) -> list[EvidenceFinding]:
         try:
             r = subprocess.run(
                 ["tesseract", str(p), "-", "-l", "eng"],
-                capture_output=True, text=True, timeout=30,
+                capture_output=True,
+                text=True,
+                timeout=30,
             )
             for hit in scan_text_for_secrets(r.stdout, location=f"ocr:{p.name}"):
                 findings.append(hit)

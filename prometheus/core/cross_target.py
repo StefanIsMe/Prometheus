@@ -177,7 +177,8 @@ class CrossTargetIntel:
             self._tech_cache[domain] = techs
         logger.debug(
             "sync_tech_stack: domain=%s techs=%s",
-            domain, sorted(techs),
+            domain,
+            sorted(techs),
         )
 
     def get_tech_overlap(self, domain: str) -> list[dict[str, Any]]:
@@ -207,18 +208,18 @@ class CrossTargetIntel:
                     continue
                 shared = sorted(domain_techs & t_techs)
                 if shared:
-                    results.append({
-                        "domain": t_domain,
-                        "shared_tech": shared,
-                        "overlap_count": len(shared),
-                    })
+                    results.append(
+                        {
+                            "domain": t_domain,
+                            "shared_tech": shared,
+                            "overlap_count": len(shared),
+                        }
+                    )
 
         results.sort(key=lambda r: r["overlap_count"], reverse=True)
         return results
 
-    def analyze_new_finding(
-        self, domain: str, finding: dict[str, Any]
-    ) -> list[dict[str, Any]]:
+    def analyze_new_finding(self, domain: str, finding: dict[str, Any]) -> list[dict[str, Any]]:
         """When a new finding is filed, check other targets for the same tech.
 
         Extracts technology references from the finding (title, description,
@@ -250,19 +251,21 @@ class CrossTargetIntel:
             t_techs = self._tech_cache.get(t_domain, set())
             overlap = finding_techs & t_techs
             if overlap:
-                suggestions.append({
-                    "target_domain": t_domain,
-                    "source_domain": domain,
-                    "finding_title": finding.get("title", "Unknown"),
-                    "severity": finding.get("severity", "info"),
-                    "relevant_tech": sorted(overlap),
-                    "suggestion": (
-                        f"Finding '{finding.get('title', 'Unknown')}' on {domain} "
-                        f"targets technology {', '.join(sorted(overlap))}, "
-                        f"which is also used by {t_domain}. "
-                        f"Consider checking for the same vulnerability pattern."
-                    ),
-                })
+                suggestions.append(
+                    {
+                        "target_domain": t_domain,
+                        "source_domain": domain,
+                        "finding_title": finding.get("title", "Unknown"),
+                        "severity": finding.get("severity", "info"),
+                        "relevant_tech": sorted(overlap),
+                        "suggestion": (
+                            f"Finding '{finding.get('title', 'Unknown')}' on {domain} "
+                            f"targets technology {', '.join(sorted(overlap))}, "
+                            f"which is also used by {t_domain}. "
+                            f"Consider checking for the same vulnerability pattern."
+                        ),
+                    }
+                )
 
         suggestions.sort(
             key=lambda s: {"critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4}.get(
@@ -310,42 +313,44 @@ class CrossTargetIntel:
                 if dedup_key in seen:
                     continue
                 seen.add(dedup_key)
-                suggestions.append({
-                    "type": "vulnerability_pattern",
-                    "source_domain": t_domain,
-                    "shared_tech": sorted(shared),
-                    "finding": key,
-                    "detail": v.get("value", ""),
-                    "confidence": v.get("confidence", 0.5),
-                    "suggestion": (
-                        f"Target {t_domain} (shares {', '.join(sorted(shared))}) "
-                        f"had vulnerability: {key}. Check if {domain} is affected."
-                    ),
-                })
+                suggestions.append(
+                    {
+                        "type": "vulnerability_pattern",
+                        "source_domain": t_domain,
+                        "shared_tech": sorted(shared),
+                        "finding": key,
+                        "detail": v.get("value", ""),
+                        "confidence": v.get("confidence", 0.5),
+                        "suggestion": (
+                            f"Target {t_domain} (shares {', '.join(sorted(shared))}) "
+                            f"had vulnerability: {key}. Check if {domain} is affected."
+                        ),
+                    }
+                )
 
             # Look for successful techniques
-            techniques = self._knowledge.query(
-                t_domain, category="successful_technique"
-            )
+            techniques = self._knowledge.query(t_domain, category="successful_technique")
             for t_entry in techniques:
                 key = t_entry.get("key", "")
                 dedup_key = f"technique:{t_domain}:{key}"
                 if dedup_key in seen:
                     continue
                 seen.add(dedup_key)
-                suggestions.append({
-                    "type": "technique_transfer",
-                    "source_domain": t_domain,
-                    "shared_tech": sorted(shared),
-                    "technique": key,
-                    "detail": t_entry.get("value", ""),
-                    "confidence": t_entry.get("confidence", 0.5),
-                    "suggestion": (
-                        f"Technique '{key}' worked on {t_domain} "
-                        f"(shares {', '.join(sorted(shared))}). "
-                        f"May also work on {domain}."
-                    ),
-                })
+                suggestions.append(
+                    {
+                        "type": "technique_transfer",
+                        "source_domain": t_domain,
+                        "shared_tech": sorted(shared),
+                        "technique": key,
+                        "detail": t_entry.get("value", ""),
+                        "confidence": t_entry.get("confidence", 0.5),
+                        "suggestion": (
+                            f"Technique '{key}' worked on {t_domain} "
+                            f"(shares {', '.join(sorted(shared))}). "
+                            f"May also work on {domain}."
+                        ),
+                    }
+                )
 
             # Look for failed approaches to avoid
             failures = self._knowledge.query(t_domain, category="failed_approach")
@@ -355,18 +360,20 @@ class CrossTargetIntel:
                 if dedup_key in seen:
                     continue
                 seen.add(dedup_key)
-                suggestions.append({
-                    "type": "avoid_approach",
-                    "source_domain": t_domain,
-                    "shared_tech": sorted(shared),
-                    "approach": key,
-                    "detail": f_entry.get("value", ""),
-                    "suggestion": (
-                        f"Approach '{key}' FAILED on {t_domain} "
-                        f"(shares {', '.join(sorted(shared))}). "
-                        f"Likely won't work on {domain} either — skip it."
-                    ),
-                })
+                suggestions.append(
+                    {
+                        "type": "avoid_approach",
+                        "source_domain": t_domain,
+                        "shared_tech": sorted(shared),
+                        "approach": key,
+                        "detail": f_entry.get("value", ""),
+                        "suggestion": (
+                            f"Approach '{key}' FAILED on {t_domain} "
+                            f"(shares {', '.join(sorted(shared))}). "
+                            f"Likely won't work on {domain} either — skip it."
+                        ),
+                    }
+                )
 
         # Sort: vulnerability patterns first, then techniques, then avoid
         type_order = {"vulnerability_pattern": 0, "technique_transfer": 1, "avoid_approach": 2}

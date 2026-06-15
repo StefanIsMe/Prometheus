@@ -48,10 +48,16 @@ class KnowledgeStore:
     def __new__(cls, db_path: Path | str | None = None) -> Self:
         global _instance  # noqa: PLW0603
         requested_path = Path(db_path) if db_path else _DEFAULT_DB_PATH
-        if _instance is not None and getattr(_instance, "_db_path", requested_path) == requested_path:
+        if (
+            _instance is not None
+            and getattr(_instance, "_db_path", requested_path) == requested_path
+        ):
             return _instance
         with _instance_lock:
-            if _instance is not None and getattr(_instance, "_db_path", requested_path) == requested_path:
+            if (
+                _instance is not None
+                and getattr(_instance, "_db_path", requested_path) == requested_path
+            ):
                 return _instance
             inst = super().__new__(cls)
             inst._init(requested_path)  # type: ignore[attr-defined]
@@ -230,9 +236,13 @@ class KnowledgeStore:
 
         # Migrate finding_comments table
         with self._lock:
-            comment_cols = [c[1] for c in self._conn.execute("PRAGMA table_info(finding_comments)").fetchall()]
+            comment_cols = [
+                c[1] for c in self._conn.execute("PRAGMA table_info(finding_comments)").fetchall()
+            ]
             if "version" not in comment_cols:
-                self._conn.execute("ALTER TABLE finding_comments ADD COLUMN version INTEGER DEFAULT 1")
+                self._conn.execute(
+                    "ALTER TABLE finding_comments ADD COLUMN version INTEGER DEFAULT 1"
+                )
                 self._conn.commit()
                 logger.info("Migration: added version column to finding_comments")
 
@@ -304,7 +314,10 @@ class KnowledgeStore:
             row_id = cur.lastrowid
         logger.debug(
             "Stored knowledge id=%d domain=%s cat=%s key=%s",
-            row_id, domain, category, key,
+            row_id,
+            domain,
+            category,
+            key,
         )
         return {"success": True, "id": row_id}
 
@@ -337,9 +350,7 @@ class KnowledgeStore:
         """Full-text search across key + value columns."""
         # Escape special FTS5 characters and build a safe query
         # Wrap each word in quotes to avoid syntax errors
-        safe_query = " OR ".join(
-            f'"{word}"' for word in query_text.split() if word
-        )
+        safe_query = " OR ".join(f'"{word}"' for word in query_text.split() if word)
         if not safe_query:
             return []
         with self._lock:
@@ -387,9 +398,7 @@ class KnowledgeStore:
         """Remove entries older than *days*."""
         cutoff = (datetime.now(UTC) - timedelta(days=days)).isoformat()
         with self._lock:
-            cur = self._conn.execute(
-                "DELETE FROM knowledge WHERE updated_at < ?", (cutoff,)
-            )
+            cur = self._conn.execute("DELETE FROM knowledge WHERE updated_at < ?", (cutoff,))
             self._conn.commit()
             deleted = cur.rowcount
         logger.info("Expired %d knowledge entries older than %d days", deleted, days)
@@ -404,7 +413,9 @@ class KnowledgeStore:
         entries = self.query(normalized)
         logger.info(
             "Hydrated %d knowledge entries for domain '%s' (normalized from '%s')",
-            len(entries), normalized, domain,
+            len(entries),
+            normalized,
+            domain,
         )
         return entries
 
@@ -416,6 +427,7 @@ class KnowledgeStore:
     def _domain_from_url(url: str) -> str:
         """Extract domain from a URL, stripping protocol, www, and path."""
         import re
+
         d = re.sub(r"^https?://", "", url.strip().lower())
         d = re.sub(r"^www\.", "", d)
         return d.split("/")[0].split(":")[0]
@@ -497,11 +509,18 @@ class KnowledgeStore:
                 WHERE domain = ? AND scan_id = ?
                 """,
                 (
-                    now, status, total,
-                    counts["critical"], counts["high"], counts["medium"],
-                    counts["low"], counts["info"],
-                    llm_requests, total_tokens,
-                    domain, scan_id,
+                    now,
+                    status,
+                    total,
+                    counts["critical"],
+                    counts["high"],
+                    counts["medium"],
+                    counts["low"],
+                    counts["info"],
+                    llm_requests,
+                    total_tokens,
+                    domain,
+                    scan_id,
                 ),
             )
             # Recalculate profile totals from all scans
@@ -530,11 +549,16 @@ class KnowledgeStore:
                     WHERE domain = ?
                     """,
                     (
-                        row["scan_count"], row["total_findings"] or 0,
-                        row["critical_count"] or 0, row["high_count"] or 0,
-                        row["medium_count"] or 0, row["low_count"] or 0,
+                        row["scan_count"],
+                        row["total_findings"] or 0,
+                        row["critical_count"] or 0,
+                        row["high_count"] or 0,
+                        row["medium_count"] or 0,
+                        row["low_count"] or 0,
                         row["info_count"] or 0,
-                        status, now, domain,
+                        status,
+                        now,
+                        domain,
                     ),
                 )
             self._conn.commit()
@@ -655,6 +679,7 @@ class KnowledgeStore:
     def _finding_hash(title: str, endpoint: str = "") -> str:
         """Generate a stable hash for deduping findings across scans."""
         import hashlib
+
         raw = f"{title.strip().lower()}|{endpoint.strip().lower()}"
         return hashlib.sha256(raw.encode()).hexdigest()[:16]
 
@@ -662,6 +687,7 @@ class KnowledgeStore:
     def _cwe_endpoint_hash(cwe: str, endpoint: str) -> str:
         """Generate hash for CWE+endpoint dedup layer."""
         import hashlib
+
         raw = f"{cwe.strip().lower()}|{endpoint.strip().lower()}"
         return hashlib.sha256(raw.encode()).hexdigest()[:16]
 
@@ -697,7 +723,6 @@ class KnowledgeStore:
 
             # Layer 2: CWE + endpoint match
             if cwe and endpoint:
-
                 row = self._conn.execute(
                     "SELECT * FROM report_status WHERE domain = ? AND cwe = ? AND endpoint = ?",
                     (domain, cwe, endpoint),
@@ -710,10 +735,10 @@ class KnowledgeStore:
             # Remove common prefixes/suffixes that vary
             for prefix in ["missing ", "weak ", "insecure ", "exposed "]:
                 if normalized_title.startswith(prefix):
-                    normalized_title = normalized_title[len(prefix):]
+                    normalized_title = normalized_title[len(prefix) :]
             for suffix in [" header", " configuration", " vulnerability"]:
                 if normalized_title.endswith(suffix):
-                    normalized_title = normalized_title[:-len(suffix)]
+                    normalized_title = normalized_title[: -len(suffix)]
 
             # Search for similar titles in the same domain
             rows = self._conn.execute(
@@ -724,10 +749,10 @@ class KnowledgeStore:
                 existing_title = (row["finding_title"] or "").strip().lower()
                 for prefix in ["missing ", "weak ", "insecure ", "exposed "]:
                     if existing_title.startswith(prefix):
-                        existing_title = existing_title[len(prefix):]
+                        existing_title = existing_title[len(prefix) :]
                 for suffix in [" header", " configuration", " vulnerability"]:
                     if existing_title.endswith(suffix):
-                        existing_title = existing_title[:-len(suffix)]
+                        existing_title = existing_title[: -len(suffix)]
 
                 # Check if normalized titles match
                 if normalized_title == existing_title:
@@ -850,7 +875,17 @@ class KnowledgeStore:
             safe_tokens = []
             for raw_token in re.findall(r"\w+", finding_title):
                 t = raw_token.lower()
-                if len(t) >= 2 and t not in ("the", "and", "for", "via", "to", "of", "in", "a", "an"):
+                if len(t) >= 2 and t not in (
+                    "the",
+                    "and",
+                    "for",
+                    "via",
+                    "to",
+                    "of",
+                    "in",
+                    "a",
+                    "an",
+                ):
                     safe_tokens.append(t)
             if not safe_tokens:
                 return None
@@ -986,9 +1021,7 @@ class KnowledgeStore:
             if ext_status == "accepted":
                 return {
                     "action": "archive",
-                    "reason": (
-                        "external platform already accepted this finding — do not re-file"
-                    ),
+                    "reason": ("external platform already accepted this finding — do not re-file"),
                     "external": external_dict,
                     "existing": existing_dict,
                 }
@@ -996,7 +1029,14 @@ class KnowledgeStore:
         # No external record but local row is already in a terminal state
         if existing_dict:
             local_status = (existing_dict.get("status") or "").lower()
-            if local_status in ("submitted", "accepted", "rejected", "revalidated", "duplicate", "archived"):
+            if local_status in (
+                "submitted",
+                "accepted",
+                "rejected",
+                "revalidated",
+                "duplicate",
+                "archived",
+            ):
                 return {
                     "action": "archive",
                     "reason": (
@@ -1007,7 +1047,12 @@ class KnowledgeStore:
                     "existing": existing_dict,
                 }
 
-        return {"action": "revalidate", "reason": "default policy", "external": external_dict, "existing": existing_dict}
+        return {
+            "action": "revalidate",
+            "reason": "default policy",
+            "external": external_dict,
+            "existing": existing_dict,
+        }
 
     def propagate_external_to_internal(
         self,
@@ -1068,8 +1113,12 @@ class KnowledgeStore:
                 self._conn.commit()
                 # Rebuild FTS so the new status text is searchable
                 try:
-                    self._conn.execute("INSERT INTO report_status_fts(report_status_fts) VALUES('rebuild')")
-                    self._conn.execute("INSERT INTO external_submissions_fts(external_submissions_fts) VALUES('rebuild')")
+                    self._conn.execute(
+                        "INSERT INTO report_status_fts(report_status_fts) VALUES('rebuild')"
+                    )
+                    self._conn.execute(
+                        "INSERT INTO external_submissions_fts(external_submissions_fts) VALUES('rebuild')"
+                    )
                     self._conn.commit()
                 except sqlite3.OperationalError:
                     pass
@@ -1088,12 +1137,19 @@ class KnowledgeStore:
                         ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
-                    ext_dict["domain"], ext_dict["finding_title"], ext_dict["finding_hash"],
-                    ext_dict.get("endpoint"), ext_dict.get("cwe"),
-                    platform, ext_dict.get("report_url"),
-                    external_id, ext_dict["status"], ext_dict.get("priority"),
+                    ext_dict["domain"],
+                    ext_dict["finding_title"],
+                    ext_dict["finding_hash"],
+                    ext_dict.get("endpoint"),
+                    ext_dict.get("cwe"),
+                    platform,
+                    ext_dict.get("report_url"),
+                    external_id,
+                    ext_dict["status"],
+                    ext_dict.get("priority"),
                     f"External {platform}/{external_id}: {ext_dict.get('notes') or ''}",
-                    now, now,
+                    now,
+                    now,
                 ),
             )
             new_id = cur.lastrowid
@@ -1111,8 +1167,12 @@ class KnowledgeStore:
             )
             self._conn.commit()
             try:
-                self._conn.execute("INSERT INTO report_status_fts(report_status_fts) VALUES('rebuild')")
-                self._conn.execute("INSERT INTO external_submissions_fts(external_submissions_fts) VALUES('rebuild')")
+                self._conn.execute(
+                    "INSERT INTO report_status_fts(report_status_fts) VALUES('rebuild')"
+                )
+                self._conn.execute(
+                    "INSERT INTO external_submissions_fts(external_submissions_fts) VALUES('rebuild')"
+                )
                 self._conn.commit()
             except sqlite3.OperationalError:
                 pass
@@ -1169,12 +1229,19 @@ class KnowledgeStore:
                 sets = ["updated_at = ?"]
                 params: list[Any] = [now]
                 for col, val in (
-                    ("domain", domain), ("finding_title", finding_title),
-                    ("finding_hash", finding_hash), ("endpoint", endpoint),
-                    ("cwe", cwe), ("status", status), ("priority", priority),
-                    ("reward_usd", reward_usd), ("report_url", report_url),
-                    ("triager", triager), ("triaged_at", triaged_at),
-                    ("notes", notes), ("raw_export_json", raw_export_json),
+                    ("domain", domain),
+                    ("finding_title", finding_title),
+                    ("finding_hash", finding_hash),
+                    ("endpoint", endpoint),
+                    ("cwe", cwe),
+                    ("status", status),
+                    ("priority", priority),
+                    ("reward_usd", reward_usd),
+                    ("report_url", report_url),
+                    ("triager", triager),
+                    ("triaged_at", triaged_at),
+                    ("notes", notes),
+                    ("raw_export_json", raw_export_json),
                 ):
                     if val is not None:
                         sets.append(f"{col} = ?")
@@ -1186,7 +1253,9 @@ class KnowledgeStore:
                 )
                 self._conn.commit()
                 try:
-                    self._conn.execute("INSERT INTO external_submissions_fts(external_submissions_fts) VALUES('rebuild')")
+                    self._conn.execute(
+                        "INSERT INTO external_submissions_fts(external_submissions_fts) VALUES('rebuild')"
+                    )
                     self._conn.commit()
                 except sqlite3.OperationalError:
                     pass
@@ -1200,14 +1269,30 @@ class KnowledgeStore:
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
-                    platform, external_id, domain, finding_title, finding_hash,
-                    endpoint, cwe, status, priority, reward_usd, report_url,
-                    triager, triaged_at, notes, raw_export_json, now, now,
+                    platform,
+                    external_id,
+                    domain,
+                    finding_title,
+                    finding_hash,
+                    endpoint,
+                    cwe,
+                    status,
+                    priority,
+                    reward_usd,
+                    report_url,
+                    triager,
+                    triaged_at,
+                    notes,
+                    raw_export_json,
+                    now,
+                    now,
                 ),
             )
             self._conn.commit()
             try:
-                self._conn.execute("INSERT INTO external_submissions_fts(external_submissions_fts) VALUES('rebuild')")
+                self._conn.execute(
+                    "INSERT INTO external_submissions_fts(external_submissions_fts) VALUES('rebuild')"
+                )
                 self._conn.commit()
             except sqlite3.OperationalError:
                 pass
@@ -1353,9 +1438,24 @@ class KnowledgeStore:
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                 (
-                    domain, scan_id, finding_title, finding_hash, status,
-                    severity, cvss, endpoint, cwe, platform, report_url,
-                    h1_report_id, notes, full_finding_json, submitted_at, resolved_at, now, now,
+                    domain,
+                    scan_id,
+                    finding_title,
+                    finding_hash,
+                    status,
+                    severity,
+                    cvss,
+                    endpoint,
+                    cwe,
+                    platform,
+                    report_url,
+                    h1_report_id,
+                    notes,
+                    full_finding_json,
+                    submitted_at,
+                    resolved_at,
+                    now,
+                    now,
                 ),
             )
             self._conn.commit()
@@ -1399,7 +1499,7 @@ class KnowledgeStore:
             FROM report_status rs
             LEFT JOIN finding_candidates fc
               ON fc.domain = rs.domain AND fc.fingerprint = rs.finding_hash
-            {where.replace('domain', 'rs.domain').replace('status', 'COALESCE(fc.lifecycle_status, rs.status)')}
+            {where.replace("domain", "rs.domain").replace("status", "COALESCE(fc.lifecycle_status, rs.status)")}
             ORDER BY
                 CASE COALESCE(fc.lifecycle_status, rs.status)
                     WHEN 'new' THEN 0
@@ -1641,11 +1741,13 @@ class KnowledgeStore:
 
             for row in rows:
                 row_dict = dict(row)
-                searchable = " ".join([
-                    row_dict.get("finding_title", "") or "",
-                    row_dict.get("notes", "") or "",
-                    row_dict.get("full_finding_json", "") or "",
-                ]).upper()
+                searchable = " ".join(
+                    [
+                        row_dict.get("finding_title", "") or "",
+                        row_dict.get("notes", "") or "",
+                        row_dict.get("full_finding_json", "") or "",
+                    ]
+                ).upper()
 
                 matched_cve = None
                 for cve_id in normalized_ids:
@@ -1671,7 +1773,9 @@ class KnowledgeStore:
 
         logger.info(
             "Revalidated %d findings for domain '%s' matching CVEs %s",
-            len(revalidated), domain, normalized_ids,
+            len(revalidated),
+            domain,
+            normalized_ids,
         )
         return revalidated
 
@@ -1703,9 +1807,7 @@ class KnowledgeStore:
             ).fetchall()
         return [dict(r) for r in rows]
 
-    def get_unfiled_vulnerabilities(
-        self, domain: str
-    ) -> list[dict[str, Any]]:
+    def get_unfiled_vulnerabilities(self, domain: str) -> list[dict[str, Any]]:
         """Return knowledge entries tagged as vulnerabilities that have no
         corresponding filed finding. These are leaked discoveries — things
         Prometheus found but never filed as formal findings.
@@ -1733,9 +1835,7 @@ class KnowledgeStore:
                 (domain,),
             ).fetchall()
 
-        findings_lower = [
-            (r["title"] or "").lower() for r in [dict(r) for r in finding_rows]
-        ]
+        findings_lower = [(r["title"] or "").lower() for r in [dict(r) for r in finding_rows]]
         unfiled = []
         for row in [dict(r) for r in vuln_rows]:
             key = (row.get("key") or "").lower()
@@ -1748,7 +1848,11 @@ class KnowledgeStore:
                 ft_words = set(ft.replace("-", " ").replace("_", " ").split())
                 overlap = key_words & ft_words
                 # Match if: key is in title, title is in key, or >2 significant words overlap
-                if key in ft or ft in key or (len(overlap) >= 3 and len(overlap) >= len(key_words) * 0.4):
+                if (
+                    key in ft
+                    or ft in key
+                    or (len(overlap) >= 3 and len(overlap) >= len(key_words) * 0.4)
+                ):
                     filed = True
                     break
                 # Also check value substring match

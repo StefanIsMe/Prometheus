@@ -13,6 +13,7 @@ New quirks discovered in production should be added here (not in
 ``make_model_settings``); that keeps the drift visible in one place
 and makes the next model's configuration review trivial.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field

@@ -11,6 +11,7 @@ call and raise EmptyModelInputError, which short-circuits straight to
 "stopped" status. The remaining SDK RuntimeError path is also
 tightened to a single retry.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -39,6 +40,7 @@ def _run(coro):
 # ---------------------------------------------------------------------------
 # _session_has_content
 # ---------------------------------------------------------------------------
+
 
 def test_session_has_content_none_session():
     """No session at all → no content."""
@@ -75,6 +77,7 @@ def test_session_has_content_treats_read_failure_as_has_content():
 # EmptyModelInputError class
 # ---------------------------------------------------------------------------
 
+
 def test_empty_model_input_error_is_agents_exception():
     """It must be an AgentsException so existing exception handlers see it."""
     assert issubclass(EmptyModelInputError, AgentsException)
@@ -90,6 +93,7 @@ def test_empty_model_input_error_carries_useful_message():
 # ---------------------------------------------------------------------------
 # End-to-end: simulate the post-compaction scenario
 # ---------------------------------------------------------------------------
+
 
 def test_empty_input_does_not_retry_when_session_also_empty():
     """Sanity: the fail-fast path doesn't even attempt the LLM call.

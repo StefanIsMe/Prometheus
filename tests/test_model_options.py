@@ -17,6 +17,7 @@ This file:
      assert none of the historic OpenAI 400 messages would re-emit
      with the patched options dict.
 """
+
 from __future__ import annotations
 
 import logging
@@ -39,6 +40,7 @@ from prometheus.core.inputs import make_model_settings  # noqa: E402
 # 1. Unit: exact match
 # ---------------------------------------------------------------------------
 
+
 def test_resolve_model_options_exact_match():
     """An exact model id key returns the registered overrides."""
     overrides = resolve_model_options("gpt-5-codex")
@@ -54,6 +56,7 @@ def test_resolve_model_options_default_when_unknown():
 # ---------------------------------------------------------------------------
 # 2. Unit: prefix match
 # ---------------------------------------------------------------------------
+
 
 def test_resolve_model_options_prefix_match():
     """A model id that starts with ``<key>-`` returns the registered overrides."""
@@ -73,6 +76,7 @@ def test_resolve_model_options_no_partial_word_match():
 # 3. Unit: empty / None inputs
 # ---------------------------------------------------------------------------
 
+
 def test_resolve_model_options_empty_string():
     assert resolve_model_options("") == ModelOptionOverrides()
 
@@ -84,6 +88,7 @@ def test_resolve_model_options_none():
 # ---------------------------------------------------------------------------
 # 4. Unit: make_model_settings routes model_id through the dict
 # ---------------------------------------------------------------------------
+
 
 def test_make_model_settings_pins_store_false_when_flagged():
     """If MODEL_OPTIONS says ``force_store_false=True``, the resulting
@@ -114,6 +119,7 @@ def test_make_model_settings_preserves_caller_store_when_no_flag():
 # 5. Unit: drop_tool_choice_with_thinking suppresses tool_choice
 # ---------------------------------------------------------------------------
 
+
 def test_make_model_settings_drops_tool_choice_with_thinking():
     """A model with ``drop_tool_choice_with_thinking=True`` must
     produce a ModelSettings with ``tool_choice=None`` when reasoning
@@ -141,6 +147,7 @@ def test_make_model_settings_keeps_tool_choice_when_not_thinking():
 # ---------------------------------------------------------------------------
 # 6. E2E log-replay: historic OpenAI 400 messages must not re-emit
 # ---------------------------------------------------------------------------
+
 
 def _worst_openai_400_log() -> Path:
     """Find the run with the most OpenAI 400 error messages."""
@@ -179,15 +186,14 @@ def test_log_replay_openai_400_would_be_resolved_by_overrides():
 # 7. Unit: model_options dict is non-empty and discoverable
 # ---------------------------------------------------------------------------
 
+
 def test_model_options_dict_has_documented_entries():
     """The dict should at minimum have entries for the four categories
     the audit found (drop_max_output_tokens, force_store_false,
     drop_tool_choice_with_thinking, drop_reasoning_field)."""
     has_drop_max = any(o.drop_max_output_tokens for o in MODEL_OPTIONS.values())
     has_force_store = any(o.force_store_false for o in MODEL_OPTIONS.values())
-    has_drop_tool = any(
-        o.drop_tool_choice_with_thinking for o in MODEL_OPTIONS.values()
-    )
+    has_drop_tool = any(o.drop_tool_choice_with_thinking for o in MODEL_OPTIONS.values())
     assert has_drop_max, "no entry drops max_output_tokens"
     assert has_force_store, "no entry forces store=False"
     assert has_drop_tool, "no entry drops tool_choice with thinking"

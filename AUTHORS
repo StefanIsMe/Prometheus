@@ -25,7 +25,6 @@ N-run LLM voting, threat-model stage, SARIF 2.1.0 emission, and
 
 Per-file attribution is preserved in the module docstrings under
 `prometheus/` and in the playbook headers under `prometheus/playbooks/`.
-See [INTEGRATION_PLAN.md](INTEGRATION_PLAN.md) for the full lineage plan.
 
 ## Upstream Authors and Copyright Holders
 

@@ -19,6 +19,7 @@ This file:
   4. Unit-tests that a container whose ``remove()`` raises a non-Docker
      exception logs WARNING and does not retry.
 """
+
 from __future__ import annotations
 
 import logging
@@ -41,6 +42,7 @@ from prometheus.runtime.session_manager import _force_cleanup_container  # noqa:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 class _FakeContainer:
     """A stand-in for a docker.models.containers.Container.
@@ -96,6 +98,7 @@ def _api_error_with_status(status: int, message: str = "conflict") -> docker.err
     tiny response stub. This is the same shape the real Docker SDK
     produces when a container hits a 409 conflict.
     """
+
     class _Response:
         status_code = status
 
@@ -105,6 +108,7 @@ def _api_error_with_status(status: int, message: str = "conflict") -> docker.err
 # ---------------------------------------------------------------------------
 # 1. APIError 409 on first call, success on second
 # ---------------------------------------------------------------------------
+
 
 def test_409_first_call_succeeds_after_retry(caplog):
     """The helper must retry exactly once and log WARNING once."""
@@ -126,6 +130,7 @@ def test_409_first_call_succeeds_after_retry(caplog):
 # 2. NotFound on the very first call
 # ---------------------------------------------------------------------------
 
+
 def test_notfound_returns_cleanly(caplog):
     """An already-removed container must log at INFO, not WARNING."""
     err = docker.errors.NotFound("not found")
@@ -143,14 +148,17 @@ def test_notfound_returns_cleanly(caplog):
 # 3. APIError 409 every call
 # ---------------------------------------------------------------------------
 
+
 def test_409_every_call_exhausts_three_attempts(caplog):
     """Three 409s in a row → 3 attempts, 3 WARNING logs, then a final
     WARNING that cleanup failed."""
-    container = _FakeContainer([
-        _api_error_with_status(409),
-        _api_error_with_status(409),
-        _api_error_with_status(409),
-    ])
+    container = _FakeContainer(
+        [
+            _api_error_with_status(409),
+            _api_error_with_status(409),
+            _api_error_with_status(409),
+        ]
+    )
 
     with patch.object(session_manager.time, "sleep") as fake_sleep:
         with caplog.at_level(logging.WARNING, logger="prometheus.runtime.session_manager"):
@@ -168,6 +176,7 @@ def test_409_every_call_exhausts_three_attempts(caplog):
 # ---------------------------------------------------------------------------
 # 4. Non-Docker exception → WARNING, no retry
 # ---------------------------------------------------------------------------
+
 
 def test_non_docker_exception_logs_warning_no_retry(caplog):
     """A non-Docker exception (e.g. KeyError) must log WARNING and

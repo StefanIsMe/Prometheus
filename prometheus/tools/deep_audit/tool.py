@@ -54,18 +54,21 @@ async def run_differential_analysis(
     except json.JSONDecodeError:
         return f"ERROR: Invalid JSON in test_values_json: {test_values_json[:200]}"
 
-    return json.dumps({
-        "endpoint": endpoint,
-        "test_values_count": len(test_values),
-        "description": description,
-        "instruction": "Call analyze_differential() with the actual response fingerprints after making HTTP requests",
-        "next_steps": [
-            f"Make HTTP requests to {endpoint} with each test value",
-            "Collect status_code, body, headers for each response",
-            "Call fingerprint_response() on each",
-            "Call analyze_differential() with the fingerprints",
-        ],
-    }, indent=2)
+    return json.dumps(
+        {
+            "endpoint": endpoint,
+            "test_values_count": len(test_values),
+            "description": description,
+            "instruction": "Call analyze_differential() with the actual response fingerprints after making HTTP requests",
+            "next_steps": [
+                f"Make HTTP requests to {endpoint} with each test value",
+                "Collect status_code, body, headers for each response",
+                "Call fingerprint_response() on each",
+                "Call analyze_differential() with the fingerprints",
+            ],
+        },
+        indent=2,
+    )
 
 
 @function_tool
@@ -85,13 +88,16 @@ async def get_auth_flow_trace_script(
         email: The email address to submit
     """
     script = build_auth_flow_trace_script(login_url, email)
-    return json.dumps({
-        "login_url": login_url,
-        "email": email,
-        "script_length": len(script),
-        "instruction": "Execute this script in the sandbox with Chromium CDP running on port 9222",
-        "script": script,
-    }, indent=2)
+    return json.dumps(
+        {
+            "login_url": login_url,
+            "email": email,
+            "script_length": len(script),
+            "instruction": "Execute this script in the sandbox with Chromium CDP running on port 9222",
+            "script": script,
+        },
+        indent=2,
+    )
 
 
 @function_tool
@@ -144,13 +150,16 @@ async def generate_verified_poc(
         test_cases=test_cases,
     )
 
-    return json.dumps({
-        "finding_title": finding_title,
-        "endpoint": endpoint,
-        "poc_script": poc,
-        "poc_length": len(poc),
-        "instruction": "Save this script and execute it to verify the vulnerability",
-    }, indent=2)
+    return json.dumps(
+        {
+            "finding_title": finding_title,
+            "endpoint": endpoint,
+            "poc_script": poc,
+            "poc_length": len(poc),
+            "instruction": "Save this script and execute it to verify the vulnerability",
+        },
+        indent=2,
+    )
 
 
 @function_tool
@@ -249,25 +258,33 @@ async def lookup_bugcrowd_vrt(
             description=description,
             cwe=cwe,
         )
-        return json.dumps({
-            "classification": result,
-            "instruction": (
-                f"Use VRT category '{result['vrt_category']}' (P{result['priority']}, "
-                f"{result['priority_label']}) for this finding. "
-                f"Match confidence: {result['confidence']:.0%} via {result['match_method']}."
-            ),
-        }, indent=2)
+        return json.dumps(
+            {
+                "classification": result,
+                "instruction": (
+                    f"Use VRT category '{result['vrt_category']}' (P{result['priority']}, "
+                    f"{result['priority_label']}) for this finding. "
+                    f"Match confidence: {result['confidence']:.0%} via {result['match_method']}."
+                ),
+            },
+            indent=2,
+        )
 
     # Otherwise, search the taxonomy
     results = vrt.search(query)
     if not results:
-        return json.dumps({
-            "results": [],
-            "message": f"No VRT entries found for '{query}'. Try different keywords.",
-        })
+        return json.dumps(
+            {
+                "results": [],
+                "message": f"No VRT entries found for '{query}'. Try different keywords.",
+            }
+        )
 
-    return json.dumps({
-        "results": results,
-        "count": len(results),
-        "instruction": "Pick the most specific matching category from the results above.",
-    }, indent=2)
+    return json.dumps(
+        {
+            "results": results,
+            "count": len(results),
+            "instruction": "Pick the most specific matching category from the results above.",
+        },
+        indent=2,
+    )

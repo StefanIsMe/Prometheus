@@ -86,9 +86,7 @@ class ScanOrchestrator:
         self._scans: dict[str, ScanInstance] = {}
         self._lock = threading.Lock()
         self.on_scan_event: Callable[[str, dict[str, Any]], None] | None = None
-        logger.info(
-            "ScanOrchestrator initialised (max_concurrent=%d)", self._max_concurrent
-        )
+        logger.info("ScanOrchestrator initialised (max_concurrent=%d)", self._max_concurrent)
 
     # ------------------------------------------------------------------
     # Properties
@@ -122,10 +120,7 @@ class ScanOrchestrator:
         Raises ``RuntimeError`` if the orchestrator is at capacity.
         """
         with self._lock:
-            active = sum(
-                1 for s in self._scans.values()
-                if s.status in {"starting", "running"}
-            )
+            active = sum(1 for s in self._scans.values() if s.status in {"starting", "running"})
             if active >= self._max_concurrent:
                 raise RuntimeError(
                     f"At scan capacity ({active}/{self._max_concurrent}). "
@@ -168,6 +163,7 @@ class ScanOrchestrator:
 
         # Set global report state so create_vulnerability_report can persist findings
         from prometheus.report.state import set_global_report_state
+
         set_global_report_state(report_state)
 
         live_view = TuiLiveView()
@@ -207,6 +203,7 @@ class ScanOrchestrator:
 
         # Event sink that feeds the live view
         _event_sink_errors = 0
+
         def event_sink(agent_id: str, event: Any) -> None:
             nonlocal _event_sink_errors
             try:
@@ -216,7 +213,10 @@ class ScanOrchestrator:
                 _event_sink_errors += 1
                 if _event_sink_errors <= 3:
                     logger.warning(
-                        "event_sink error for %s (total: %d)", agent_id, _event_sink_errors, exc_info=True,
+                        "event_sink error for %s (total: %d)",
+                        agent_id,
+                        _event_sink_errors,
+                        exc_info=True,
                     )
 
         # Progress callback that feeds progress messages to the live view
@@ -248,10 +248,12 @@ class ScanOrchestrator:
                 instance.status = "completed"
                 self._fire_event("scan_completed", instance)
                 ScanPersistence().record_scan_end(
-                    scan_id, "completed",
+                    scan_id,
+                    "completed",
                     findings_count=(
                         len(instance.report_state.vulnerability_reports)
-                        if instance.report_state else 0
+                        if instance.report_state
+                        else 0
                     ),
                 )
             except Exception as exc:
@@ -260,7 +262,9 @@ class ScanOrchestrator:
                 logger.exception("Scan %s failed", scan_id)
                 self._fire_event("scan_failed", instance)
                 ScanPersistence().record_scan_end(
-                    scan_id, "failed", findings_count=0,
+                    scan_id,
+                    "failed",
+                    findings_count=0,
                 )
             finally:
                 loop.close()
@@ -268,6 +272,7 @@ class ScanOrchestrator:
                 # Clear thread-local report state to avoid leaking to next scan
                 try:
                     from prometheus.report.state import clear_thread_report_state
+
                     clear_thread_report_state()
                 except Exception:
                     pass
@@ -328,13 +333,16 @@ class ScanOrchestrator:
                 except Exception:  # noqa: BLE001
                     stop_succeeded = False
                     logger.debug(
-                        "stop_scan(%s): cancel also failed", scan_id,
+                        "stop_scan(%s): cancel also failed",
+                        scan_id,
                         exc_info=True,
                     )
 
         if not stop_succeeded:
             instance.error = "Stop request failed — scan may still be running in background"
-            logger.warning("stop_scan(%s): stop partially failed, scan may still be active", scan_id)
+            logger.warning(
+                "stop_scan(%s): stop partially failed, scan may still be active", scan_id
+            )
 
         logger.info("Stop requested for scan %s", scan_id)
         return True
@@ -347,9 +355,7 @@ class ScanOrchestrator:
         summaries: list[dict[str, Any]] = []
         for inst in instances:
             findings_count = (
-                len(inst.report_state.vulnerability_reports)
-                if inst.report_state
-                else 0
+                len(inst.report_state.vulnerability_reports) if inst.report_state else 0
             )
             summaries.append(
                 {
@@ -373,19 +379,14 @@ class ScanOrchestrator:
         """Find an active (starting/running) scan for a given target."""
         with self._lock:
             for inst in self._scans.values():
-                if inst.target_id == target_id and inst.status in {
-                    "starting", "running"
-                }:
+                if inst.target_id == target_id and inst.status in {"starting", "running"}:
                     return inst
         return None
 
     def get_capacity(self) -> tuple[int, int]:
         """Return ``(active_count, max_concurrent)``."""
         with self._lock:
-            active = sum(
-                1 for s in self._scans.values()
-                if s.status in {"starting", "running"}
-            )
+            active = sum(1 for s in self._scans.values() if s.status in {"starting", "running"})
         return active, self._max_concurrent
 
     def cleanup_completed(self) -> int:
@@ -396,10 +397,7 @@ class ScanOrchestrator:
         terminal = {"completed", "failed", "stopped"}
         removed = 0
         with self._lock:
-            to_remove = [
-                sid for sid, inst in self._scans.items()
-                if inst.status in terminal
-            ]
+            to_remove = [sid for sid, inst in self._scans.items() if inst.status in terminal]
             for sid in to_remove:
                 del self._scans[sid]
                 removed += 1
@@ -499,9 +497,7 @@ class ScanOrchestrator:
             targets = [target_entry]
 
         user_instructions = (
-            scan_config.get("user_instructions")
-            or scan_config.get("instructions")
-            or ""
+            scan_config.get("user_instructions") or scan_config.get("instructions") or ""
         )
 
         return {

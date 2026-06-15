@@ -175,7 +175,9 @@ class SplashScreen(Static):  # type: ignore[misc]
                         style=Style(color="white", bold=True),
                     )
                     if len(target_names) > 3:
-                        scan_text.append(f" (+{len(target_names) - 3} more)", style=Style(color="#737373"))
+                        scan_text.append(
+                            f" (+{len(target_names) - 3} more)", style=Style(color="#737373")
+                        )
                     content_parts.append(Align.center(scan_text))
                     content_parts.append(Align.center(Text(" ")))
         except Exception:
@@ -705,7 +707,9 @@ class prometheusTUIApp(App):  # type: ignore[misc]
 
     selected_agent_id: reactive[str | None] = reactive(default=None)
     show_splash: reactive[bool] = reactive(default=True)
-    active_tab: reactive[str] = reactive(default="manual")  # "manual", "auto", "programs", "reports", "feeds"
+    active_tab: reactive[str] = reactive(
+        default="manual"
+    )  # "manual", "auto", "programs", "reports", "feeds"
 
     BINDINGS: ClassVar[list[Binding]] = [
         Binding("f1", "toggle_help", "Help", priority=True),
@@ -822,15 +826,28 @@ class prometheusTUIApp(App):  # type: ignore[misc]
             # Kill orphaned sandbox containers
             try:
                 import subprocess
+
                 result = subprocess.run(
-                    ["docker", "ps", "--filter", "ancestor=prometheus-sandbox:local",
-                     "--format", "{{.ID}}"],
-                    capture_output=True, text=True, timeout=10,
+                    [
+                        "docker",
+                        "ps",
+                        "--filter",
+                        "ancestor=prometheus-sandbox:local",
+                        "--format",
+                        "{{.ID}}",
+                    ],
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
                 )
                 container_ids = result.stdout.strip().split()
                 if container_ids:
-                    subprocess.run(["docker", "stop", *container_ids], capture_output=True, timeout=30)
-                    subprocess.run(["docker", "rm", *container_ids], capture_output=True, timeout=10)
+                    subprocess.run(
+                        ["docker", "stop", *container_ids], capture_output=True, timeout=30
+                    )
+                    subprocess.run(
+                        ["docker", "rm", *container_ids], capture_output=True, timeout=10
+                    )
             except Exception:
                 pass
 
@@ -900,7 +917,9 @@ class prometheusTUIApp(App):  # type: ignore[misc]
 
             sidebar = Vertical(agents_tree, vulnerabilities_panel, stats_scroll, id="sidebar")
 
-            chat_area_container = Vertical(chat_history, agent_status_display, chat_input_container, id="chat_area_container")
+            chat_area_container = Vertical(
+                chat_history, agent_status_display, chat_input_container, id="chat_area_container"
+            )
             scan_content = Horizontal(chat_area_container, sidebar, id="content_container")
 
             # Tab 2: Automated Scans
@@ -1257,8 +1276,9 @@ class prometheusTUIApp(App):  # type: ignore[misc]
         # If we have agents now, add a hint
         if self.live_view.agents:
             text.append("\n")
-            text.append("Agents are live — select one from the sidebar to view activity.",
-                       style="#22c55e")
+            text.append(
+                "Agents are live — select one from the sidebar to view activity.", style="#22c55e"
+            )
 
         return text, "chat-placeholder placeholder-startup"
 
@@ -1652,6 +1672,7 @@ class prometheusTUIApp(App):  # type: ignore[misc]
                         # Runs in the scan thread so it doesn't block the TUI startup.
                         try:
                             from prometheus.tools.idor_scanner.prescan import run_browser_prescan
+
                             prescan_targets = run_browser_prescan(
                                 self.scan_config.get("targets", [])
                             )
@@ -1661,16 +1682,21 @@ class prometheusTUIApp(App):  # type: ignore[misc]
                                     infer_target_type,
                                     rewrite_localhost_targets,
                                 )
+
                                 original = self.scan_config["targets"][0]["original"]
-                                _post_progress(f"Expanded scan targets: {original} -> {len(prescan_targets)} asset(s)")
+                                _post_progress(
+                                    f"Expanded scan targets: {original} -> {len(prescan_targets)} asset(s)"
+                                )
                                 new_targets = []
                                 for t in prescan_targets:
                                     target_type, target_dict = infer_target_type(t)
-                                    new_targets.append({
-                                        "type": target_type,
-                                        "details": target_dict,
-                                        "original": t,
-                                    })
+                                    new_targets.append(
+                                        {
+                                            "type": target_type,
+                                            "details": target_dict,
+                                            "original": t,
+                                        }
+                                    )
                                 assign_workspace_subdirs(new_targets)
                                 rewrite_localhost_targets(new_targets, "host.docker.internal")
                                 self.scan_config["targets"] = new_targets
@@ -1693,10 +1719,9 @@ class prometheusTUIApp(App):  # type: ignore[misc]
                 except (KeyboardInterrupt, asyncio.CancelledError):
                     logger.info("Scan interrupted by user")
                 except RuntimeError as e:
-                    if (
-                        "Event loop stopped before Future completed" in str(e)
-                        or "Prepared model input is empty" in str(e)
-                    ):
+                    if "Event loop stopped before Future completed" in str(
+                        e
+                    ) or "Prepared model input is empty" in str(e):
                         logger.info("Scan loop stopped (clean shutdown): %s", e)
                     else:
                         logging.exception("Runtime error during scan")
@@ -1756,11 +1781,19 @@ class prometheusTUIApp(App):  # type: ignore[misc]
                 if item is not None and getattr(item, "type", "") == "tool_call_output_item":
                     raw = getattr(item, "raw_item", None)
                     if raw is not None:
-                        name = str(raw.get("name", "") if isinstance(raw, dict) else getattr(raw, "name", "") or "")
+                        name = str(
+                            raw.get("name", "")
+                            if isinstance(raw, dict)
+                            else getattr(raw, "name", "") or ""
+                        )
                         if name == "create_vulnerability_report":
                             output = getattr(item, "output", None)
                             if output is None:
-                                output = raw.get("output", "") if isinstance(raw, dict) else getattr(raw, "output", "")
+                                output = (
+                                    raw.get("output", "")
+                                    if isinstance(raw, dict)
+                                    else getattr(raw, "output", "")
+                                )
                             output_str = str(output) if not isinstance(output, str) else output
                             if '"success": true' in output_str.lower():
                                 self._reports_needs_refresh = True
@@ -2229,11 +2262,14 @@ class prometheusTUIApp(App):  # type: ignore[misc]
 async def run_tui(args: argparse.Namespace) -> None:
     from prometheus.core.paths import configure_runs_dir
     from prometheus.config import load_settings as _load_settings
+
     _settings = _load_settings()
     if _settings.runtime.runs_dir:
         configure_runs_dir(_settings.runtime.runs_dir)
     else:
-        configure_runs_dir(os.environ.get("PROMETHEUS_DATA_DIR") or str(Path.home() / ".prometheus"))
+        configure_runs_dir(
+            os.environ.get("PROMETHEUS_DATA_DIR") or str(Path.home() / ".prometheus")
+        )
 
     app = prometheusTUIApp(args)
     await app.run_async()

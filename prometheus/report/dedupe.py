@@ -168,6 +168,7 @@ async def check_duplicate(
     try:
         settings = load_settings()
         from prometheus.config.models import configure_sdk_model_defaults
+
         resolution = configure_sdk_model_defaults(settings)
         model_name = settings.llm.model
         if not model_name:
@@ -199,6 +200,7 @@ async def check_duplicate(
         # exhaustion we return a no-op so the report writer does not
         # crash.
         from openai import APIConnectionError
+
         try:
             import httpx
         except ImportError:  # pragma: no cover
@@ -239,11 +241,12 @@ async def check_duplicate(
             except _RETRYABLE as exc:  # type: ignore[misc]
                 last_exc = exc
                 logger.warning(
-                    "dedupe model call transient connection error "
-                    "(attempt %d/3): %s",
-                    _attempt, exc,
+                    "dedupe model call transient connection error (attempt %d/3): %s",
+                    _attempt,
+                    exc,
                 )
                 import asyncio as _asyncio
+
                 await _asyncio.sleep(0.5 * (2 ** (_attempt - 1)))
                 continue
         if response is None and last_exc is not None:

@@ -125,6 +125,7 @@ class NousPortalAccountInfo:
 
 # === Auth Store Persistence ===
 
+
 def _auth_file_path() -> Path:
     return PROMETHEUS_AUTH_FILE
 
@@ -211,6 +212,7 @@ def _file_lock(lock_path: Path, holder: threading.local, timeout_seconds: float)
 
 # === JWT Helpers ===
 
+
 def _decode_jwt_claims(token: str) -> dict[str, Any] | None:
     """Decode JWT claims without verification (local UX only)."""
     try:
@@ -218,6 +220,7 @@ def _decode_jwt_claims(token: str) -> dict[str, Any] | None:
         if len(parts) != 3:
             return None
         import base64
+
         payload = parts[1]
         payload += "=" * ((4 - len(payload) % 4) % 4)
         decoded = base64.urlsafe_b64decode(payload)
@@ -281,10 +284,12 @@ def _is_expiring(expires_at: Any | None, skew_seconds: int) -> bool:
 
 # === Logging ===
 import logging
+
 logger = logging.getLogger(__name__)
 
 
 # === Device Code Flow ===
+
 
 def start_device_code_flow(
     portal_base_url: str | None = None,
@@ -293,7 +298,7 @@ def start_device_code_flow(
     timeout_seconds: float = 60.0,
 ) -> dict[str, Any]:
     """Start a device code OAuth flow with Nous Portal.
-    
+
     Returns dict with: device_code, user_code, verification_uri, interval, etc.
     Raises RuntimeError on failure.
     """
@@ -324,7 +329,7 @@ def poll_device_code_flow(
     max_wait_seconds: float = 300.0,
 ) -> dict[str, Any]:
     """Poll the device code flow until the user authorizes or it times out.
-    
+
     Returns dict with: access_token, refresh_token, expires_in, etc.
     Raises TimeoutError if user doesn't authorize in time.
     """
@@ -335,17 +340,21 @@ def poll_device_code_flow(
     while True:
         if time.monotonic() > deadline:
             raise TimeoutError("Device code flow timed out")
-        
+
         resp = httpx.post(
             f"{base}/oauth/device/token",
-            json={"client_id": cid, "device_code": device_code, "grant_type": "urn:ietf:params:oauth:grant-type:device_code"},
+            json={
+                "client_id": cid,
+                "device_code": device_code,
+                "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
+            },
             timeout=30.0,
         )
         data = resp.json() if resp.content else {}
-        
+
         if resp.status_code == 200 and data.get("access_token"):
             return data
-        
+
         if data.get("error") == "authorization_pending":
             time.sleep(max(1, min(interval, 5)))
             continue
@@ -355,7 +364,7 @@ def poll_device_code_flow(
             continue
         elif data.get("error") in ("access_denied", "expired_token"):
             raise RuntimeError(f"Device code flow failed: {data.get('error')}")
-        
+
         time.sleep(max(1, min(interval, 5)))
 
 
@@ -364,7 +373,7 @@ def run_interactive_login(
     client_id: str | None = None,
 ) -> dict[str, Any]:
     """Run the full interactive device code login flow.
-    
+
     Prints the URL/code for the user to visit, then polls for completion.
     Persists the credentials to ~/.prometheus/auth.json on success.
     """
@@ -406,7 +415,9 @@ def run_interactive_login(
         "inference_base_url": DEFAULT_NOUS_INFERENCE_URL,
         "obtained_at": now.isoformat(),
         "expires_in": access_ttl,
-        "expires_at": datetime.fromtimestamp(now.timestamp() + access_ttl, tz=timezone.utc).isoformat(),
+        "expires_at": datetime.fromtimestamp(
+            now.timestamp() + access_ttl, tz=timezone.utc
+        ).isoformat(),
     }
 
     # Persist
@@ -423,6 +434,7 @@ def _persist_nous_credentials(state: dict[str, Any]) -> None:
 
 
 # === Token Refresh ===
+
 
 def _refresh_access_token(
     *,
@@ -458,7 +470,7 @@ def resolve_nous_access_token(
     timeout_seconds: float = 15.0,
 ) -> str:
     """Resolve a fresh Nous Portal access token.
-    
+
     Reads stored credentials, refreshes if expired, returns the access_token.
     Raises RuntimeError if no credentials stored or refresh fails.
     """
@@ -474,7 +486,9 @@ def resolve_nous_access_token(
         portal_base_url = str(state.get("portal_base_url") or DEFAULT_NOUS_PORTAL_URL).rstrip("/")
         client_id = str(state.get("client_id") or DEFAULT_NOUS_CLIENT_ID)
 
-        if not force_refresh and not _is_expiring(state.get("expires_at"), ACCESS_TOKEN_REFRESH_SKEW_SECONDS):
+        if not force_refresh and not _is_expiring(
+            state.get("expires_at"), ACCESS_TOKEN_REFRESH_SKEW_SECONDS
+        ):
             return access_token
 
         if not refresh_token:
@@ -494,7 +508,9 @@ def resolve_nous_access_token(
         state["token_type"] = refreshed.get("token_type") or state.get("token_type") or "Bearer"
         state["obtained_at"] = now.isoformat()
         state["expires_in"] = access_ttl
-        state["expires_at"] = datetime.fromtimestamp(now.timestamp() + access_ttl, tz=timezone.utc).isoformat()
+        state["expires_at"] = datetime.fromtimestamp(
+            now.timestamp() + access_ttl, tz=timezone.utc
+        ).isoformat()
 
         _save_provider_state(store, "nous", state)
         _save_auth_store(store)
@@ -504,13 +520,14 @@ def resolve_nous_access_token(
 
 # === Account Info ===
 
+
 def get_nous_portal_account_info(
     *,
     force_fresh: bool = False,
     min_jwt_ttl_seconds: int = 60,
 ) -> NousPortalAccountInfo:
     """Return normalized Nous Portal account entitlement information.
-    
+
     Uses local JWT decoding for fast cached responses.
     force_fresh=True always calls /api/oauth/account.
     """
@@ -584,7 +601,7 @@ def _fresh_account_info(
 ) -> NousPortalAccountInfo:
     """Fetch account info from the Portal API."""
     global _account_info_cache
-    
+
     access_token = state.get("access_token", "")
     try:
         base = (portal_base_url or DEFAULT_NOUS_PORTAL_URL).rstrip("/")
@@ -613,21 +630,33 @@ def _fresh_account_info(
             )
 
         user = payload.get("user") if isinstance(payload.get("user"), dict) else {}
-        subscription = NousPortalSubscriptionInfo(
-            plan=_coerce_str(payload.get("subscription", {}).get("plan")),
-            tier=_coerce_int(payload.get("subscription", {}).get("tier")),
-            monthly_charge=_coerce_float(payload.get("subscription", {}).get("monthly_charge")),
-            current_period_end=_coerce_str(payload.get("subscription", {}).get("current_period_end")),
-            credits_remaining=_coerce_float(payload.get("subscription", {}).get("credits_remaining")),
-            rollover_credits=_coerce_float(payload.get("subscription", {}).get("rollover_credits")),
-        ) if isinstance(payload.get("subscription"), dict) else None
+        subscription = (
+            NousPortalSubscriptionInfo(
+                plan=_coerce_str(payload.get("subscription", {}).get("plan")),
+                tier=_coerce_int(payload.get("subscription", {}).get("tier")),
+                monthly_charge=_coerce_float(payload.get("subscription", {}).get("monthly_charge")),
+                current_period_end=_coerce_str(
+                    payload.get("subscription", {}).get("current_period_end")
+                ),
+                credits_remaining=_coerce_float(
+                    payload.get("subscription", {}).get("credits_remaining")
+                ),
+                rollover_credits=_coerce_float(
+                    payload.get("subscription", {}).get("rollover_credits")
+                ),
+            )
+            if isinstance(payload.get("subscription"), dict)
+            else None
+        )
 
         info = NousPortalAccountInfo(
             logged_in=True,
             source="account_api",
             fresh=True,
             user_id=_coerce_str(user.get("id")),
-            org_id=_coerce_str(payload.get("organisation", {}).get("id")) if isinstance(payload.get("organisation"), dict) else None,
+            org_id=_coerce_str(payload.get("organisation", {}).get("id"))
+            if isinstance(payload.get("organisation"), dict)
+            else None,
             client_id=_coerce_str(state.get("client_id")),
             portal_base_url=portal_base_url,
             inference_base_url=_coerce_str(state.get("inference_base_url")),
@@ -635,7 +664,9 @@ def _fresh_account_info(
             credential_source="auth_store",
             email=_coerce_str(user.get("email")),
             subscription=subscription,
-            paid_service_access=_coerce_bool(payload.get("paid_service_access", {}).get("allowed")) if isinstance(payload.get("paid_service_access"), dict) else None,
+            paid_service_access=_coerce_bool(payload.get("paid_service_access", {}).get("allowed"))
+            if isinstance(payload.get("paid_service_access"), dict)
+            else None,
             raw_account=dict(payload),
         )
         return info
@@ -651,9 +682,10 @@ def _fresh_account_info(
 
 # === Provider Integration ===
 
+
 def get_nous_api_key_from_oauth() -> str:
     """Get a usable inference API key from Nous OAuth credentials.
-    
+
     This resolves the access token (refreshing if needed) and returns
     it as the API key for use with the OpenAI-compatible inference endpoint.
     """
@@ -682,7 +714,7 @@ def get_nous_oauth_state() -> dict[str, Any]:
     token = get_nous_api_key_from_oauth()
     return {
         "access_token": token or state.get("access_token", ""),
-        "base_url": str(state.get("inference_base_url") or DEFAULT_NOUS_INFERENCE_URL).rstrip("/") + "/",
+        "base_url": str(state.get("inference_base_url") or DEFAULT_NOUS_INFERENCE_URL).rstrip("/")
+        + "/",
         "portal_url": str(state.get("portal_base_url") or DEFAULT_NOUS_PORTAL_URL),
     }
-

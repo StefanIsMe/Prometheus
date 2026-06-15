@@ -7,6 +7,7 @@ inconsistencies.
 This module can be used standalone or integrated into the Prometheus
 validation pipeline to pre-validate OAuth findings before filing.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -27,9 +28,11 @@ logger = logging.getLogger(__name__)
 # Data model
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class OAuthValidationResult:
     """Result of validating an OAuth/OIDC endpoint."""
+
     target: str
     finding_type: str  # 'pkce_downgrade', 'missing_pkce_enforcement', 'metadata_mismatch', etc.
     validated: bool
@@ -45,6 +48,7 @@ class OAuthValidationResult:
 @dataclass
 class OIDCConfig:
     """Parsed OpenID Connect discovery document."""
+
     issuer: str = ""
     authorization_endpoint: str = ""
     token_endpoint: str = ""
@@ -58,6 +62,7 @@ class OIDCConfig:
 @dataclass
 class PKCETestResult:
     """Result of testing PKCE behavior on an endpoint."""
+
     method: str  # 'plain', 'S256', 'none', 'invalid'
     http_status: int = 0
     accepted: bool = False
@@ -108,6 +113,7 @@ def _http_post(url: str, data: dict, timeout: int = 30) -> tuple[int, dict, str]
 # OIDC Discovery
 # ---------------------------------------------------------------------------
 
+
 def fetch_oidc_config(base_url: str) -> OIDCConfig:
     """Fetch and parse the OpenID Connect discovery document.
 
@@ -152,6 +158,7 @@ def fetch_oidc_config(base_url: str) -> OIDCConfig:
 # PKCE value generation
 # ---------------------------------------------------------------------------
 
+
 def generate_pkce_pair() -> tuple[str, str, str]:
     """Generate a PKCE code_verifier, plain challenge, and S256 challenge.
 
@@ -171,6 +178,7 @@ def generate_pkce_pair() -> tuple[str, str, str]:
 # ---------------------------------------------------------------------------
 # Authorize endpoint testing
 # ---------------------------------------------------------------------------
+
 
 def test_authorize_endpoint(
     authorize_url: str,
@@ -211,7 +219,10 @@ def test_authorize_endpoint(
     # Determine if the request was accepted (login page shown) vs rejected (error)
     body_lower = body.lower()
     has_login = any(kw in body_lower for kw in ["login", "sign in", "password", "email"])
-    has_error = any(kw in body_lower for kw in ["invalid_request", "unsupported_response_type", "invalid_client"])
+    has_error = any(
+        kw in body_lower
+        for kw in ["invalid_request", "unsupported_response_type", "invalid_client"]
+    )
     is_error_page = status >= 400 and not has_login
 
     method = code_challenge_method if code_challenge_method else "none"
@@ -227,6 +238,7 @@ def test_authorize_endpoint(
 # ---------------------------------------------------------------------------
 # Token endpoint testing
 # ---------------------------------------------------------------------------
+
 
 def test_token_endpoint(
     token_url: str,
@@ -280,6 +292,7 @@ def test_token_endpoint(
 # ---------------------------------------------------------------------------
 # Full PKCE downgrade validation
 # ---------------------------------------------------------------------------
+
 
 def validate_pkce_downgrade(
     base_url: str,
@@ -366,20 +379,34 @@ def validate_pkce_downgrade(
         test_redirect = redirect_uri or "https://example.com/callback"
 
         # Test with plain
-        result_plain = test_authorize_endpoint(auth_url, test_client_id, test_redirect, challenge_plain, "plain")
-        evidence.append(f"Authorize with plain PKCE: HTTP {result_plain.http_status}, accepted={result_plain.accepted}")
+        result_plain = test_authorize_endpoint(
+            auth_url, test_client_id, test_redirect, challenge_plain, "plain"
+        )
+        evidence.append(
+            f"Authorize with plain PKCE: HTTP {result_plain.http_status}, accepted={result_plain.accepted}"
+        )
 
         # Test with S256
-        result_s256 = test_authorize_endpoint(auth_url, test_client_id, test_redirect, challenge_s256, "S256")
-        evidence.append(f"Authorize with S256 PKCE: HTTP {result_s256.http_status}, accepted={result_s256.accepted}")
+        result_s256 = test_authorize_endpoint(
+            auth_url, test_client_id, test_redirect, challenge_s256, "S256"
+        )
+        evidence.append(
+            f"Authorize with S256 PKCE: HTTP {result_s256.http_status}, accepted={result_s256.accepted}"
+        )
 
         # Test without PKCE
         result_none = test_authorize_endpoint(auth_url, test_client_id, test_redirect)
-        evidence.append(f"Authorize without PKCE: HTTP {result_none.http_status}, accepted={result_none.accepted}")
+        evidence.append(
+            f"Authorize without PKCE: HTTP {result_none.http_status}, accepted={result_none.accepted}"
+        )
 
         # Test with invalid method
-        result_invalid = test_authorize_endpoint(auth_url, test_client_id, test_redirect, "test123", "invalid")
-        evidence.append(f"Authorize with invalid method: HTTP {result_invalid.http_status}, accepted={result_invalid.accepted}")
+        result_invalid = test_authorize_endpoint(
+            auth_url, test_client_id, test_redirect, "test123", "invalid"
+        )
+        evidence.append(
+            f"Authorize with invalid method: HTTP {result_invalid.http_status}, accepted={result_invalid.accepted}"
+        )
 
         details["authorize_tests"] = {
             "plain": {"status": result_plain.http_status, "accepted": result_plain.accepted},
@@ -392,7 +419,9 @@ def validate_pkce_downgrade(
             evidence.append("FINDING: /authorize endpoint accepts plain PKCE method")
 
         if result_none.accepted:
-            evidence.append("FINDING: /authorize endpoint accepts requests without PKCE (no enforcement)")
+            evidence.append(
+                "FINDING: /authorize endpoint accepts requests without PKCE (no enforcement)"
+            )
             if severity == "medium":
                 severity = "medium"  # Same severity, but adds to evidence
 
@@ -404,12 +433,19 @@ def validate_pkce_downgrade(
         result_with = test_token_endpoint(tok_url, test_client_id, test_redirect, verifier, True)
         result_without = test_token_endpoint(tok_url, test_client_id, test_redirect, "", False)
 
-        evidence.append(f"Token with verifier: HTTP {result_with.http_status}, error={result_with.error_code}")
-        evidence.append(f"Token without verifier: HTTP {result_without.http_status}, error={result_without.error_code}")
+        evidence.append(
+            f"Token with verifier: HTTP {result_with.http_status}, error={result_with.error_code}"
+        )
+        evidence.append(
+            f"Token without verifier: HTTP {result_without.http_status}, error={result_without.error_code}"
+        )
 
         details["token_tests"] = {
             "with_verifier": {"status": result_with.http_status, "error": result_with.error_code},
-            "without_verifier": {"status": result_without.http_status, "error": result_without.error_code},
+            "without_verifier": {
+                "status": result_without.http_status,
+                "error": result_without.error_code,
+            },
         }
 
         # If both return same error, the proxy may not check PKCE at all
@@ -498,6 +534,7 @@ def validate_pkce_downgrade(
 # ---------------------------------------------------------------------------
 # Additional OAuth checks
 # ---------------------------------------------------------------------------
+
 
 def validate_missing_pkce_enforcement(
     base_url: str,
@@ -615,6 +652,7 @@ def check_metadata_consistency(base_url: str) -> OAuthValidationResult:
 # CLI entry point for standalone testing
 # ---------------------------------------------------------------------------
 
+
 def run_full_audit(base_url: str, client_id: str = "", redirect_uri: str = "") -> dict[str, Any]:
     """Run a full OAuth security audit against a target.
 
@@ -634,7 +672,9 @@ def run_full_audit(base_url: str, client_id: str = "", redirect_uri: str = "") -
 
     # 2. Missing PKCE Enforcement
     logger.info("Running missing PKCE enforcement check against %s", base_url)
-    results["missing_pkce_enforcement"] = validate_missing_pkce_enforcement(base_url, client_id, redirect_uri)
+    results["missing_pkce_enforcement"] = validate_missing_pkce_enforcement(
+        base_url, client_id, redirect_uri
+    )
 
     # 3. Metadata Consistency
     logger.info("Running metadata consistency check against %s", base_url)
@@ -650,7 +690,9 @@ if __name__ == "__main__":
 
     if len(sys.argv) < 2:
         print("Usage: python oauth_validation.py <base_url> [client_id] [redirect_uri]")
-        print("Example: python oauth_validation.py https://auth.example.com app_example_client_id https://example.com/api/auth/callback")
+        print(
+            "Example: python oauth_validation.py https://auth.example.com app_example_client_id https://example.com/api/auth/callback"
+        )
         sys.exit(1)
 
     url = sys.argv[1]

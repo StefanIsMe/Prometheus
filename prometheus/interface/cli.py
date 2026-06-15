@@ -41,11 +41,14 @@ def _resolve_sandbox_image() -> str:
 
 async def run_cli(args: Any) -> None:  # noqa: PLR0915
     from prometheus.core.paths import configure_runs_dir
+
     settings = load_settings()
     if settings.runtime.runs_dir:
         configure_runs_dir(settings.runtime.runs_dir)
     else:
-        configure_runs_dir(os.environ.get("PROMETHEUS_DATA_DIR") or str(Path.home() / ".prometheus"))
+        configure_runs_dir(
+            os.environ.get("PROMETHEUS_DATA_DIR") or str(Path.home() / ".prometheus")
+        )
 
     console = Console()
 
@@ -186,6 +189,7 @@ async def run_cli(args: Any) -> None:  # noqa: PLR0915
             # main Docker sandbox scan. Zero LLM token usage.
             try:
                 from prometheus.tools.idor_scanner.prescan import run_browser_prescan
+
                 prescan_targets = await asyncio.to_thread(
                     run_browser_prescan, scan_config.get("targets", [])
                 )
@@ -195,16 +199,21 @@ async def run_cli(args: Any) -> None:  # noqa: PLR0915
                         infer_target_type,
                         rewrite_localhost_targets,
                     )
+
                     original = scan_config["targets"][0]["original"]
-                    console.print(f"\n  Expanded scan targets: {original} -> {len(prescan_targets)} asset(s)")
+                    console.print(
+                        f"\n  Expanded scan targets: {original} -> {len(prescan_targets)} asset(s)"
+                    )
                     new_targets = []
                     for t in prescan_targets:
                         target_type, target_dict = infer_target_type(t)
-                        new_targets.append({
-                            "type": target_type,
-                            "details": target_dict,
-                            "original": t,
-                        })
+                        new_targets.append(
+                            {
+                                "type": target_type,
+                                "details": target_dict,
+                                "original": t,
+                            }
+                        )
                     assign_workspace_subdirs(new_targets)
                     rewrite_localhost_targets(new_targets, "host.docker.internal")
                     scan_config["targets"] = new_targets

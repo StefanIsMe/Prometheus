@@ -16,6 +16,7 @@ This file:
   3. Unit-tests that the default path is ``~/.prometheus/prometheus.db``
      when no argument is passed.
 """
+
 from __future__ import annotations
 
 import sys
@@ -105,8 +106,19 @@ def test_init_prometheus_db_second_call_is_noop(tmp_path: Path) -> None:
             " updated_at, last_seen_at) "
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
-                "x", "example.com", "scan-1", "tool", "type",
-                "title", "vuln", "fp", "new", "{}", "t", "t", "t",
+                "x",
+                "example.com",
+                "scan-1",
+                "tool",
+                "type",
+                "title",
+                "vuln",
+                "fp",
+                "new",
+                "{}",
+                "t",
+                "t",
+                "t",
             ),
         )
         conn.commit()
@@ -116,9 +128,7 @@ def test_init_prometheus_db_second_call_is_noop(tmp_path: Path) -> None:
     init_prometheus_db(db_path)
     conn = sqlite3.connect(str(db_path))
     try:
-        rows = conn.execute(
-            "SELECT COUNT(*) FROM finding_candidates WHERE id = 'x'"
-        ).fetchall()
+        rows = conn.execute("SELECT COUNT(*) FROM finding_candidates WHERE id = 'x'").fetchall()
         assert rows[0][0] == 1, "sentinel row was wiped by second call"
     finally:
         conn.close()

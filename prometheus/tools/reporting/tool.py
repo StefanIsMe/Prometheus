@@ -34,7 +34,11 @@ def _check_retry_guard(title: str, endpoint: str) -> str | None:
     if count > 1:
         logger.warning(
             "Retry %d/%d for '%s' on %s — will block at %d",
-            count, _MAX_RETRIES, title, endpoint, _MAX_RETRIES + 1,
+            count,
+            _MAX_RETRIES,
+            title,
+            endpoint,
+            _MAX_RETRIES + 1,
         )
     return None
 
@@ -54,8 +58,10 @@ def _detect_bugcrowd_target(target: str) -> bool:
     # Check target registry
     try:
         from prometheus.core.target_registry import TargetRegistry
+
         reg = TargetRegistry()
         from urllib.parse import urlparse
+
         parsed = urlparse(target if "://" in target else f"https://{target}")
         domain = parsed.netloc or parsed.path.split("/")[0]
         for t in reg.list_targets():
@@ -63,6 +69,7 @@ def _detect_bugcrowd_target(target: str) -> bool:
                 config = t.get("target_config") or {}
                 if isinstance(config, str):
                     import json as _json
+
                     try:
                         config = _json.loads(config)
                     except Exception:
@@ -143,17 +150,25 @@ def _validate_code_locations(locations: list[dict[str, Any]]) -> list[str]:
     for i, loc in enumerate(locations):
         path_err = _validate_file_path(loc.get("file", ""))
         if path_err:
-            errors.append(f"REJECTED: code_locations[{i}]: {path_err}. Use a relative path from the repo root (e.g., 'src/app.py').")
+            errors.append(
+                f"REJECTED: code_locations[{i}]: {path_err}. Use a relative path from the repo root (e.g., 'src/app.py')."
+            )
         start = loc.get("start_line")
         if not isinstance(start, int) or start < 1:
-            errors.append(f"REJECTED: code_locations[{i}]: start_line must be a positive integer, got '{start}'.")
+            errors.append(
+                f"REJECTED: code_locations[{i}]: start_line must be a positive integer, got '{start}'."
+            )
         end = loc.get("end_line")
         if end is None:
             errors.append(f"REJECTED: code_locations[{i}]: end_line is required.")
         elif not isinstance(end, int) or end < 1:
-            errors.append(f"REJECTED: code_locations[{i}]: end_line must be a positive integer, got '{end}'.")
+            errors.append(
+                f"REJECTED: code_locations[{i}]: end_line must be a positive integer, got '{end}'."
+            )
         elif isinstance(start, int) and end < start:
-            errors.append(f"REJECTED: code_locations[{i}]: end_line ({end}) must be >= start_line ({start}).")
+            errors.append(
+                f"REJECTED: code_locations[{i}]: end_line ({end}) must be >= start_line ({start})."
+            )
     return errors
 
 
@@ -276,10 +291,23 @@ def _validate_report_control_gate(
     _has_concrete_poc = any(
         keyword in _poc_text
         for keyword in [
-            "curl ", "wget ", "python ", "import requests", "fetch(",
-            "http", "POST ", "GET ", "Authorization:", "Content-Type:",
-            "<script", "alert(", "onerror=", "document.cookie",
-            "response", "request", "payload",
+            "curl ",
+            "wget ",
+            "python ",
+            "import requests",
+            "fetch(",
+            "http",
+            "POST ",
+            "GET ",
+            "Authorization:",
+            "Content-Type:",
+            "<script",
+            "alert(",
+            "onerror=",
+            "document.cookie",
+            "response",
+            "request",
+            "payload",
         ]
     )
 
@@ -371,7 +399,14 @@ async def _do_create(  # noqa: PLR0912
         r"fix\s+the\s+header$",
         r"test\s+(description|impact|analysis)\s+of\s+the\s+(vulnerability|issue|finding)",
     ]
-    for field_name in ["title", "description", "impact", "technical_analysis", "poc_description", "remediation_steps"]:
+    for field_name in [
+        "title",
+        "description",
+        "impact",
+        "technical_analysis",
+        "poc_description",
+        "remediation_steps",
+    ]:
         field_val = str(fields.get(field_name) or "").strip().lower()
         for pat in _placeholder_patterns:
             if re.search(pat, field_val):
@@ -414,11 +449,32 @@ async def _do_create(  # noqa: PLR0912
             break
 
     # Reject PoC code that looks like prose, not code
-    if poc_code and not any(c in poc_code for c in ["curl ", "python", "import ", "requests.", "http", "fetch(", "$(", "POST ", "GET ", "Authorization:", "Content-Type:", "exec", "subprocess", "payload", '{"', "httpx", "burp"]):
+    if poc_code and not any(
+        c in poc_code
+        for c in [
+            "curl ",
+            "python",
+            "import ",
+            "requests.",
+            "http",
+            "fetch(",
+            "$(",
+            "POST ",
+            "GET ",
+            "Authorization:",
+            "Content-Type:",
+            "exec",
+            "subprocess",
+            "payload",
+            '{"',
+            "httpx",
+            "burp",
+        ]
+    ):
         errors.append(
             "REJECTED: poc_script_code does not appear to contain actual exploit code. "
             "The code must contain recognizable commands (curl, Python requests, fetch(), etc.). "
-            "Example valid PoC: 'curl -X POST https://target.com/api/login -d {\"user\":\"admin\",\"pass\":\"' OR 1=1--\"}'. "
+            'Example valid PoC: \'curl -X POST https://target.com/api/login -d {"user":"admin","pass":"\' OR 1=1--"}\'. '
             "Do not put descriptions in the code field — put them in poc_description."
         )
 
@@ -477,15 +533,11 @@ async def _do_create(  # noqa: PLR0912
         "header.*allows",
         "misconfigured.*header",
     ]
-    _is_header_finding = any(
-        re.search(pat, title_lower) for pat in _header_config_patterns
-    )
+    _is_header_finding = any(re.search(pat, title_lower) for pat in _header_config_patterns)
     # Also check description and impact — LLM uses generic titles to bypass title-only guard
     _all_text_lower = f"{title_lower} {(description or '').lower()} {(impact or '').lower()} {(technical_analysis or '').lower()}"
     if not _is_header_finding:
-        _is_header_finding = any(
-            re.search(pat, _all_text_lower) for pat in _header_config_patterns
-        )
+        _is_header_finding = any(re.search(pat, _all_text_lower) for pat in _header_config_patterns)
 
     if _is_header_finding:
         # Require demonstrated exploitation, not just header analysis
@@ -560,18 +612,32 @@ async def _do_create(  # noqa: PLR0912
     if _is_version_disclosure:
         # Require exploitation of a specific CVE, not just version observation
         _exploit_indicators_version = [
-            "exploit.*cve", "cve.*exploit", "metasploit", "exploit-db",
-            "poc.*exploit", "used.*to.*gain.*access", "rce.*confirmed",
-            "shell.*obtained", "code.*execution", "command.*execution",
-            "sql.*injection.*confirmed", "xss.*confirmed",
+            "exploit.*cve",
+            "cve.*exploit",
+            "metasploit",
+            "exploit-db",
+            "poc.*exploit",
+            "used.*to.*gain.*access",
+            "rce.*confirmed",
+            "shell.*obtained",
+            "code.*execution",
+            "command.*execution",
+            "sql.*injection.*confirmed",
+            "xss.*confirmed",
             "successfully.*exploited.*version",
-            "executed.*payload", "reverse.*shell",
+            "executed.*payload",
+            "reverse.*shell",
         ]
         # Filter out negations — "no known CVEs are exploitable" is NOT exploitation evidence
         _negation_patterns = [
-            "no.*known.*cve", "no.*critical.*cve", "not.*exploitable",
-            "was.*not.*exploit", "could not.*exploit", "unable.*to.*exploit",
-            "no.*exploitation", "no.*active.*exploit",
+            "no.*known.*cve",
+            "no.*critical.*cve",
+            "not.*exploitable",
+            "was.*not.*exploit",
+            "could not.*exploit",
+            "unable.*to.*exploit",
+            "no.*exploitation",
+            "no.*active.*exploit",
         ]
         _has_version_exploit = any(
             re.search(ind, _all_text_lower) for ind in _exploit_indicators_version
@@ -608,36 +674,71 @@ async def _do_create(  # noqa: PLR0912
     # The PoC must cross the bridge from "this is misconfigured" to "this is exploitable."
     desc_text_early = (description or "").strip().lower()
     _observation_patterns = [
-        (r"cors", [
-            "response body", "read.*response", "exfil", "stole", "extracted",
-            "readable", "cross.origin.*read", "accessed.*data",
-            "cookie.*sent", "credentials.*included", "token.*stolen",
-            "client_id.*read", "auth.*code",
-            # Origin reflected + credentials enabled = exploitation proof
-            "allow.credentials.*true.*origin.*reflect",
-            "origin.*reflect.*allow.credentials.*true",
-            "credentials.*true.*reflected",
-            "reflected.*credentials.*true",
-            "response.*length.*bytes", "body.*length.*bytes",
-            "email.*enumerat.*origin.*reflect",
-        ]),
-        (r"misconfiguration", [
-            "exploit", "bypass", "access", "stole", "extracted", "read.*data",
-            "demonstrated", "proof", "successfully",
-        ]),
-        (r"reflect", [
-            "read.*body", "response.*readable", "exfil", "stole", "data.*access",
-        ]),
+        (
+            r"cors",
+            [
+                "response body",
+                "read.*response",
+                "exfil",
+                "stole",
+                "extracted",
+                "readable",
+                "cross.origin.*read",
+                "accessed.*data",
+                "cookie.*sent",
+                "credentials.*included",
+                "token.*stolen",
+                "client_id.*read",
+                "auth.*code",
+                # Origin reflected + credentials enabled = exploitation proof
+                "allow.credentials.*true.*origin.*reflect",
+                "origin.*reflect.*allow.credentials.*true",
+                "credentials.*true.*reflected",
+                "reflected.*credentials.*true",
+                "response.*length.*bytes",
+                "body.*length.*bytes",
+                "email.*enumerat.*origin.*reflect",
+            ],
+        ),
+        (
+            r"misconfiguration",
+            [
+                "exploit",
+                "bypass",
+                "access",
+                "stole",
+                "extracted",
+                "read.*data",
+                "demonstrated",
+                "proof",
+                "successfully",
+            ],
+        ),
+        (
+            r"reflect",
+            [
+                "read.*body",
+                "response.*readable",
+                "exfil",
+                "stole",
+                "data.*access",
+            ],
+        ),
     ]
     for misconfig_keyword, required_exploit_evidence in _observation_patterns:
-        if re.search(misconfig_keyword, title_lower) or re.search(misconfig_keyword, desc_text_early):
+        if re.search(misconfig_keyword, title_lower) or re.search(
+            misconfig_keyword, desc_text_early
+        ):
             # Skip observation-only gate for XSS/script-injection findings —
             # these are inherently exploitable, not just configuration observations
             if misconfig_keyword == "reflect" and (
-                "xss" in title_lower or "cross-site" in title_lower
-                or "script" in title_lower or "javascript" in title_lower
+                "xss" in title_lower
+                or "cross-site" in title_lower
+                or "script" in title_lower
+                or "javascript" in title_lower
                 or "injection" in title_lower
-                or "xss" in desc_text_early or "script" in desc_text_early
+                or "xss" in desc_text_early
+                or "script" in desc_text_early
             ):
                 continue
             _all_poc_text = f"{poc_desc.lower()} {poc_code.lower()} {technical_analysis.lower()}"
@@ -660,23 +761,38 @@ async def _do_create(  # noqa: PLR0912
     # actually enables reading response data or performing unauthorized actions
     if re.search(r"cors", title_lower) or re.search(r"cors", desc_text_early):
         _cors_exploit_indicators = [
-            "read.*response", "response.*body", "exfil", "stole.*token",
-            "extracted.*data", "accessed.*account", "read.*cookie",
-            "document\\\\.cookie", "fetch.*response", "xhr.*response",
-            "stole.*credential", "read.*secret", "accessed.*data",
-            "cross.origin.*read", "bypassed.*sop", "same.origin.*bypass",
+            "read.*response",
+            "response.*body",
+            "exfil",
+            "stole.*token",
+            "extracted.*data",
+            "accessed.*account",
+            "read.*cookie",
+            "document\\\\.cookie",
+            "fetch.*response",
+            "xhr.*response",
+            "stole.*credential",
+            "read.*secret",
+            "accessed.*data",
+            "cross.origin.*read",
+            "bypassed.*sop",
+            "same.origin.*bypass",
             # Origin reflected + credentials enabled = browser allows reading
             "allow.credentials.*true.*origin.*reflect",
             "origin.*reflect.*allow.credentials.*true",
             "credentials.*true.*reflected",
             "reflected.*credentials.*true",
             # Response body actually returned with evil origin
-            "response.*length.*bytes", "body.*length.*bytes",
-            "response.*readable.*evil", "body.*readable.*evil",
+            "response.*length.*bytes",
+            "body.*length.*bytes",
+            "response.*readable.*evil",
+            "body.*readable.*evil",
             # Combined ACAO + body evidence
-            "origin.*reflected.*response.*body", "response.*body.*origin.*reflected",
+            "origin.*reflected.*response.*body",
+            "response.*body.*origin.*reflected",
             # Email enumeration via CORS
-            "email.*enumerat.*origin.*reflect", "isEmailAvailable.*origin",
+            "email.*enumerat.*origin.*reflect",
+            "isEmailAvailable.*origin",
             # Preflight allows all methods + credentials
             "allow.methods.*allow.credentials",
         ]
@@ -701,18 +817,40 @@ async def _do_create(  # noqa: PLR0912
     # EXPLOIT VALIDATION: reject "I found" without "I used"
     # Discovery is recon. Exploitation is a vuln. The PoC must show USE, not just FIND.
     _discovery_only = [
-        "found.*key", "found.*token", "found.*secret", "found.*credential",
-        "discovered.*endpoint", "discovered.*parameter", "discovered.*key",
-        "exposed.*key", "exposed.*token", "exposed.*secret",
-        "leaked.*key", "leaked.*token", "leaked.*secret",
-        "contains.*api.*key", "contains.*token", "contains.*secret",
-        "hardcoded.*key", "hardcoded.*token", "hardcoded.*secret",
+        "found.*key",
+        "found.*token",
+        "found.*secret",
+        "found.*credential",
+        "discovered.*endpoint",
+        "discovered.*parameter",
+        "discovered.*key",
+        "exposed.*key",
+        "exposed.*token",
+        "exposed.*secret",
+        "leaked.*key",
+        "leaked.*token",
+        "leaked.*secret",
+        "contains.*api.*key",
+        "contains.*token",
+        "contains.*secret",
+        "hardcoded.*key",
+        "hardcoded.*token",
+        "hardcoded.*secret",
     ]
     _exploitation_proof = [
-        "used.*to.*access", "called.*api", "read.*data", "extracted.*data",
-        "retrieved.*document", "got.*response", "successfully.*authenticated",
-        "bypassed.*auth", "elevated.*privilege", "accessed.*account",
-        "modified.*data", "created.*account", "deleted.*resource",
+        "used.*to.*access",
+        "called.*api",
+        "read.*data",
+        "extracted.*data",
+        "retrieved.*document",
+        "got.*response",
+        "successfully.*authenticated",
+        "bypassed.*auth",
+        "elevated.*privilege",
+        "accessed.*account",
+        "modified.*data",
+        "created.*account",
+        "deleted.*resource",
     ]
     _is_discovery_only = any(re.search(p, desc_lower) for p in _discovery_only)
     _has_exploitation_proof = any(re.search(p, desc_lower) for p in _exploitation_proof)
@@ -727,18 +865,37 @@ async def _do_create(  # noqa: PLR0912
         )
     if desc_text:
         _concrete_indicators = [
-            "curl ", "POST ", "GET ", "PUT ", "DELETE ", "PATCH ",
-            "request", "response", "HTTP/", "status code",
-            "executed", "achieved", "obtained", "extracted",
-            "accessed", "modified", "created", "deleted",
-            "cookie", "token", "session", "payload",
-            "before", "after", "step ", "first ", "then ",
+            "curl ",
+            "POST ",
+            "GET ",
+            "PUT ",
+            "DELETE ",
+            "PATCH ",
+            "request",
+            "response",
+            "HTTP/",
+            "status code",
+            "executed",
+            "achieved",
+            "obtained",
+            "extracted",
+            "accessed",
+            "modified",
+            "created",
+            "deleted",
+            "cookie",
+            "token",
+            "session",
+            "payload",
+            "before",
+            "after",
+            "step ",
+            "first ",
+            "then ",
         ]
         desc_lower = desc_text.lower()
         has_concrete = any(ind in desc_lower for ind in _concrete_indicators)
-        has_theoretical = sum(
-            1 for p in _THEORETICAL_PATTERNS if p in desc_lower
-        )
+        has_theoretical = sum(1 for p in _THEORETICAL_PATTERNS if p in desc_lower)
         if not has_concrete and has_theoretical >= 2:
             errors.append(
                 "REJECTED: Description is entirely theoretical (contains multiple hedging phrases like "
@@ -750,15 +907,19 @@ async def _do_create(  # noqa: PLR0912
             )
 
     if not isinstance(cvss_breakdown, dict) or not cvss_breakdown:
-        errors.append("REJECTED: cvss_breakdown must be a JSON object with all 8 CVSS v3.1 metrics. "
-                      'Example: {"attack_vector":"N","attack_complexity":"L","privileges_required":"N",'
-                      '"user_interaction":"N","scope":"U","confidentiality":"H","integrity":"H","availability":"H"}')
+        errors.append(
+            "REJECTED: cvss_breakdown must be a JSON object with all 8 CVSS v3.1 metrics. "
+            'Example: {"attack_vector":"N","attack_complexity":"L","privileges_required":"N",'
+            '"user_interaction":"N","scope":"U","confidentiality":"H","integrity":"H","availability":"H"}'
+        )
         cvss_breakdown = {}
     else:
         for name, valid in _CVSS_VALID.items():
             value = cvss_breakdown.get(name)
             if value not in valid:
-                errors.append(f"REJECTED: Invalid CVSS metric '{name}': got '{value}'. Must be one of: {', '.join(valid)}")
+                errors.append(
+                    f"REJECTED: Invalid CVSS metric '{name}': got '{value}'. Must be one of: {', '.join(valid)}"
+                )
 
     parsed_locations = _normalize_code_locations(code_locations)
     if parsed_locations:
@@ -777,7 +938,9 @@ async def _do_create(  # noqa: PLR0912
     if errors:
         # Build a clear, actionable error message with the finding title
         title_display = title.strip() if title else "(no title)"
-        error_lines = [f"REJECTED: Finding '{title_display}' was rejected for the following reason(s):"]
+        error_lines = [
+            f"REJECTED: Finding '{title_display}' was rejected for the following reason(s):"
+        ]
         for i, err in enumerate(errors, 1):
             error_lines.append(f"  {i}. {err}")
         error_lines.append("")
@@ -796,13 +959,18 @@ async def _do_create(  # noqa: PLR0912
     try:
         # POC VALIDATION: check if the PoC demonstrates real exploitation
         from prometheus.core.poc_validation import validate_finding_with_poc
-        poc_validation = validate_finding_with_poc({
-            "title": title,
-            "poc_description": poc_description,
-            "poc_script_code": poc_script_code,
-            "description": description,
-            "impact": impact,
-        }, execute_poc=True, timeout=30)  # Execute PoC: reports require working proof, not text-only claims
+
+        poc_validation = validate_finding_with_poc(
+            {
+                "title": title,
+                "poc_description": poc_description,
+                "poc_script_code": poc_script_code,
+                "description": description,
+                "impact": impact,
+            },
+            execute_poc=True,
+            timeout=30,
+        )  # Execute PoC: reports require working proof, not text-only claims
 
         if poc_validation["verdict"] != "exploitable" or not poc_validation.get("reportable"):
             return {
@@ -822,17 +990,20 @@ async def _do_create(  # noqa: PLR0912
             }
 
         from prometheus.core.validation_judge import validate_finding
-        validation_verdict = validate_finding({
-            "title": title,
-            "description": description,
-            "impact": impact,
-            "target": target,
-            "technical_analysis": technical_analysis,
-            "poc_description": poc_description,
-            "poc_script_code": poc_script_code,
-            "endpoint": endpoint or "",
-            "cwe": cwe or "",
-        })
+
+        validation_verdict = validate_finding(
+            {
+                "title": title,
+                "description": description,
+                "impact": impact,
+                "target": target,
+                "technical_analysis": technical_analysis,
+                "poc_description": poc_description,
+                "poc_script_code": poc_script_code,
+                "endpoint": endpoint or "",
+                "cwe": cwe or "",
+            }
+        )
         if validation_verdict.verdict == "false_positive":
             return {
                 "success": False,
@@ -864,7 +1035,9 @@ async def _do_create(  # noqa: PLR0912
         # validated — continue to accept
         logger.info(
             "Validation judge PASSED: %s (verdict=%s, confidence=%.2f)",
-            title, validation_verdict.verdict, validation_verdict.confidence,
+            title,
+            validation_verdict.verdict,
+            validation_verdict.confidence,
         )
     except Exception as exc:
         logger.warning("Validation judge failed (non-fatal, allowing finding): %s", exc)
@@ -872,17 +1045,22 @@ async def _do_create(  # noqa: PLR0912
     # --- LIVE VERIFICATION: confirm the vulnerability exists on the real target ---
     try:
         from prometheus.core.live_verification import verify_live
-        live_result = verify_live({
-            "title": title,
-            "target": target,
-            "endpoint": endpoint or "",
-            "description": description,
-            "poc_description": poc_description,
-        })
+
+        live_result = verify_live(
+            {
+                "title": title,
+                "target": target,
+                "endpoint": endpoint or "",
+                "description": description,
+                "poc_description": poc_description,
+            }
+        )
         logger.info(
             "Live verification: verdict=%s verified=%s confidence=%.2f reason=%s",
-            live_result.verdict, live_result.verified,
-            live_result.confidence, live_result.reason[:100],
+            live_result.verdict,
+            live_result.verified,
+            live_result.confidence,
+            live_result.reason[:100],
         )
         if live_result.verdict == "contradicted":
             return {
@@ -902,7 +1080,9 @@ async def _do_create(  # noqa: PLR0912
         if live_result.verdict == "confirmed":
             logger.info(
                 "Live verification CONFIRMED: %s (confidence=%.2f, evidence=%s)",
-                title, live_result.confidence, live_result.evidence[:200],
+                title,
+                live_result.confidence,
+                live_result.evidence[:200],
             )
         elif live_result.verdict in ("error", "unverifiable"):
             return {
@@ -940,6 +1120,7 @@ async def _do_create(  # noqa: PLR0912
     if _is_bugcrowd:
         try:
             from prometheus.core.vrt_classifier import get_vrt_classifier
+
             vrt = get_vrt_classifier()
             vrt_result = vrt.classify(
                 title=title,
@@ -963,7 +1144,10 @@ async def _do_create(  # noqa: PLR0912
                 logger.warning(
                     "CVSS severity (%s) disagrees with VRT priority P%s (%s) for '%s'. "
                     "Consider adjusting CVSS to match VRT classification.",
-                    severity, vrt_priority, _expected_severity, title,
+                    severity,
+                    vrt_priority,
+                    _expected_severity,
+                    title,
                 )
         except Exception:
             logger.debug("VRT classification failed (non-blocking)", exc_info=True)
@@ -990,10 +1174,12 @@ async def _do_create(  # noqa: PLR0912
         dedup_match: dict[str, Any] | None = None
         try:
             from prometheus.tools.knowledge.store import KnowledgeStore
+
             ks = KnowledgeStore()
             domain = target or ""
             if domain:
                 from urllib.parse import urlparse
+
                 parsed = urlparse(domain if "://" in domain else f"https://{domain}")
                 domain = parsed.netloc or parsed.path.split("/")[0]
 
@@ -1027,6 +1213,7 @@ async def _do_create(  # noqa: PLR0912
         if external_only_dedup and existing_vuln_id is None:
             try:
                 from prometheus.tools.knowledge.store import KnowledgeStore
+
                 ks = KnowledgeStore()
                 policy = ks.should_revalidate(
                     domain=domain,
@@ -1037,7 +1224,9 @@ async def _do_create(  # noqa: PLR0912
                 if policy.get("action") == "archive":
                     logger.info(
                         "DEDUP BLOCK: '%s' matches external closure (%s) — %s",
-                        title, dedup_layer, policy.get("reason"),
+                        title,
+                        dedup_layer,
+                        policy.get("reason"),
                     )
                     return {
                         "success": False,
@@ -1060,15 +1249,19 @@ async def _do_create(  # noqa: PLR0912
                     # actually changed before allowing the new report.
                     try:
                         from prometheus.core.auto_revalidate import live_revalidate
-                        probe = live_revalidate({
-                            "finding_title": title,
-                            "domain": domain,
-                            "endpoint": endpoint or "",
-                            "vuln_type": (cwe or "").lower(),
-                        })
+
+                        probe = live_revalidate(
+                            {
+                                "finding_title": title,
+                                "domain": domain,
+                                "endpoint": endpoint or "",
+                                "vuln_type": (cwe or "").lower(),
+                            }
+                        )
                         logger.info(
                             "should_revalidate=revalidate; live probe: changed=%s evidence=%s",
-                            probe.get("changed"), (probe.get("evidence") or "")[:200],
+                            probe.get("changed"),
+                            (probe.get("evidence") or "")[:200],
                         )
                         if probe.get("changed") is False:
                             return {
@@ -1134,30 +1327,41 @@ async def _do_create(  # noqa: PLR0912
                     f"New PoC evidence added with updated details."
                 )
                 # Insert into finding_comments
-                db_path = getattr(sp, '_db_path', None)
+                db_path = getattr(sp, "_db_path", None)
                 if db_path:
                     import sqlite3 as _sqlite3
+
                     _conn = _sqlite3.connect(str(db_path))
                     _conn.execute(
                         "INSERT INTO finding_comments (finding_id, comment_type, content, version, created_at) "
                         "VALUES (?, ?, ?, "
                         "(SELECT COALESCE(MAX(version), 0) + 1 FROM finding_comments WHERE finding_id = ?), ?)",
-                        (existing_vuln_id, "verification", timeline_entry, existing_vuln_id, now_ts),
+                        (
+                            existing_vuln_id,
+                            "verification",
+                            timeline_entry,
+                            existing_vuln_id,
+                            now_ts,
+                        ),
                     )
                     # Update report status
                     _conn.execute(
                         "UPDATE report_status SET status = 'revalidated', last_verified_at = ?, "
                         "updated_at = ?, notes = COALESCE(notes || '\n---\n', '') || ? "
                         "WHERE id = ?",
-                        (now_ts, now_ts,
-                         f"[{now_ts[:19]}] Revalidated by scan {getattr(report_state, 'run_name', 'unknown')}: {title}",
-                         existing_vuln_id),
+                        (
+                            now_ts,
+                            now_ts,
+                            f"[{now_ts[:19]}] Revalidated by scan {getattr(report_state, 'run_name', 'unknown')}: {title}",
+                            existing_vuln_id,
+                        ),
                     )
                     _conn.commit()
                     _conn.close()
                     logger.info(
                         "Timeline updated for existing finding %d: revalidated by scan %s",
-                        existing_vuln_id, getattr(report_state, 'run_name', 'unknown'),
+                        existing_vuln_id,
+                        getattr(report_state, "run_name", "unknown"),
                     )
                 return {
                     "success": True,
@@ -1170,7 +1374,9 @@ async def _do_create(  # noqa: PLR0912
                     "action": "revalidated",
                 }
             except Exception as timeline_err:
-                logger.exception("Failed to update timeline for existing finding %d", existing_vuln_id)
+                logger.exception(
+                    "Failed to update timeline for existing finding %d", existing_vuln_id
+                )
                 return {
                     "success": False,
                     "error": (
@@ -1207,10 +1413,12 @@ async def _do_create(  # noqa: PLR0912
             import json as _json
 
             from prometheus.tools.knowledge.store import KnowledgeStore as _KS
+
             _ks = _KS()
             _domain = target or ""
             if _domain:
                 from urllib.parse import urlparse as _urlparse
+
                 _parsed = _urlparse(_domain if "://" in _domain else f"https://{_domain}")
                 _domain = _parsed.netloc or _parsed.path.split("/")[0]
 
@@ -1261,13 +1469,20 @@ async def _do_create(  # noqa: PLR0912
                     source_type="agent_report",
                 )
             except Exception:
-                logger.warning("Canonical candidate sync failed for '%s' (non-critical)", title, exc_info=True)
-            logger.info("Synced finding '%s' to report_status and finding_candidates in real time", title)
+                logger.warning(
+                    "Canonical candidate sync failed for '%s' (non-critical)", title, exc_info=True
+                )
+            logger.info(
+                "Synced finding '%s' to report_status and finding_candidates in real time", title
+            )
         except Exception as exc:
             logger.debug("Real-time report_status sync failed (non-blocking): %s", exc)
     except (ImportError, AttributeError) as e:
         logger.exception("create_vulnerability_report persistence failed")
-        return {"success": False, "error": f"INTERNAL ERROR: Failed to persist vulnerability report '{title}': {e!s}. This is a system issue, not a validation problem — try again."}
+        return {
+            "success": False,
+            "error": f"INTERNAL ERROR: Failed to persist vulnerability report '{title}': {e!s}. This is a system issue, not a validation problem — try again.",
+        }
     else:
         logger.info(
             "Vulnerability report created: id=%s severity=%s cvss=%.1f title=%s",
@@ -1562,7 +1777,9 @@ async def create_vulnerability_report(
               that aren't part of the fix.
             - Duplicating the same change across multiple locations.
     """
-    logger.debug("create_vulnerability_report: title=%s target=%s endpoint=%s", title[:60], target, endpoint)
+    logger.debug(
+        "create_vulnerability_report: title=%s target=%s endpoint=%s", title[:60], target, endpoint
+    )
     inner = ctx.context if isinstance(ctx.context, dict) else {}
     raw_agent_id = inner.get("agent_id")
     agent_id = raw_agent_id if isinstance(raw_agent_id, str) else None

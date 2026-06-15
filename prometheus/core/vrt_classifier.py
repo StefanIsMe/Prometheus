@@ -52,8 +52,15 @@ _CWE_VRT_HINTS: dict[str, list[str]] = {
     "CWE-95": ["remote_code_execution", "rce"],
     "CWE-78": ["remote_code_execution", "rce", "os_command_injection"],
     "CWE-200": ["sensitive_information_disclosure", "information_disclosure"],
-    "CWE-209": ["sensitive_information_disclosure", "information_disclosure_through_error_messages"],
-    "CWE-284": ["insecure_direct_object_references", "modify_view_sensitive_information_iterable", "view_sensitive_information_iterable"],
+    "CWE-209": [
+        "sensitive_information_disclosure",
+        "information_disclosure_through_error_messages",
+    ],
+    "CWE-284": [
+        "insecure_direct_object_references",
+        "modify_view_sensitive_information_iterable",
+        "view_sensitive_information_iterable",
+    ],
     "CWE-285": ["broken_access_control", "improper_authorization"],
     "CWE-287": ["broken_authentication", "improper_authentication"],
     "CWE-288": ["broken_authentication", "authentication_bypass"],
@@ -65,9 +72,21 @@ _CWE_VRT_HINTS: dict[str, list[str]] = {
     "CWE-502": ["remote_code_execution", "deserialization"],
     "CWE-601": ["get_based", "open_redirect"],
     "CWE-611": ["xml_external_entity_attack_xxe", "xxe"],
-    "CWE-918": ["internal_high_impact", "internal_scan_and_or_medium_impact", "server_side_request_forgery_ssrf"],
-    "CWE-862": ["insecure_direct_object_references", "modify_view_sensitive_information_iterable", "broken_access_control"],
-    "CWE-863": ["insecure_direct_object_references", "modify_view_sensitive_information_iterable", "broken_access_control"],
+    "CWE-918": [
+        "internal_high_impact",
+        "internal_scan_and_or_medium_impact",
+        "server_side_request_forgery_ssrf",
+    ],
+    "CWE-862": [
+        "insecure_direct_object_references",
+        "modify_view_sensitive_information_iterable",
+        "broken_access_control",
+    ],
+    "CWE-863": [
+        "insecure_direct_object_references",
+        "modify_view_sensitive_information_iterable",
+        "broken_access_control",
+    ],
     "CWE-917": ["server_side_request_forgery_ssrf", "ssrf", "expression_language_injection"],
     "CWE-1021": ["clickjacking", "improper_restriction_of_rendered_ui"],
 }
@@ -81,10 +100,18 @@ _TITLE_KEYWORDS: dict[str, list[str]] = {
     "dom": ["cross_site_scripting_xss", "universal_uxss"],
     "sqli": ["sql_injection"],
     "sql injection": ["sql_injection"],
-    "ssrf": ["internal_high_impact", "internal_scan_and_or_medium_impact", "external_dns_query_only"],
+    "ssrf": [
+        "internal_high_impact",
+        "internal_scan_and_or_medium_impact",
+        "external_dns_query_only",
+    ],
     "csrf": ["cross_site_request_forgery_csrf", "application_wide"],
     "cross-site request": ["cross_site_request_forgery_csrf", "application_wide"],
-    "idor": ["insecure_direct_object_references", "modify_view_sensitive_information_iterable", "modify_view_sensitive_information_complex"],
+    "idor": [
+        "insecure_direct_object_references",
+        "modify_view_sensitive_information_iterable",
+        "modify_view_sensitive_information_complex",
+    ],
     "rce": ["remote_code_execution"],
     "remote code": ["remote_code_execution"],
     "command injection": ["remote_code_execution", "os_command_injection"],
@@ -191,9 +218,7 @@ class VRTClassifier:
                 except Exception:
                     logger.exception("Stale cache also failed")
 
-    def _flatten(
-        self, items: list[dict[str, Any]], path: str = ""
-    ) -> list[dict[str, Any]]:
+    def _flatten(self, items: list[dict[str, Any]], path: str = "") -> list[dict[str, Any]]:
         """Flatten the nested VRT tree into a searchable list."""
         results: list[dict[str, Any]] = []
         for item in items:
@@ -292,16 +317,19 @@ class VRTClassifier:
         # Prefer entries NOT under "AI Application Security" for standard CWEs
         # (unless the CWE is inherently AI-related)
         ai_cwes = set()  # add AI-specific CWEs here if needed
-        non_ai = [(e, s) for e, s in candidates if not e["path"].startswith("AI Application") or cwe_upper in ai_cwes]
+        non_ai = [
+            (e, s)
+            for e, s in candidates
+            if not e["path"].startswith("AI Application") or cwe_upper in ai_cwes
+        ]
         if non_ai:
             candidates = non_ai
 
         # Pick the highest confidence match
         best_entry, best_score = max(candidates, key=lambda x: x[1])
         return self._build_result(best_entry, best_score, "cwe")
-    def _match_by_keywords(
-        self, title_lower: str, combined_lower: str
-    ) -> dict[str, Any] | None:
+
+    def _match_by_keywords(self, title_lower: str, combined_lower: str) -> dict[str, Any] | None:
         """Match by title keywords."""
         # Check title keywords (exact substring match)
         for keyword, hints in _TITLE_KEYWORDS.items():
@@ -329,9 +357,7 @@ class VRTClassifier:
         best_entry = None
 
         for entry in self._entries:
-            entry_tokens = set(
-                re.findall(r"[a-z_]+", entry["id"] + " " + entry["name"].lower())
-            )
+            entry_tokens = set(re.findall(r"[a-z_]+", entry["id"] + " " + entry["name"].lower()))
             if not entry_tokens:
                 continue
             overlap = len(text_tokens & entry_tokens)
@@ -397,11 +423,13 @@ class VRTClassifier:
                 or query_lower in entry["name"].lower()
                 or query_lower in entry["path"].lower()
             ):
-                results.append({
-                    "path": entry["path"],
-                    "id": entry["id"],
-                    "priority": entry.get("priority"),
-                })
+                results.append(
+                    {
+                        "path": entry["path"],
+                        "id": entry["id"],
+                        "priority": entry.get("priority"),
+                    }
+                )
         return results[:20]  # limit results
 
 

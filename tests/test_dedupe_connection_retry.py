@@ -14,6 +14,7 @@ This file:
   3. Unit-tests the non-retryable exception path: an unrelated
      exception propagates immediately.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -50,6 +51,7 @@ def _api_connection_error() -> APIConnectionError:
 # 1. 2 failures + 1 success returns a normal response
 # ---------------------------------------------------------------------------
 
+
 def test_dedupe_recovers_after_two_connection_errors(caplog):
     """A fake model that raises APIConnectionError twice then succeeds
     must return the success response (and the WARNING was logged twice)."""
@@ -58,7 +60,6 @@ def test_dedupe_recovers_after_two_connection_errors(caplog):
     class _FakeModel:
         def stream_response(self, *args, **kwargs):
             return _FakeStream(call_count)
-
 
     class _FakeStream:
         def __init__(self, counter):
@@ -74,6 +75,7 @@ def test_dedupe_recovers_after_two_connection_errors(caplog):
             raise StopAsyncIteration
 
     fake_model = _FakeModel()
+
     # We can't easily call the real function (it pulls lots of state);
     # instead, exercise the retry loop directly via a small replica.
     async def _stream_once():
@@ -90,7 +92,9 @@ def test_dedupe_recovers_after_two_connection_errors(caplog):
             except APIConnectionError as exc:
                 last_exc = exc
                 logging.getLogger("prometheus.report.dedupe").warning(
-                    "attempt %d/3: %s", attempt, exc,
+                    "attempt %d/3: %s",
+                    attempt,
+                    exc,
                 )
                 await asyncio.sleep(0.01)
         if last_exc:
@@ -107,6 +111,7 @@ def test_dedupe_recovers_after_two_connection_errors(caplog):
 # ---------------------------------------------------------------------------
 # 2. 3 failures returns a no-op
 # ---------------------------------------------------------------------------
+
 
 def test_dedupe_returns_noop_after_three_failures():
     """A fake that always raises APIConnectionError must trigger the
@@ -140,6 +145,7 @@ def test_dedupe_returns_noop_after_three_failures():
 # 3. Non-retryable exception propagates
 # ---------------------------------------------------------------------------
 
+
 def test_dedupe_propagates_unrelated_exception():
     """A ValueError (or any non-APIConnectionError) must propagate
     on the first occurrence — only connection errors are retried."""
@@ -147,7 +153,7 @@ def test_dedupe_propagates_unrelated_exception():
     async def _run() -> None:
         try:
             raise ValueError("bad input")
-        except APIConnectionError:  # noqa: PER203
+        except APIConnectionError:
             pytest.fail("ValueError must not be caught as APIConnectionError")
         except ValueError as exc:
             assert "bad input" in str(exc)

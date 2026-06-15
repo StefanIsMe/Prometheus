@@ -129,7 +129,9 @@ class ScanNotifications:
         try:
             findings = json.loads(path.read_text(encoding="utf-8")) if path.exists() else []
         except (json.JSONDecodeError, OSError):
-            logger.debug("_write_finding: could not read findings file; starting fresh", exc_info=True)
+            logger.debug(
+                "_write_finding: could not read findings file; starting fresh", exc_info=True
+            )
             findings = []
 
         findings.append(finding)

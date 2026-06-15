@@ -20,6 +20,7 @@ This is "best quality" because it ties the unit tests (1A-4D) and
 the replay tests (5A) together into one matrix that, if green,
 demonstrates end-to-end coverage of every category from the audit.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -139,6 +140,7 @@ CATEGORIES: list[dict] = [
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _all_logs() -> list[Path]:
     runs_root = SOURCE_ROOT / "prometheus_runs"
     return sorted(runs_root.glob("*/prometheus.log"))
@@ -157,6 +159,7 @@ def _has_any_pattern(logs: list[Path], patterns: list[str]) -> tuple[bool, str |
 # ---------------------------------------------------------------------------
 # 1. Each category must be present in at least one log
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.parametrize(
     "category",
@@ -180,6 +183,7 @@ def test_category_is_present_in_logs(category):
 # 2. Each category has a fix-test file that exercises the patched code
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.parametrize(
     "category",
     CATEGORIES,
@@ -199,9 +203,11 @@ def test_fix_test_file_exists(category):
 #    high-impact category and assert the patched code recovers
 # ---------------------------------------------------------------------------
 
+
 def _api_error_with_status(status: int) -> docker.errors.APIError:
     class _Response:
         status_code = status
+
     return docker.errors.APIError("boom", response=_Response())
 
 
@@ -243,6 +249,7 @@ def test_todo_priority_synonyms_resolve():
 
 def test_docker_409_recovers_after_retry():
     """Spot check: Docker 409 is recovered by the 3-attempt retry."""
+
     class _C:
         def __init__(self) -> None:
             self.remove_calls = 0

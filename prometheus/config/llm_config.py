@@ -35,10 +35,15 @@ DEFAULT_CONFIG_PATH = Path.home() / ".prometheus" / "llm.yaml"
 # Env vars the OpenAI Agents SDK reads at client-construction time.
 # We wipe these before setting so stale shell values don't leak in.
 _OPENAI_CLIENT_ENV_VARS = (
-    "OPENAI_BASE_URL", "OPENAI_API_BASE", "LLM_API_BASE",
-    "LITELLM_BASE_URL", "OLLAMA_API_BASE",
-    "OPENAI_API_KEY", "LLM_API_KEY",
-    "OPENAI_API_TYPE", "OPENAI_ORGANIZATION",
+    "OPENAI_BASE_URL",
+    "OPENAI_API_BASE",
+    "LLM_API_BASE",
+    "LITELLM_BASE_URL",
+    "OLLAMA_API_BASE",
+    "OPENAI_API_KEY",
+    "LLM_API_KEY",
+    "OPENAI_API_TYPE",
+    "OPENAI_ORGANIZATION",
     "OPENAI_DISABLE_ZSTD",
 )
 
@@ -79,6 +84,7 @@ _PROVIDER_ENV_KEY_MAP: dict[str, str] = {
 # Data types
 # ---------------------------------------------------------------------------
 
+
 class Protocol(str, Enum):
     OPENAI = "openai"
     ANTHROPIC = "anthropic"
@@ -94,6 +100,7 @@ class Tier(str, Enum):
 @dataclass
 class ModelSpec:
     """A specific model on a specific provider."""
+
     provider_name: str
     model_id: str
     tier: Tier = Tier.MEDIUM
@@ -114,6 +121,7 @@ class ProviderConfig:
 @dataclass
 class TierRouting:
     """Ordered list of (provider_name, model_id) to try for a tier."""
+
     candidates: list[tuple[str, str]] = field(default_factory=list)
 
 
@@ -128,6 +136,7 @@ class LlmConfig:
 # ---------------------------------------------------------------------------
 # Config loading
 # ---------------------------------------------------------------------------
+
 
 def _resolve_api_key(entry: dict[str, Any] | str) -> str | None:
     """Resolve an API key entry from config.
@@ -160,9 +169,10 @@ def _rewrite_dual_protocol(provider_name: str, base_url: str) -> str:
     override = _DUAL_PROTOCOL_OVERRIDES.get(key)
     if override and _is_anthropic_base_url(base_url):
         logger.info(
-            "Provider %s base_url %s is Anthropic-protocol, "
-            "rewriting to OpenAI-compatible %s",
-            provider_name, base_url, override,
+            "Provider %s base_url %s is Anthropic-protocol, rewriting to OpenAI-compatible %s",
+            provider_name,
+            base_url,
+            override,
         )
         return override
     return base_url
@@ -217,7 +227,11 @@ def _parse_config(raw: dict[str, Any], path: Path) -> LlmConfig:
             try:
                 protocol = Protocol(protocol_str)
             except ValueError:
-                logger.warning("Unknown protocol '%s' for provider %s, defaulting to openai", protocol_str, name)
+                logger.warning(
+                    "Unknown protocol '%s' for provider %s, defaulting to openai",
+                    protocol_str,
+                    name,
+                )
                 protocol = Protocol.OPENAI
 
             # Rewrite dual-protocol base_urls
@@ -247,7 +261,11 @@ def _parse_config(raw: dict[str, Any], path: Path) -> LlmConfig:
             # Fallback: Nous OAuth token from auth store
             if not api_keys and name.lower() == "nous":
                 try:
-                    from prometheus.config.nous_oauth import is_nous_oauth_configured, get_nous_api_key_from_oauth
+                    from prometheus.config.nous_oauth import (
+                        is_nous_oauth_configured,
+                        get_nous_api_key_from_oauth,
+                    )
+
                     if is_nous_oauth_configured():
                         oauth_key = get_nous_api_key_from_oauth()
                         if oauth_key:
@@ -366,12 +384,15 @@ def _validate_config(config: LlmConfig) -> None:
             if provider_name not in config.providers:
                 logger.warning(
                     "Routing tier %s references unknown provider %r",
-                    tier.value, provider_name,
+                    tier.value,
+                    provider_name,
                 )
             elif model_id not in config.providers[provider_name].models:
                 logger.warning(
                     "Routing tier %s references unknown model %r on provider %r",
-                    tier.value, model_id, provider_name,
+                    tier.value,
+                    model_id,
+                    provider_name,
                 )
 
 
@@ -392,22 +413,32 @@ def _build_default_config() -> LlmConfig:
         protocol=Protocol.OPENAI,
         api_keys=deepseek_keys,
         models={
-            "deepseek-v4-flash": ModelSpec("deepseek", "deepseek-v4-flash", Tier.SIMPLE, max_tokens=8192),
-            "deepseek-v4-pro": ModelSpec("deepseek", "deepseek-v4-pro", Tier.HARD, max_tokens=8192, supports_thinking=True),
+            "deepseek-v4-flash": ModelSpec(
+                "deepseek", "deepseek-v4-flash", Tier.SIMPLE, max_tokens=8192
+            ),
+            "deepseek-v4-pro": ModelSpec(
+                "deepseek", "deepseek-v4-pro", Tier.HARD, max_tokens=8192, supports_thinking=True
+            ),
         },
     )
 
     routing = {
-        Tier.SIMPLE: TierRouting(candidates=[
-            ("deepseek", "deepseek-v4-flash"),
-        ]),
-        Tier.MEDIUM: TierRouting(candidates=[
-            ("deepseek", "deepseek-v4-flash"),
-        ]),
-        Tier.HARD: TierRouting(candidates=[
-            ("deepseek", "deepseek-v4-pro"),
-            ("deepseek", "deepseek-v4-flash"),
-        ]),
+        Tier.SIMPLE: TierRouting(
+            candidates=[
+                ("deepseek", "deepseek-v4-flash"),
+            ]
+        ),
+        Tier.MEDIUM: TierRouting(
+            candidates=[
+                ("deepseek", "deepseek-v4-flash"),
+            ]
+        ),
+        Tier.HARD: TierRouting(
+            candidates=[
+                ("deepseek", "deepseek-v4-pro"),
+                ("deepseek", "deepseek-v4-flash"),
+            ]
+        ),
     }
 
     return LlmConfig(
@@ -421,9 +452,11 @@ def _build_default_config() -> LlmConfig:
 # Model resolution
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class ResolvedModel:
     """A fully resolved model ready for the OpenAI Agents SDK."""
+
     provider_name: str
     model_id: str
     base_url: str
@@ -441,7 +474,7 @@ class ModelResolutionError(RuntimeError):
 # Track per-key failures for circuit-breaking
 _key_failures: dict[str, list[float]] = defaultdict(list)
 _KEY_FAILURE_WINDOW = 60.0  # seconds
-_KEY_FAILURE_THRESHOLD = 3   # failures in window → circuit break
+_KEY_FAILURE_THRESHOLD = 3  # failures in window → circuit break
 
 
 def _record_key_failure(provider_name: str, api_key: str) -> None:
@@ -488,7 +521,8 @@ def resolve_model(
                 if routing and routing.candidates:
                     logger.warning(
                         "No models for tier %s, falling back to tier %s",
-                        tier.value, fallback_tier.value,
+                        tier.value,
+                        fallback_tier.value,
                     )
                     break
 
@@ -560,8 +594,8 @@ def resolve_model(
             )
 
     raise ModelResolutionError(
-        f"Cannot resolve model for tier {tier.value}. Errors:\n" +
-        "\n".join(f"  - {e}" for e in errors)
+        f"Cannot resolve model for tier {tier.value}. Errors:\n"
+        + "\n".join(f"  - {e}" for e in errors)
     )
 
 
@@ -578,6 +612,7 @@ def report_key_failure(resolved: ResolvedModel) -> None:
 # Scan mode → tier mapping
 # ---------------------------------------------------------------------------
 
+
 def resolve_tier(*, is_child: bool = False) -> Tier:
     """Return the model tier for the current scan.
 
@@ -593,6 +628,7 @@ def resolve_tier(*, is_child: bool = False) -> Tier:
 # ---------------------------------------------------------------------------
 # SDK configuration
 # ---------------------------------------------------------------------------
+
 
 def apply_model_to_sdk(resolved: ResolvedModel) -> None:
     """Configure the OpenAI Agents SDK with the resolved model.
@@ -619,6 +655,7 @@ def apply_model_to_sdk(resolved: ResolvedModel) -> None:
     if resolved.extra_headers:
         # The SDK reads HTTP headers from OPENAI_EXTRA_HEADERS as JSON
         import json
+
         os.environ["OPENAI_EXTRA_HEADERS"] = json.dumps(resolved.extra_headers)
 
     logger.info(
@@ -665,6 +702,7 @@ def should_set_tool_choice(provider_name: str, supports_thinking: bool) -> bool:
 # ---------------------------------------------------------------------------
 # .env loading (migration from Hermes)
 # ---------------------------------------------------------------------------
+
 
 def _load_dotenv(path: Path) -> None:
     """Load a .env file into os.environ, skipping already-set vars."""

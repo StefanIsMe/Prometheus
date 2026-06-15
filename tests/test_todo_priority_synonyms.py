@@ -15,6 +15,7 @@ This file:
   6. E2E log-replay: assert the historic error line would not raise
      on the same input.
 """
+
 from __future__ import annotations
 
 import logging
@@ -32,6 +33,7 @@ from prometheus.tools.todo.tools import _normalize_priority  # noqa: E402
 # ---------------------------------------------------------------------------
 # 1. urgent -> high
 # ---------------------------------------------------------------------------
+
 
 def test_urgent_maps_to_high(caplog):
     with caplog.at_level(logging.INFO, logger="prometheus.tools.todo.tools"):
@@ -56,6 +58,7 @@ def test_important_maps_to_high():
 # 2. p0 -> critical
 # ---------------------------------------------------------------------------
 
+
 def test_p0_maps_to_critical():
     assert _normalize_priority("p0") == "critical"
 
@@ -67,6 +70,7 @@ def test_sev0_maps_to_critical():
 # ---------------------------------------------------------------------------
 # 3. p1/p2/p3 -> high/normal/low
 # ---------------------------------------------------------------------------
+
 
 def test_p1_maps_to_high():
     assert _normalize_priority("p1") == "high"
@@ -96,6 +100,7 @@ def test_sev3_maps_to_low():
 # 4. Unknown values still raise
 # ---------------------------------------------------------------------------
 
+
 def test_unknown_value_raises():
     with pytest.raises(ValueError, match="Invalid priority"):
         _normalize_priority("supercalifragilistic")
@@ -109,6 +114,7 @@ def test_empty_string_uses_default():
 # ---------------------------------------------------------------------------
 # 5. Canonical values pass through unchanged
 # ---------------------------------------------------------------------------
+
 
 def test_canonical_values_unchanged():
     for canonical in ("low", "normal", "high", "critical"):
@@ -128,6 +134,7 @@ def test_none_uses_default():
 # ---------------------------------------------------------------------------
 # 6. E2E log-replay: historic error line
 # ---------------------------------------------------------------------------
+
 
 def _find_priority_error_log() -> Path:
     """Find a run that hit ``Invalid priority. Must be one of``."""

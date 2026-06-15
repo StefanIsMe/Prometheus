@@ -13,8 +13,12 @@ import requests
 
 logger = logging.getLogger(__name__)
 
-DB_PATH = Path(os.environ.get("PROMETHEUS_DATA_DIR", str(Path.home() / ".prometheus"))) / "prometheus.db"
-EVIDENCE_DIR = Path(os.environ.get("PROMETHEUS_DATA_DIR", str(Path.home() / ".prometheus"))) / "idor_evidence"
+DB_PATH = (
+    Path(os.environ.get("PROMETHEUS_DATA_DIR", str(Path.home() / ".prometheus"))) / "prometheus.db"
+)
+EVIDENCE_DIR = (
+    Path(os.environ.get("PROMETHEUS_DATA_DIR", str(Path.home() / ".prometheus"))) / "idor_evidence"
+)
 EVIDENCE_DIR.mkdir(parents=True, exist_ok=True)
 
 
@@ -24,9 +28,7 @@ def _get_program_scope(program_name: str) -> list[str]:
         return []
     try:
         conn = sqlite3.connect(str(DB_PATH))
-        row = conn.execute(
-            "SELECT scope FROM programs WHERE name = ?", (program_name,)
-        ).fetchone()
+        row = conn.execute("SELECT scope FROM programs WHERE name = ?", (program_name,)).fetchone()
         conn.close()
         if row and row[0]:
             scope = json.loads(row[0])
@@ -39,6 +41,7 @@ def _get_program_scope(program_name: str) -> list[str]:
 def _base_domain(url: str) -> str:
     """Extract the base domain from a URL (scheme + hostname)."""
     from urllib.parse import urlparse
+
     parsed = urlparse(url)
     return f"{parsed.scheme}://{parsed.netloc}"
 
@@ -53,9 +56,7 @@ def _match_target_to_program(target_url: str) -> dict[str, Any] | None:
 
     try:
         conn = sqlite3.connect(str(DB_PATH))
-        rows = conn.execute(
-            "SELECT name, platform, handle, url FROM programs"
-        ).fetchall()
+        rows = conn.execute("SELECT name, platform, handle, url FROM programs").fetchall()
         conn.close()
 
         for prog_name, platform, handle, program_url in rows:
@@ -63,9 +64,19 @@ def _match_target_to_program(target_url: str) -> dict[str, Any] | None:
 
             # Check by handle or name in URL
             if handle and handle in target_url:
-                return {"name": prog_name, "platform": platform, "handle": handle, "url": program_url}
+                return {
+                    "name": prog_name,
+                    "platform": platform,
+                    "handle": handle,
+                    "url": program_url,
+                }
             if name_key in target_url.lower():
-                return {"name": prog_name, "platform": platform, "handle": handle, "url": program_url}
+                return {
+                    "name": prog_name,
+                    "platform": platform,
+                    "handle": handle,
+                    "url": program_url,
+                }
 
             # Check scope JSON
             try:
@@ -79,7 +90,12 @@ def _match_target_to_program(target_url: str) -> dict[str, Any] | None:
                     for item in scope:
                         val = item.get("value", "")
                         if val and val.rstrip("/") in target_url.rstrip("/"):
-                            return {"name": prog_name, "platform": platform, "handle": handle, "url": program_url}
+                            return {
+                                "name": prog_name,
+                                "platform": platform,
+                                "handle": handle,
+                                "url": program_url,
+                            }
             except Exception:
                 continue
 
@@ -125,28 +141,41 @@ def _lightweight_scan(url: str, findings: list) -> None:
         # Check CORS
         acao = resp.headers.get("Access-Control-Allow-Origin", "")
         if acao == "*":
-            findings.append({
-                "type": "cors_misconfiguration",
-                "url": url,
-                "detail": "Access-Control-Allow-Origin: *",
-                "severity": "low",
-            })
+            findings.append(
+                {
+                    "type": "cors_misconfiguration",
+                    "url": url,
+                    "detail": "Access-Control-Allow-Origin: *",
+                    "severity": "low",
+                }
+            )
             print(f"      CORS: Access-Control-Allow-Origin: *")
 
         # Check for data returned without auth
         if resp.status_code == 200 and len(resp.text) > 100:
             # Check if response contains sensitive-sounding data
-            sensitive_keywords = ["user", "email", "token", "api_key", "secret",
-                                  "password", "internal", "private", "config"]
+            sensitive_keywords = [
+                "user",
+                "email",
+                "token",
+                "api_key",
+                "secret",
+                "password",
+                "internal",
+                "private",
+                "config",
+            ]
             text_lower = resp.text.lower()
             found = [kw for kw in sensitive_keywords if kw in text_lower]
             if found:
-                findings.append({
-                    "type": "information_disclosure",
-                    "url": url,
-                    "detail": f"Potential info disclosure: {', '.join(found)}",
-                    "severity": "medium",
-                })
+                findings.append(
+                    {
+                        "type": "information_disclosure",
+                        "url": url,
+                        "detail": f"Potential info disclosure: {', '.join(found)}",
+                        "severity": "medium",
+                    }
+                )
                 print(f"      Potential info disclosure: {', '.join(found)}")
 
     except requests.exceptions.Timeout:
@@ -214,10 +243,13 @@ def run_browser_prescan(targets_info: list[dict[str, Any]], args: Any = None) ->
         try:
             from prometheus.tools.idor_scanner.tool import run_idor_scan
             import asyncio
-            browser_findings = asyncio.run(run_idor_scan(
-                target_name=profile_key,
-                email_prefix=handle,
-            ))
+
+            browser_findings = asyncio.run(
+                run_idor_scan(
+                    target_name=profile_key,
+                    email_prefix=handle,
+                )
+            )
             all_findings.extend(browser_findings)
             print(f"   Browser scan: {len(browser_findings)} finding(s)")
         except Exception as e:

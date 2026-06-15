@@ -54,18 +54,22 @@ async def retrieve_evicted_content(
     """
     store = get_overflow_store()
     if store is None:
-        return json.dumps({
-            "success": False,
-            "error": "Overflow store not available",
-        })
+        return json.dumps(
+            {
+                "success": False,
+                "error": "Overflow store not available",
+            }
+        )
 
     full_output = store.retrieve(overflow_key)
     if full_output is None:
-        return json.dumps({
-            "success": False,
-            "error": f"Overflow key '{overflow_key}' not found. The content may have been evicted from the overflow store.",
-            "stats": store.get_stats(),
-        })
+        return json.dumps(
+            {
+                "success": False,
+                "error": f"Overflow key '{overflow_key}' not found. The content may have been evicted from the overflow store.",
+                "stats": store.get_stats(),
+            }
+        )
 
     # Truncate if needed
     if len(full_output) > max_chars:
@@ -74,24 +78,28 @@ async def retrieve_evicted_content(
         last_newline = truncated.rfind("\n")
         if last_newline > max_chars // 2:
             truncated = truncated[:last_newline]
-        return json.dumps({
+        return json.dumps(
+            {
+                "success": True,
+                "overflow_key": overflow_key,
+                "content": truncated,
+                "total_size": len(full_output),
+                "returned_size": len(truncated),
+                "truncated": True,
+                "note": f"Content truncated to {max_chars} chars. Use max_chars parameter to get more.",
+            }
+        )
+
+    return json.dumps(
+        {
             "success": True,
             "overflow_key": overflow_key,
-            "content": truncated,
+            "content": full_output,
             "total_size": len(full_output),
-            "returned_size": len(truncated),
-            "truncated": True,
-            "note": f"Content truncated to {max_chars} chars. Use max_chars parameter to get more.",
-        })
-
-    return json.dumps({
-        "success": True,
-        "overflow_key": overflow_key,
-        "content": full_output,
-        "total_size": len(full_output),
-        "returned_size": len(full_output),
-        "truncated": False,
-    })
+            "returned_size": len(full_output),
+            "truncated": False,
+        }
+    )
 
 
 @function_tool(timeout=30)
@@ -108,13 +116,15 @@ async def list_evicted_content(
     """
     store = get_overflow_store()
     if store is None:
-        return json.dumps({
-            "success": False,
-            "error": "Overflow store not available",
-        })
+        return json.dumps(
+            {
+                "success": False,
+                "error": "Overflow store not available",
+            }
+        )
 
     stats = store.get_stats()
-    
+
     # Get list of keys from DB if available
     keys = []
     if store._conn:
@@ -123,17 +133,21 @@ async def list_evicted_content(
                 "SELECT hash_key, size_bytes, stored_at FROM context_overflow ORDER BY stored_at DESC LIMIT 50"
             )
             for row in cursor.fetchall():
-                keys.append({
-                    "key": row[0],
-                    "size_bytes": row[1],
-                    "stored_at": row[2],
-                })
+                keys.append(
+                    {
+                        "key": row[0],
+                        "size_bytes": row[1],
+                        "stored_at": row[2],
+                    }
+                )
         except Exception:
             pass
 
-    return json.dumps({
-        "success": True,
-        "stats": stats,
-        "keys": keys,
-        "count": len(keys),
-    })
+    return json.dumps(
+        {
+            "success": True,
+            "stats": stats,
+            "keys": keys,
+            "count": len(keys),
+        }
+    )

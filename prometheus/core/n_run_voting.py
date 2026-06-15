@@ -116,7 +116,11 @@ def consolidate_votes(
             dropped.append(entry)
     logger.info(
         "n_run_vote: %d unique findings, %d kept (>=%d), %d dropped (runs=%d)",
-        len(grouped), len(kept), cfg.vote_threshold, len(dropped), cfg.runs,
+        len(grouped),
+        len(kept),
+        cfg.vote_threshold,
+        len(dropped),
+        cfg.runs,
     )
     return kept, dropped
 

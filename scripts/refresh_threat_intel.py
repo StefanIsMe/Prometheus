@@ -24,6 +24,7 @@ logger = logging.getLogger("refresh_threat_intel")
 
 # Add prometheus source to path
 import os
+
 sys.path.insert(0, os.path.expanduser("~/prometheus-source"))
 
 
@@ -35,6 +36,7 @@ def main() -> int:
     args = parser.parse_args()
 
     from prometheus.tools.threat_intel.local_db import ThreatIntelDB
+
     db = ThreatIntelDB()
 
     if args.stats:
@@ -51,17 +53,26 @@ def main() -> int:
             print(f"  With EPSS scores: {stats['epss_count']:,}")
             print(f"  Severity breakdown: {stats['severity_breakdown']}")
             print(f"  Ecosystem breakdown: {stats['ecosystem_breakdown']}")
-            if stats['feeds']:
+            if stats["feeds"]:
                 print("  Feeds:")
-                for f in stats['feeds']:
-                    print(f"    {f['feed_name']}: {f['status']} ({f['record_count']} records, {f.get('duration_seconds', 0):.1f}s)")
+                for f in stats["feeds"]:
+                    print(
+                        f"    {f['feed_name']}: {f['status']} ({f['record_count']} records, {f.get('duration_seconds', 0):.1f}s)"
+                    )
         db.close()
         return 0
 
     from prometheus.tools.threat_intel.feeds import (
-        ingest_all, ingest_epss, ingest_cisa_kev, ingest_nvd_recent,
-        ingest_ghsa_bulk, ingest_shodan_recent, ingest_circl_recent,
-        ingest_cisa_advisories, ingest_exploitdb, ingest_wordfence,
+        ingest_all,
+        ingest_epss,
+        ingest_cisa_kev,
+        ingest_nvd_recent,
+        ingest_ghsa_bulk,
+        ingest_shodan_recent,
+        ingest_circl_recent,
+        ingest_cisa_advisories,
+        ingest_exploitdb,
+        ingest_wordfence,
         ingest_vulners_recent,
     )
 
@@ -100,27 +111,29 @@ def main() -> int:
     if args.json:
         print(json.dumps(summary, indent=2, default=str))
     else:
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print(f"Threat Intel Refresh Complete")
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
         print(f"Total records: {summary['total_records']:,}")
         print(f"Duration: {summary['total_duration']:.1f}s")
         print(f"Errors: {len(summary['errors'])}")
         print()
-        for name, result in summary['feeds'].items():
-            status = result.get('status', '?')
-            count = result.get('count', 0)
-            dur = result.get('duration', 0)
+        for name, result in summary["feeds"].items():
+            status = result.get("status", "?")
+            count = result.get("count", 0)
+            dur = result.get("duration", 0)
             icon = "OK" if status == "ok" else "SKIP" if status == "skipped" else "FAIL"
             print(f"  [{icon}] {name}: {count:,} records ({dur:.1f}s)")
             if status == "error":
                 print(f"       Error: {result.get('error', 'unknown')}")
         print()
-        stats = summary.get('db_stats', {})
-        print(f"DB totals: {stats.get('total_cves', 0):,} CVEs, {stats.get('total_packages', 0):,} packages")
+        stats = summary.get("db_stats", {})
+        print(
+            f"DB totals: {stats.get('total_cves', 0):,} CVEs, {stats.get('total_packages', 0):,} packages"
+        )
 
     db.close()
-    return 1 if summary['errors'] else 0
+    return 1 if summary["errors"] else 0
 
 
 if __name__ == "__main__":

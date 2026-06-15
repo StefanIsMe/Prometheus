@@ -114,13 +114,19 @@ async def _query_circl(client: Any, tech: str, version: str) -> list[dict[str, A
 
     # Guard: reject overly long strings (descriptions, not tech names)
     if len(tech_lower) > 80:
-        logger.debug("CIRCL: tech string too long (%d chars), skipping: %s...", len(tech_lower), tech_lower[:60])
+        logger.debug(
+            "CIRCL: tech string too long (%d chars), skipping: %s...",
+            len(tech_lower),
+            tech_lower[:60],
+        )
         return []
 
     # Guard: reject strings that look like descriptions (contain spaces + long words)
     word_count = len(tech_lower.split())
     if word_count > 5:
-        logger.debug("CIRCL: tech string has %d words, looks like description, skipping", word_count)
+        logger.debug(
+            "CIRCL: tech string has %d words, looks like description, skipping", word_count
+        )
         return []
 
     # Try splitting vendor/product heuristically
@@ -134,8 +140,9 @@ async def _query_circl(client: Any, tech: str, version: str) -> list[dict[str, A
 
     # Sanitize: remove characters that break URL paths
     import re as _re
-    vendor = _re.sub(r'[^a-z0-9._-]', '', vendor)
-    product = _re.sub(r'[^a-z0-9._-]', '', product)
+
+    vendor = _re.sub(r"[^a-z0-9._-]", "", vendor)
+    product = _re.sub(r"[^a-z0-9._-]", "", product)
     if not vendor or not product:
         return []
 
@@ -179,14 +186,16 @@ async def _query_circl(client: Any, tech: str, version: str) -> list[dict[str, A
                         has_exploit = True
                         break
 
-                results.append({
-                    "cve_id": cve_id,
-                    "source": "CIRCL",
-                    "cvss_score": cvss_score,
-                    "severity": severity,
-                    "has_exploit": has_exploit,
-                    "description": summary_text,
-                })
+                results.append(
+                    {
+                        "cve_id": cve_id,
+                        "source": "CIRCL",
+                        "cvss_score": cvss_score,
+                        "severity": severity,
+                        "has_exploit": has_exploit,
+                        "description": summary_text,
+                    }
+                )
         return results
     except Exception as exc:
         logger.warning("CIRCL query failed for '%s': %s", tech, exc)
@@ -198,13 +207,19 @@ async def _query_vulnerablecode(client: Any, tech: str, version: str) -> list[di
     # Guard: reject overly long strings (descriptions, not tech names)
     tech_stripped = tech.strip()
     if len(tech_stripped) > 80:
-        logger.debug("VulnerableCode: tech string too long (%d chars), skipping: %s...", len(tech_stripped), tech_stripped[:60])
+        logger.debug(
+            "VulnerableCode: tech string too long (%d chars), skipping: %s...",
+            len(tech_stripped),
+            tech_stripped[:60],
+        )
         return []
 
     # Guard: reject strings that look like descriptions (too many words)
     word_count = len(tech_stripped.split())
     if word_count > 5:
-        logger.debug("VulnerableCode: tech string has %d words, looks like description, skipping", word_count)
+        logger.debug(
+            "VulnerableCode: tech string has %d words, looks like description, skipping", word_count
+        )
         return []
 
     ecosystem = _guess_ecosystem(tech)
@@ -230,8 +245,12 @@ async def _query_vulnerablecode(client: Any, tech: str, version: str) -> list[di
 
     # Guard: validate package name is a clean identifier (not a sentence)
     import re as _re
-    if not _re.match(r'^[a-zA-Z0-9@/_.-]+$', pkg_name) or len(pkg_name) > 60:
-        logger.debug("VulnerableCode: pkg_name '%s' doesn't look like a valid package, skipping", pkg_name[:60])
+
+    if not _re.match(r"^[a-zA-Z0-9@/_.-]+$", pkg_name) or len(pkg_name) > 60:
+        logger.debug(
+            "VulnerableCode: pkg_name '%s' doesn't look like a valid package, skipping",
+            pkg_name[:60],
+        )
         return []
 
     purl = f"pkg:{purl_eco}/{pkg_name}"
@@ -251,7 +270,11 @@ async def _query_vulnerablecode(client: Any, tech: str, version: str) -> list[di
         for pkg in packages:
             vulns = pkg.get("vulnerabilities", [])
             for vuln in vulns:
-                cve_id = vuln.get("vulnerability_id", "") or vuln.get("aliases", [{}])[0] if isinstance(vuln.get("aliases"), list) else ""
+                cve_id = (
+                    vuln.get("vulnerability_id", "") or vuln.get("aliases", [{}])[0]
+                    if isinstance(vuln.get("aliases"), list)
+                    else ""
+                )
                 if isinstance(vuln.get("aliases"), list):
                     for alias in vuln["aliases"]:
                         if isinstance(alias, str) and alias.startswith("CVE-"):
@@ -279,14 +302,16 @@ async def _query_vulnerablecode(client: Any, tech: str, version: str) -> list[di
                 if not isinstance(summary, str):
                     summary = str(summary) if summary else ""
 
-                results.append({
-                    "cve_id": cve_id,
-                    "source": "VulnerableCode",
-                    "cvss_score": cvss_score,
-                    "severity": severity,
-                    "has_exploit": has_exploit,
-                    "description": summary[:300],
-                })
+                results.append(
+                    {
+                        "cve_id": cve_id,
+                        "source": "VulnerableCode",
+                        "cvss_score": cvss_score,
+                        "severity": severity,
+                        "has_exploit": has_exploit,
+                        "description": summary[:300],
+                    }
+                )
         return results
     except Exception as exc:
         logger.warning("VulnerableCode query failed for '%s': %s", tech, exc)
@@ -343,22 +368,26 @@ async def _query_npm_advisory(client: Any, tech: str, version: str) -> list[dict
 
             has_exploit = False
             url_ref = adv.get("url", "")
-            if isinstance(url_ref, str) and ("exploit" in url_ref.lower() or "poc" in url_ref.lower()):
+            if isinstance(url_ref, str) and (
+                "exploit" in url_ref.lower() or "poc" in url_ref.lower()
+            ):
                 has_exploit = True
 
             title = adv.get("title", "") or adv.get("overview", "")
             if not isinstance(title, str):
                 title = ""
 
-            results.append({
-                "cve_id": cve_id,
-                "source": "npm_advisory",
-                "cvss_score": cvss_score,
-                "severity": severity,
-                "has_exploit": has_exploit,
-                "description": title[:300],
-                "vulnerable_version_range": adv.get("vulnerable_versions", ""),
-            })
+            results.append(
+                {
+                    "cve_id": cve_id,
+                    "source": "npm_advisory",
+                    "cvss_score": cvss_score,
+                    "severity": severity,
+                    "has_exploit": has_exploit,
+                    "description": title[:300],
+                    "vulnerable_version_range": adv.get("vulnerable_versions", ""),
+                }
+            )
         return results
     except Exception as exc:
         logger.warning("npm advisory query failed for '%s': %s", tech, exc)
@@ -517,28 +546,32 @@ async def _query_impl(
             else:
                 tech_sca_confidence = "mixed"
 
-            results.append({
-                "technology": tech,
-                "version": version,
-                "ecosystem": ecosystem,
-                "sca_confidence": tech_sca_confidence,
-                "total_vulnerabilities": len(local_results),
-                "source": "LOCAL_DB",
-                "vulnerabilities": local_results[:50],
-            })
+            results.append(
+                {
+                    "technology": tech,
+                    "version": version,
+                    "ecosystem": ecosystem,
+                    "sca_confidence": tech_sca_confidence,
+                    "total_vulnerabilities": len(local_results),
+                    "source": "LOCAL_DB",
+                    "vulnerabilities": local_results[:50],
+                }
+            )
         else:
             # No local results — mark for online query
             needs_online.append(fp)
             sca_conf = "low" if ecosystem is None else "medium"
-            results.append({
-                "technology": tech,
-                "version": version,
-                "ecosystem": ecosystem,
-                "sca_confidence": sca_conf,
-                "total_vulnerabilities": 0,
-                "source": "PENDING_ONLINE",
-                "vulnerabilities": [],
-            })
+            results.append(
+                {
+                    "technology": tech,
+                    "version": version,
+                    "ecosystem": ecosystem,
+                    "sca_confidence": sca_conf,
+                    "total_vulnerabilities": 0,
+                    "source": "PENDING_ONLINE",
+                    "vulnerabilities": [],
+                }
+            )
 
     # Phase 2: Online fallback for fingerprints with 0 local results
     # Only if local_only=False. When local_only=True (default), skip online APIs.
@@ -588,9 +621,7 @@ async def _query_online(
 
     results = []
 
-    async with httpx.AsyncClient(
-        follow_redirects=True, headers=headers
-    ) as client:
+    async with httpx.AsyncClient(follow_redirects=True, headers=headers) as client:
         for fp in fingerprints:
             tech = fp.get("technology", "").strip()
             version = fp.get("version", "").strip()
@@ -613,7 +644,12 @@ async def _query_online(
                 npm_task = _query_npm_advisory(client, slug, version)
 
                 results_all = await asyncio.gather(
-                    nvd_task, osv_task, ghsa_task, circl_task, vc_task, npm_task,
+                    nvd_task,
+                    osv_task,
+                    ghsa_task,
+                    circl_task,
+                    vc_task,
+                    npm_task,
                     return_exceptions=True,
                 )
 
@@ -716,32 +752,36 @@ async def _query_online(
                 else:
                     tech_sca_confidence = "mixed"
 
-                results.append({
-                    "technology": tech,
-                    "version": version,
-                    "ecosystem": ecosystem,
-                    "sca_confidence": tech_sca_confidence,
-                    "total_vulnerabilities": len(deduped),
-                    "source": "ONLINE",
-                    "nvd_count": len(nvd),
-                    "osv_count": len(osv),
-                    "ghsa_count": len(ghsa),
-                    "circl_count": len(circl),
-                    "vulnerablecode_count": len(vc),
-                    "npm_advisory_count": len(npm),
-                    "vulnerabilities": deduped[:50],
-                })
+                results.append(
+                    {
+                        "technology": tech,
+                        "version": version,
+                        "ecosystem": ecosystem,
+                        "sca_confidence": tech_sca_confidence,
+                        "total_vulnerabilities": len(deduped),
+                        "source": "ONLINE",
+                        "nvd_count": len(nvd),
+                        "osv_count": len(osv),
+                        "ghsa_count": len(ghsa),
+                        "circl_count": len(circl),
+                        "vulnerablecode_count": len(vc),
+                        "npm_advisory_count": len(npm),
+                        "vulnerabilities": deduped[:50],
+                    }
+                )
 
             except Exception as exc:
                 logger.exception("Online query failed for %s: %s", tech, exc)
-                results.append({
-                    "technology": tech,
-                    "version": version,
-                    "error": str(exc),
-                    "total_vulnerabilities": 0,
-                    "source": "ERROR",
-                    "vulnerabilities": [],
-                })
+                results.append(
+                    {
+                        "technology": tech,
+                        "version": version,
+                        "error": str(exc),
+                        "total_vulnerabilities": 0,
+                        "source": "ERROR",
+                        "vulnerabilities": [],
+                    }
+                )
 
     return results
 
@@ -793,9 +833,9 @@ def _score_local_vulnerability(
     # SCA version-match confidence adjustment (ACM SCA paper findings)
     version_match = (vuln.get("version_match") or "").lower()
     if version_match == "vulnerable":
-        score += 5   # confirmed match — boost priority
+        score += 5  # confirmed match — boost priority
     elif version_match == "not_affected":
-        score -= 5   # still include, but lower priority
+        score -= 5  # still include, but lower priority
 
     return score
 
@@ -854,9 +894,7 @@ async def inject_threat_intel(
             kev = " [IN CISA KEV]" if v.get("cisa_kev") or v.get("in_cisa_kev") else ""
             epss_str = f" EPSS={epss:.2f}" if epss is not None else ""
 
-            lines.append(
-                f"  {cve_id} [{sev}] CVSS={cvss}{epss_str}{exploit}{kev}"
-            )
+            lines.append(f"  {cve_id} [{sev}] CVSS={cvss}{epss_str}{exploit}{kev}")
             desc = (v.get("description") or "")[:120]
             if desc:
                 lines.append(f"    {desc}")
@@ -865,8 +903,12 @@ async def inject_threat_intel(
         lines.append("")
 
     lines.append("=" * 60)
-    lines.append("TEST THESE VULNERABILITIES FIRST — they are known to exist in the target's technology stack.")
-    lines.append("Prioritize: CISA KEV entries > EPSS > 0.7 > CRITICAL > HIGH > exploits available.")
+    lines.append(
+        "TEST THESE VULNERABILITIES FIRST — they are known to exist in the target's technology stack."
+    )
+    lines.append(
+        "Prioritize: CISA KEV entries > EPSS > 0.7 > CRITICAL > HIGH > exploits available."
+    )
     lines.append("=" * 60)
     lines.append("")
 

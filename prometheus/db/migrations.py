@@ -27,8 +27,7 @@ def apply_prometheus_migrations(conn: sqlite3.Connection) -> list[int]:
         """
     )
     applied = {
-        int(row[0])
-        for row in conn.execute("SELECT version FROM schema_migrations").fetchall()
+        int(row[0]) for row in conn.execute("SELECT version FROM schema_migrations").fetchall()
     }
 
     applied_now: list[int] = []
@@ -175,7 +174,9 @@ def _backfill_candidates_from_report_status(conn: sqlite3.Connection) -> None:
     now = datetime.now(UTC).isoformat()
     for row in rows:
         row_dict = _row_to_dict(row)
-        raw_json = row_dict.get("full_finding_json") or json.dumps(row_dict, ensure_ascii=False, default=str)
+        raw_json = row_dict.get("full_finding_json") or json.dumps(
+            row_dict, ensure_ascii=False, default=str
+        )
         parsed = _json_or_empty(raw_json)
         report_id = row_dict.get("id")
         finding_id = f"report-{report_id}"
@@ -185,7 +186,9 @@ def _backfill_candidates_from_report_status(conn: sqlite3.Connection) -> None:
         status = _map_legacy_status(str(row_dict.get("status") or "new"))
         created_at = str(row_dict.get("created_at") or now)
         updated_at = str(row_dict.get("updated_at") or created_at)
-        vuln_type = str(parsed.get("vuln_type") or parsed.get("type") or row_dict.get("cwe") or "unknown")
+        vuln_type = str(
+            parsed.get("vuln_type") or parsed.get("type") or row_dict.get("cwe") or "unknown"
+        )
         method = parsed.get("method") or row_dict.get("method")
 
         conn.execute(
@@ -357,7 +360,9 @@ def _migration_003_external_submissions_and_bm25(conn: sqlite3.Connection) -> No
     #    FTS5 tables are not auto-populated; we need an explicit rebuild.
     conn.execute("INSERT INTO report_status_fts(report_status_fts) VALUES('rebuild')")
     try:
-        conn.execute("INSERT INTO external_submissions_fts(external_submissions_fts) VALUES('rebuild')")
+        conn.execute(
+            "INSERT INTO external_submissions_fts(external_submissions_fts) VALUES('rebuild')"
+        )
     except sqlite3.OperationalError:
         # external_submissions may be empty (no backfill rows); that's fine
         pass
@@ -390,7 +395,12 @@ def _backfill_external_submissions_from_notes(conn: sqlite3.Connection) -> None:
             "platform": "bugcrowd",
             "external_id": "e4c2a739-7972-493e-a988-76ad853e6175",
             "title": "PKCE Downgrade: OAuth Authorization Server Advertises Insecure 'plain' Method",
-            "triggers": ("bugcrowd_triage_handle_1", "PKCE Downgrade", "2a224bda58fa9d90", "Not reproducible"),
+            "triggers": (
+                "bugcrowd_triage_handle_1",
+                "PKCE Downgrade",
+                "2a224bda58fa9d90",
+                "Not reproducible",
+            ),
             "status": "not_reproducible",
             "priority": "P1",
             "triager": "bugcrowd_triage_handle_1",
@@ -399,7 +409,12 @@ def _backfill_external_submissions_from_notes(conn: sqlite3.Connection) -> None:
             "platform": "bugcrowd",
             "external_id": "b0a131b8-85c3-4715-9362-fc7ec7fd1569",
             "title": "Account Enumeration via Differential Login Responses on auth.openai.com",
-            "triggers": ("bugcrowd_triage_handle_2", "Account Enumeration", "1bede986504b2009", "Username Enumeration"),
+            "triggers": (
+                "bugcrowd_triage_handle_2",
+                "Account Enumeration",
+                "1bede986504b2009",
+                "Username Enumeration",
+            ),
             "status": "informative",
             "priority": "P5",
             "triager": "bugcrowd_triage_handle_2",

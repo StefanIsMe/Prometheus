@@ -103,6 +103,7 @@ def _build_poc_with_meta(endpoint: str, method: str, body: str, cases: list[dict
 # Pure-helper tests
 # ---------------------------------------------------------------------------
 
+
 def test_parse_poc_output_extracts_distinct_responses_and_groups() -> None:
     parsed = _parse_poc_output(CANNED_CONFIRMED_STDOUT)
     assert parsed["distinct_responses"] == 2
@@ -216,6 +217,7 @@ def test_extract_meta_returns_none_for_missing_block() -> None:
 # End-to-end: local HTTP server
 # ---------------------------------------------------------------------------
 
+
 class _DifferentialHandler(BaseHTTPRequestHandler):
     """Handler that returns 200 when ``q=ok`` and 500 when ``q=bad``.
     Used to test differential-response detection.
@@ -303,9 +305,11 @@ def test_verify_finding_end_to_end_with_local_http_server(tmp_path) -> None:
             cases=cases,
         )
 
-        result_json = asyncio.run(verify_finding_impl(
-            finding_id=finding_id,
-        ))
+        result_json = asyncio.run(
+            verify_finding_impl(
+                finding_id=finding_id,
+            )
+        )
         result = json.loads(result_json)
 
         assert result["success"] is True, result
@@ -343,14 +347,18 @@ def test_verify_finding_with_negative_control_passes(tmp_path) -> None:
 
         # We add a second positive case (/bad → 500) plus a control (/ok → 200).
         # Note: verify_finding appends to the existing test_cases.
-        result_json = asyncio.run(verify_finding_impl(
-            finding_id=finding_id,
-            negative_control_value="control",
-            negative_control_description="benign control",
-            extra_test_cases_json=json.dumps([
-                {"value": "bad", "expected_status": 500, "description": "malicious input"},
-            ]),
-        ))
+        result_json = asyncio.run(
+            verify_finding_impl(
+                finding_id=finding_id,
+                negative_control_value="control",
+                negative_control_description="benign control",
+                extra_test_cases_json=json.dumps(
+                    [
+                        {"value": "bad", "expected_status": 500, "description": "malicious input"},
+                    ]
+                ),
+            )
+        )
         result = json.loads(result_json)
 
         assert result["success"] is True, result
@@ -371,9 +379,11 @@ def test_verify_finding_returns_error_on_missing_meta(tmp_path) -> None:
         poc_description="test",
         poc_script_code="print('no meta here')\n",
     )
-    result_json = asyncio.run(verify_finding_impl(
-        finding_id=report_id,
-    ))
+    result_json = asyncio.run(
+        verify_finding_impl(
+            finding_id=report_id,
+        )
+    )
     result = json.loads(result_json)
     assert result["success"] is False
     assert "PROMETHEUS_META" in result["error"]
@@ -381,9 +391,11 @@ def test_verify_finding_returns_error_on_missing_meta(tmp_path) -> None:
 
 def test_verify_finding_returns_error_on_unknown_id(tmp_path) -> None:
     _setup_state(tmp_path)
-    result_json = asyncio.run(verify_finding_impl(
-        finding_id="vuln-9999",
-    ))
+    result_json = asyncio.run(
+        verify_finding_impl(
+            finding_id="vuln-9999",
+        )
+    )
     result = json.loads(result_json)
     assert result["success"] is False
     assert "vuln-9999" in result["error"]
@@ -400,10 +412,12 @@ def test_verify_finding_returns_error_on_invalid_extras_json(tmp_path) -> None:
             body="q={input}",
             cases=[{"value": "x", "expected_status": 200, "description": "x"}],
         )
-        result_json = asyncio.run(verify_finding_impl(
-            finding_id=finding_id,
-            extra_test_cases_json="not json",
-        ))
+        result_json = asyncio.run(
+            verify_finding_impl(
+                finding_id=finding_id,
+                extra_test_cases_json="not json",
+            )
+        )
         result = json.loads(result_json)
         assert result["success"] is False
         assert "extra_test_cases_json" in result["error"]
@@ -426,9 +440,13 @@ def test_verify_finding_persists_to_vulnerabilities_json(tmp_path) -> None:
             ],
         )
 
-        result = json.loads(asyncio.run(verify_finding_impl(
-            finding_id=finding_id,
-        )))
+        result = json.loads(
+            asyncio.run(
+                verify_finding_impl(
+                    finding_id=finding_id,
+                )
+            )
+        )
         assert result["success"] is True
 
         # verify_finding calls state.save_run_data() which flushes
@@ -449,6 +467,7 @@ def test_verify_finding_persists_to_vulnerabilities_json(tmp_path) -> None:
 # ---------------------------------------------------------------------------
 # Markdown rendering of the verification block
 # ---------------------------------------------------------------------------
+
 
 def test_render_vulnerability_md_includes_verification_block(tmp_path) -> None:
     """If a report has a verification block, the MD render should include it."""

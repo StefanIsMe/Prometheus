@@ -48,16 +48,22 @@ async def get_cross_target_suggestions(
             domain=domain,
         )
         if not suggestions:
-            return json.dumps({
+            return json.dumps(
+                {
+                    "domain": domain,
+                    "suggestions": [],
+                    "message": "No cross-target suggestions found. Either no other targets share technology, or no prior knowledge exists.",
+                }
+            )
+        return json.dumps(
+            {
                 "domain": domain,
-                "suggestions": [],
-                "message": "No cross-target suggestions found. Either no other targets share technology, or no prior knowledge exists.",
-            })
-        return json.dumps({
-            "domain": domain,
-            "suggestion_count": len(suggestions),
-            "suggestions": suggestions,
-        }, ensure_ascii=False, default=str)
+                "suggestion_count": len(suggestions),
+                "suggestions": suggestions,
+            },
+            ensure_ascii=False,
+            default=str,
+        )
     except Exception as exc:
         logger.exception("get_cross_target_suggestions failed")
         return json.dumps({"success": False, "error": str(exc)})
@@ -86,16 +92,22 @@ async def get_tech_overlap(
             domain=domain,
         )
         if not overlap:
-            return json.dumps({
+            return json.dumps(
+                {
+                    "domain": domain,
+                    "overlap": [],
+                    "message": "No technology overlap found with other targets.",
+                }
+            )
+        return json.dumps(
+            {
                 "domain": domain,
-                "overlap": [],
-                "message": "No technology overlap found with other targets.",
-            })
-        return json.dumps({
-            "domain": domain,
-            "overlapping_targets": len(overlap),
-            "overlap": overlap,
-        }, ensure_ascii=False, default=str)
+                "overlapping_targets": len(overlap),
+                "overlap": overlap,
+            },
+            ensure_ascii=False,
+            default=str,
+        )
     except Exception as exc:
         logger.exception("get_tech_overlap failed")
         return json.dumps({"success": False, "error": str(exc)})

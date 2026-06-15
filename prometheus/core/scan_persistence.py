@@ -107,14 +107,15 @@ class ScanPersistence:
                      status, started_at, findings_count, run_dir, scan_config)
                 VALUES (?, ?, ?, ?, 'running', ?, 0, ?, ?)
                 """,
-                (scan_id, target_id, target_name, run_name,
-                 now, run_dir, config_json),
+                (scan_id, target_id, target_name, run_name, now, run_dir, config_json),
             )
             self._conn.commit()
 
         logger.info(
             "Recorded scan start: id=%s target=%s run=%s",
-            scan_id, target_name, run_name,
+            scan_id,
+            target_name,
+            run_name,
         )
 
     def record_scan_end(
@@ -138,13 +139,16 @@ class ScanPersistence:
             self._conn.commit()
             if cur.rowcount == 0:
                 logger.warning(
-                    "record_scan_end: scan_id=%s not found", scan_id,
+                    "record_scan_end: scan_id=%s not found",
+                    scan_id,
                 )
                 return
 
         logger.info(
             "Recorded scan end: id=%s status=%s findings=%d",
-            scan_id, status, findings_count,
+            scan_id,
+            status,
+            findings_count,
         )
 
     def get_incomplete_scans(self) -> list[dict[str, Any]]:

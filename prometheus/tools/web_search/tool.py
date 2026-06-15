@@ -27,16 +27,16 @@ def _get_ddgs():
             return _ddgs
         try:
             from ddgs import DDGS
+
             _ddgs = DDGS
         except ImportError:
             # Try the older package name
             try:
                 from duckduckgo_search import DDGS
+
                 _ddgs = DDGS
             except ImportError:
-                raise ImportError(
-                    "ddgs package not installed. Run: pip install ddgs"
-                ) from None
+                raise ImportError("ddgs package not installed. Run: pip install ddgs") from None
     return _ddgs
 
 
@@ -61,6 +61,7 @@ def _do_search(query: str, max_results: int = 3) -> dict[str, Any]:
         # Retry once — DuckDuckGo sometimes rate-limits
         try:
             import time
+
             time.sleep(2)
             DDGS = _get_ddgs()
             results = DDGS().text(query, max_results=max_results)

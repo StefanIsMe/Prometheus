@@ -246,8 +246,8 @@ def _record_tor_check(cmd: str, output: str = "") -> None:
         logger.info("Tor verification: IsTor=true confirmed")
     else:
         logger.warning(
-            "Tor verification FAILED — command ran but IsTor:true not in output. "
-            "Output was: %s", (output or "(empty)")[:200]
+            "Tor verification FAILED — command ran but IsTor:true not in output. Output was: %s",
+            (output or "(empty)")[:200],
         )
 
 
@@ -287,8 +287,21 @@ _TOR_PROXY_FLAGS: dict[str, set[str]] = {
 # Tools that always go through Tor via env vars (ALL_PROXY) — no flag needed.
 # These are safe because they respect HTTP_PROXY/ALL_PROXY environment variables
 # and docker_client.py sets them to Tor.
-_TOR_ENV_SAFE_TOOLS = {"nmap", "whatweb", "wappalyzer", "semgrep", "trivy", "gitleaks",
-                       "trufflehog", "python", "python3", "pip", "gem", "go", "git"}
+_TOR_ENV_SAFE_TOOLS = {
+    "nmap",
+    "whatweb",
+    "wappalyzer",
+    "semgrep",
+    "trivy",
+    "gitleaks",
+    "trufflehog",
+    "python",
+    "python3",
+    "pip",
+    "gem",
+    "go",
+    "git",
+}
 
 
 def _check_tor_proxy_required(cmd: str) -> str | None:
@@ -316,12 +329,47 @@ def _check_tor_proxy_required(cmd: str) -> str | None:
     cmd_lower = cmd_stripped.lower()
 
     # Skip non-network commands, local-only, and safe tools
-    if cmd_lower.startswith(("ls", "cat", "grep", "find", "echo", "mkdir", "cp", "mv",
-                             "rm", "touch", "chmod", "chown", "head", "tail", "wc",
-                             "sort", "uniq", "awk", "sed", "tr", "cut", "tee",
-                             "which", "whereis", "env", "export", "set", "unset",
-                             "cd", "pwd", "man", "help", "type", "alias",
-                             "nuclei -update", "nuclei -version", "nuclei --version")):
+    if cmd_lower.startswith(
+        (
+            "ls",
+            "cat",
+            "grep",
+            "find",
+            "echo",
+            "mkdir",
+            "cp",
+            "mv",
+            "rm",
+            "touch",
+            "chmod",
+            "chown",
+            "head",
+            "tail",
+            "wc",
+            "sort",
+            "uniq",
+            "awk",
+            "sed",
+            "tr",
+            "cut",
+            "tee",
+            "which",
+            "whereis",
+            "env",
+            "export",
+            "set",
+            "unset",
+            "cd",
+            "pwd",
+            "man",
+            "help",
+            "type",
+            "alias",
+            "nuclei -update",
+            "nuclei -version",
+            "nuclei --version",
+        )
+    ):
         return None
 
     # Check each tool that requires explicit proxy flags
@@ -385,6 +433,7 @@ def _extract_url_hosts(cmd: str) -> list[str]:
         url = match.group(0).rstrip(".,;:)]}>'\"")
         try:
             from urllib.parse import urlparse
+
             host = urlparse(url).hostname or ""
         except ValueError:
             host = ""
@@ -620,7 +669,17 @@ def _wrap_tool_call_event(tool: FunctionTool) -> FunctionTool:
             # tail because the head 200 chars were JSON braces.
             if isinstance(parsed_args, dict):
                 args_summary = ""
-                for k in ("command", "cmd", "url", "path", "query", "input", "text", "message", "endpoint"):
+                for k in (
+                    "command",
+                    "cmd",
+                    "url",
+                    "path",
+                    "query",
+                    "input",
+                    "text",
+                    "message",
+                    "endpoint",
+                ):
                     v = parsed_args.get(k)
                     if isinstance(v, str) and v:
                         args_summary = v
@@ -701,7 +760,8 @@ def _wrap_exec_command(tool: FunctionTool) -> FunctionTool:
             if "query_threat_feeds" in cmd:
                 logger.warning(
                     "Agent tried to run query_threat_feeds via exec_command (shell). "
-                    "This is a TOOL, not a shell command. Command was: %s", cmd[:200]
+                    "This is a TOOL, not a shell command. Command was: %s",
+                    cmd[:200],
                 )
         # Generic tool_call visibility is handled by _wrap_tool_call_event
         # which wraps this tool after _wrap_exec_command runs. The
@@ -721,6 +781,7 @@ def _wrap_exec_command(tool: FunctionTool) -> FunctionTool:
             try:
                 # Read latest control messages (lightweight check)
                 import pathlib
+
                 ctrl_path = pathlib.Path.home() / ".prometheus" / "comms" / run_id / "control.jsonl"
                 if ctrl_path.exists():
                     size = ctrl_path.stat().st_size
@@ -729,7 +790,9 @@ def _wrap_exec_command(tool: FunctionTool) -> FunctionTool:
                         if msgs:
                             last = msgs[-1]
                             if last.get("action") == "stop":
-                                return "SCAN STOPPED by Hermes agent: " + last.get("instruction", "")
+                                return "SCAN STOPPED by Hermes agent: " + last.get(
+                                    "instruction", ""
+                                )
             except Exception:
                 logger.debug("Failed to read control messages for run %s", run_id, exc_info=True)
 
@@ -842,7 +905,9 @@ def _wrap_query_threat_feeds_tool(tool: FunctionTool) -> FunctionTool:
                 if isinstance(techs, list):
                     _record_technologies_queried(len(techs))
         except Exception:
-            logger.debug("Failed to extract technology count from query_threat_feeds input", exc_info=True)
+            logger.debug(
+                "Failed to extract technology count from query_threat_feeds input", exc_info=True
+            )
 
         # Also record as a research call
         _record_research_call(tool.name)
@@ -887,6 +952,7 @@ def _wrap_create_agent_tool(tool: FunctionTool) -> FunctionTool:
             # Extract skills from the raw JSON input to auto-advance PTG phases
             try:
                 import json as _json
+
                 args = _json.loads(raw_input)
                 skills = args.get("skills", [])
                 if isinstance(skills, str):
@@ -930,6 +996,7 @@ def _finish_tool_use_behavior(
         _consecutive_gate_blocks,
         _MAX_CONSECUTIVE_GATE_BLOCKS,
     )
+
     root_agent_id = ctx.context.get("agent_id") if isinstance(ctx.context, dict) else None
     agent_blocks = _consecutive_gate_blocks.get(root_agent_id, {}) if root_agent_id else {}
 
@@ -996,7 +1063,8 @@ def _finish_tool_use_behavior(
                 logger.warning(
                     "Research gate escape hatch open: allowing finish_scan "
                     "without mandatory research (missing=%s, refusal_count=%d).",
-                    missing, agent_blocks.get("research", 0),
+                    missing,
+                    agent_blocks.get("research", 0),
                 )
             # Per-technology CVE research gate
             if (
@@ -1009,7 +1077,9 @@ def _finish_tool_use_behavior(
                 if not _gate_open("per_tech_research"):
                     logger.info(
                         "Per-tech research gate: %d/%d web_search calls for %d technologies",
-                        _web_search_count, required, _technologies_queried,
+                        _web_search_count,
+                        required,
+                        _technologies_queried,
                     )
                     return ToolsToFinalOutputResult(
                         is_final_output=False,
@@ -1032,7 +1102,8 @@ def _finish_tool_use_behavior(
                 if not _gate_open("min_web_search"):
                     logger.info(
                         "Minimum web_search gate: %d/%d web_search calls",
-                        _web_search_count, _MIN_WEB_SEARCHES_BEFORE_FINISH,
+                        _web_search_count,
+                        _MIN_WEB_SEARCHES_BEFORE_FINISH,
                     )
                     return ToolsToFinalOutputResult(
                         is_final_output=False,
@@ -1048,11 +1119,7 @@ def _finish_tool_use_behavior(
                     agent_blocks.get("min_web_search", 0),
                 )
             # Nuclei gate: block finish_scan if nuclei was never run
-            if (
-                _nuclei_gate_enabled
-                and tool_result.tool.name == "finish_scan"
-                and not _nuclei_run
-            ):
+            if _nuclei_gate_enabled and tool_result.tool.name == "finish_scan" and not _nuclei_run:
                 if not _gate_open("nuclei"):
                     logger.info("Nuclei gate: nuclei was never invoked")
                     return ToolsToFinalOutputResult(

@@ -244,6 +244,7 @@ def _build_vulnerability_stats(stats_text: Text, report_state: Any) -> None:
         )
         # Try to extract a finding count from the narrative
         import re as _re
+
         _count_match = _re.search(
             r"(\d+)\s+vulnerability\s+(categor|class|type|finding)",
             narrative_text,

@@ -20,7 +20,11 @@ def test_poc_execution_stores_structured_validation_run(tmp_path) -> None:
     KnowledgeStore(db)
     store = CandidateStore(db)
     result = store.ingest_raw_finding(
-        {"title": "Auth bypass returned token", "endpoint": str(payload), "vuln_type": "auth_bypass"},
+        {
+            "title": "Auth bypass returned token",
+            "endpoint": str(payload),
+            "vuln_type": "auth_bypass",
+        },
         domain="example.com",
         scan_id="scan-1",
     )

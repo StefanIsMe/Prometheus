@@ -44,6 +44,7 @@ from prometheus.tools.proxy.caido_api import (  # noqa: E402
 # 1. Unit: caido_retry succeeds after N transient failures
 # ---------------------------------------------------------------------------
 
+
 def test_caido_retry_succeeds_after_two_failures(caplog):
     """A function that fails twice with NetworkUserError then succeeds
     must return the success result and log WARNING twice."""
@@ -58,16 +59,11 @@ def test_caido_retry_succeeds_after_two_failures(caplog):
         return "ok"
 
     with caplog.at_level(logging.WARNING, logger="prometheus.tools.proxy.caido_api"):
-        result = asyncio.run(
-            caido_retry("test_op", flaky, base_delay=0.001)
-        )
+        result = asyncio.run(caido_retry("test_op", flaky, base_delay=0.001))
     assert result == "ok"
     assert calls["n"] == 3
     # Exactly 2 retry warnings (one per failed attempt)
-    retry_lines = [
-        r for r in caplog.records
-        if "transient Caido error" in r.getMessage()
-    ]
+    retry_lines = [r for r in caplog.records if "transient Caido error" in r.getMessage()]
     assert len(retry_lines) == 2, f"expected 2 warnings, got {len(retry_lines)}"
     # Each warning should mention attempt N/3
     assert "attempt 1/3" in retry_lines[0].getMessage()
@@ -139,6 +135,7 @@ def test_caido_retry_preserves_return_value_on_first_success():
 # 2. Unit: the three graphql call-sites are wired through the helper
 # ---------------------------------------------------------------------------
 
+
 def test_list_requests_with_client_uses_caido_retry():
     """list_requests_with_client must route through caido_retry; on a
     NetworkUserError it should recover transparently."""
@@ -187,6 +184,7 @@ def test_list_requests_with_client_uses_caido_retry():
 #    would be eliminated by the patched code
 # ---------------------------------------------------------------------------
 
+
 def _load_log_replay_target() -> Path:
     """Return the path of the worst real log for the Caido
     ``NetworkUserError`` failure category. Falls back to any log with a
@@ -221,9 +219,7 @@ def test_log_replay_list_requests_would_be_resolved():
     from caido_sdk_client.errors import NetworkUserError
 
     flake_count = text.count("caido_sdk_client.errors.graphql.NetworkUserError")
-    assert flake_count >= 1, (
-        f"log {target} has no NetworkUserError — pick a different fixture"
-    )
+    assert flake_count >= 1, f"log {target} has no NetworkUserError — pick a different fixture"
 
     # Reproduce the exact error pattern: a NetworkUserError from the SDK
     # with the recorded source message. The helper must retry and recover.

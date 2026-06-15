@@ -112,13 +112,15 @@ def parse_wpscan_results(
     findings: list[dict[str, Any]] = []
 
     if wpscan_data.get("error"):
-        findings.append({
-            "type": "error",
-            "domain": domain,
-            "title": "WPScan execution error",
-            "detail": wpscan_data.get("message", "Unknown error"),
-            "severity": "info",
-        })
+        findings.append(
+            {
+                "type": "error",
+                "domain": domain,
+                "title": "WPScan execution error",
+                "detail": wpscan_data.get("message", "Unknown error"),
+                "severity": "info",
+            }
+        )
         return findings
 
     # --- WordPress version ---
@@ -126,28 +128,32 @@ def parse_wpscan_results(
     if version_info:
         version_number = version_info.get("number", "unknown")
         status = "outdated" if version_info.get("status") == "outdated" else "current"
-        findings.append({
-            "type": "wordpress_version",
-            "domain": domain,
-            "title": f"WordPress {version_number} ({status})",
-            "location": version_info.get("found_by", ""),
-            "severity": "high" if status == "outdated" else "info",
-            "detail": json.dumps(version_info, ensure_ascii=False)[:2000],
-            "raw": version_info,
-        })
+        findings.append(
+            {
+                "type": "wordpress_version",
+                "domain": domain,
+                "title": f"WordPress {version_number} ({status})",
+                "location": version_info.get("found_by", ""),
+                "severity": "high" if status == "outdated" else "info",
+                "detail": json.dumps(version_info, ensure_ascii=False)[:2000],
+                "raw": version_info,
+            }
+        )
         # Individual vulnerabilities for outdated version
         for vuln in version_info.get("vulnerabilities", []):
-            findings.append({
-                "type": "vulnerability",
-                "domain": domain,
-                "title": f"[WP {version_number}] {vuln.get('title', 'Unknown vulnerability')}",
-                "location": f"WordPress {version_number}",
-                "severity": _cvss_to_severity(vuln),
-                "detail": json.dumps(vuln, ensure_ascii=False)[:2000],
-                "raw": vuln,
-                "references": vuln.get("references", {}),
-                "cve": _extract_cve(vuln),
-            })
+            findings.append(
+                {
+                    "type": "vulnerability",
+                    "domain": domain,
+                    "title": f"[WP {version_number}] {vuln.get('title', 'Unknown vulnerability')}",
+                    "location": f"WordPress {version_number}",
+                    "severity": _cvss_to_severity(vuln),
+                    "detail": json.dumps(vuln, ensure_ascii=False)[:2000],
+                    "raw": vuln,
+                    "references": vuln.get("references", {}),
+                    "cve": _extract_cve(vuln),
+                }
+            )
 
     # --- Plugins ---
     for plugin_name, plugin_data in wpscan_data.get("plugins", {}).items():
@@ -155,28 +161,32 @@ def parse_wpscan_results(
         plugin_version = plugin_data.get("version", {})
         version_number = plugin_version.get("number", "unknown") if plugin_version else "unknown"
 
-        findings.append({
-            "type": "plugin",
-            "domain": domain,
-            "title": f"Plugin: {plugin_name} v{version_number} ({plugin_status})",
-            "location": plugin_data.get("found_by", ""),
-            "severity": "medium" if plugin_status == "outdated" else "low",
-            "detail": json.dumps(plugin_data, ensure_ascii=False)[:2000],
-            "raw": plugin_data,
-        })
+        findings.append(
+            {
+                "type": "plugin",
+                "domain": domain,
+                "title": f"Plugin: {plugin_name} v{version_number} ({plugin_status})",
+                "location": plugin_data.get("found_by", ""),
+                "severity": "medium" if plugin_status == "outdated" else "low",
+                "detail": json.dumps(plugin_data, ensure_ascii=False)[:2000],
+                "raw": plugin_data,
+            }
+        )
 
         for vuln in plugin_data.get("vulnerabilities", []):
-            findings.append({
-                "type": "vulnerability",
-                "domain": domain,
-                "title": f"[Plugin {plugin_name}] {vuln.get('title', 'Unknown vulnerability')}",
-                "location": f"/wp-content/plugins/{plugin_name}/",
-                "severity": _cvss_to_severity(vuln),
-                "detail": json.dumps(vuln, ensure_ascii=False)[:2000],
-                "raw": vuln,
-                "references": vuln.get("references", {}),
-                "cve": _extract_cve(vuln),
-            })
+            findings.append(
+                {
+                    "type": "vulnerability",
+                    "domain": domain,
+                    "title": f"[Plugin {plugin_name}] {vuln.get('title', 'Unknown vulnerability')}",
+                    "location": f"/wp-content/plugins/{plugin_name}/",
+                    "severity": _cvss_to_severity(vuln),
+                    "detail": json.dumps(vuln, ensure_ascii=False)[:2000],
+                    "raw": vuln,
+                    "references": vuln.get("references", {}),
+                    "cve": _extract_cve(vuln),
+                }
+            )
 
     # --- Themes ---
     for theme_name, theme_data in wpscan_data.get("themes", {}).items():
@@ -184,78 +194,89 @@ def parse_wpscan_results(
         theme_version = theme_data.get("version", {})
         version_number = theme_version.get("number", "unknown") if theme_version else "unknown"
 
-        findings.append({
-            "type": "theme",
-            "domain": domain,
-            "title": f"Theme: {theme_name} v{version_number} ({theme_status})",
-            "location": theme_data.get("found_by", ""),
-            "severity": "medium" if theme_status == "outdated" else "low",
-            "detail": json.dumps(theme_data, ensure_ascii=False)[:2000],
-            "raw": theme_data,
-        })
+        findings.append(
+            {
+                "type": "theme",
+                "domain": domain,
+                "title": f"Theme: {theme_name} v{version_number} ({theme_status})",
+                "location": theme_data.get("found_by", ""),
+                "severity": "medium" if theme_status == "outdated" else "low",
+                "detail": json.dumps(theme_data, ensure_ascii=False)[:2000],
+                "raw": theme_data,
+            }
+        )
 
         for vuln in theme_data.get("vulnerabilities", []):
-            findings.append({
-                "type": "vulnerability",
-                "domain": domain,
-                "title": f"[Theme {theme_name}] {vuln.get('title', 'Unknown vulnerability')}",
-                "location": f"/wp-content/themes/{theme_name}/",
-                "severity": _cvss_to_severity(vuln),
-                "detail": json.dumps(vuln, ensure_ascii=False)[:2000],
-                "raw": vuln,
-                "references": vuln.get("references", {}),
-                "cve": _extract_cve(vuln),
-            })
+            findings.append(
+                {
+                    "type": "vulnerability",
+                    "domain": domain,
+                    "title": f"[Theme {theme_name}] {vuln.get('title', 'Unknown vulnerability')}",
+                    "location": f"/wp-content/themes/{theme_name}/",
+                    "severity": _cvss_to_severity(vuln),
+                    "detail": json.dumps(vuln, ensure_ascii=False)[:2000],
+                    "raw": vuln,
+                    "references": vuln.get("references", {}),
+                    "cve": _extract_cve(vuln),
+                }
+            )
 
     # --- Users ---
     for user in wpscan_data.get("users", []):
-        findings.append({
-            "type": "user",
-            "domain": domain,
-            "title": f"User: {user.get('username', 'unknown')} (ID: {user.get('id', '?')})",
-            "location": user.get("found_by", ""),
-            "severity": "medium",
-            "detail": json.dumps(user, ensure_ascii=False)[:1000],
-            "raw": user,
-        })
+        findings.append(
+            {
+                "type": "user",
+                "domain": domain,
+                "title": f"User: {user.get('username', 'unknown')} (ID: {user.get('id', '?')})",
+                "location": user.get("found_by", ""),
+                "severity": "medium",
+                "detail": json.dumps(user, ensure_ascii=False)[:1000],
+                "raw": user,
+            }
+        )
 
     # --- Interesting findings ---
     for finding in wpscan_data.get("interesting_findings", []):
-        findings.append({
-            "type": "interesting_finding",
-            "domain": domain,
-            "title": finding.get("name", "Interesting finding"),
-            "location": finding.get("url", ""),
-            "severity": finding.get("severity", "info"),
-            "detail": json.dumps(finding, ensure_ascii=False)[:2000],
-            "raw": finding,
-        })
+        findings.append(
+            {
+                "type": "interesting_finding",
+                "domain": domain,
+                "title": finding.get("name", "Interesting finding"),
+                "location": finding.get("url", ""),
+                "severity": finding.get("severity", "info"),
+                "detail": json.dumps(finding, ensure_ascii=False)[:2000],
+                "raw": finding,
+            }
+        )
 
     # --- Config backups / DB exports ---
-    for cb_type, cb_key in [("config_backup", "config_backups"),
-                             ("db_export", "db_exports")]:
+    for cb_type, cb_key in [("config_backup", "config_backups"), ("db_export", "db_exports")]:
         for item in wpscan_data.get(cb_key, []):
-            findings.append({
-                "type": cb_type,
-                "domain": domain,
-                "title": item.get("name", f"{cb_type} found"),
-                "location": item.get("url", ""),
-                "severity": "critical" if cb_type == "db_export" else "high",
-                "detail": json.dumps(item, ensure_ascii=False)[:2000],
-                "raw": item,
-            })
+            findings.append(
+                {
+                    "type": cb_type,
+                    "domain": domain,
+                    "title": item.get("name", f"{cb_type} found"),
+                    "location": item.get("url", ""),
+                    "severity": "critical" if cb_type == "db_export" else "high",
+                    "detail": json.dumps(item, ensure_ascii=False)[:2000],
+                    "raw": item,
+                }
+            )
 
     # --- Timthumbs ---
     for timthumb in wpscan_data.get("timthumbs", []):
-        findings.append({
-            "type": "timthumb",
-            "domain": domain,
-            "title": "TimThumb script found",
-            "location": timthumb.get("url", ""),
-            "severity": "medium",
-            "detail": json.dumps(timthumb, ensure_ascii=False)[:2000],
-            "raw": timthumb,
-        })
+        findings.append(
+            {
+                "type": "timthumb",
+                "domain": domain,
+                "title": "TimThumb script found",
+                "location": timthumb.get("url", ""),
+                "severity": "medium",
+                "detail": json.dumps(timthumb, ensure_ascii=False)[:2000],
+                "raw": timthumb,
+            }
+        )
 
     return findings
 
@@ -275,42 +296,48 @@ def findings_to_knowledge_entries(
             dedup_key = f["title"][:120]  # truncate long titles for dedup
             if dedup_key not in seen_vulns:
                 seen_vulns.add(dedup_key)
-                entries.append({
+                entries.append(
+                    {
+                        "domain": domain,
+                        "category": "vulnerability",
+                        "key": f["title"],
+                        "value": (
+                            f"Severity: {f['severity']} | "
+                            f"Location: {f['location']} | "
+                            f"CVE: {f.get('cve', 'N/A')} | "
+                            f"Detail: {f['detail'][:500]}"
+                        ),
+                        "confidence": 0.85,
+                        "source": "wpscan",
+                        "scan_id": scan_id,
+                    }
+                )
+
+        elif f["type"] == "user":
+            entries.append(
+                {
+                    "domain": domain,
+                    "category": "vulnerability",
+                    "key": f"WP User: {f['title']}",
+                    "value": f"Location: {f['location']} | Detail: {f['detail'][:500]}",
+                    "confidence": 0.9,
+                    "source": "wpscan",
+                    "scan_id": scan_id,
+                }
+            )
+
+        elif f["type"] in ("config_backup", "db_export") and f["severity"] in ("critical", "high"):
+            entries.append(
+                {
                     "domain": domain,
                     "category": "vulnerability",
                     "key": f["title"],
-                    "value": (
-                        f"Severity: {f['severity']} | "
-                        f"Location: {f['location']} | "
-                        f"CVE: {f.get('cve', 'N/A')} | "
-                        f"Detail: {f['detail'][:500]}"
-                    ),
-                    "confidence": 0.85,
+                    "value": f"URL: {f['location']} | Detail: {f['detail'][:500]}",
+                    "confidence": 0.95,
                     "source": "wpscan",
                     "scan_id": scan_id,
-                })
-
-        elif f["type"] == "user":
-            entries.append({
-                "domain": domain,
-                "category": "vulnerability",
-                "key": f"WP User: {f['title']}",
-                "value": f"Location: {f['location']} | Detail: {f['detail'][:500]}",
-                "confidence": 0.9,
-                "source": "wpscan",
-                "scan_id": scan_id,
-            })
-
-        elif f["type"] in ("config_backup", "db_export") and f["severity"] in ("critical", "high"):
-            entries.append({
-                "domain": domain,
-                "category": "vulnerability",
-                "key": f["title"],
-                "value": f"URL: {f['location']} | Detail: {f['detail'][:500]}",
-                "confidence": 0.95,
-                "source": "wpscan",
-                "scan_id": scan_id,
-            })
+                }
+            )
 
     return entries
 
@@ -321,7 +348,9 @@ def build_wpscan_context_block(
 ) -> str:
     """Build a human-readable context block for the root task prompt."""
     if wpscan_data.get("error"):
-        return f"--- WPScan for {domain} ---\nFAILED: {wpscan_data.get('message', 'Unknown error')}\n"
+        return (
+            f"--- WPScan for {domain} ---\nFAILED: {wpscan_data.get('message', 'Unknown error')}\n"
+        )
 
     findings = parse_wpscan_results(wpscan_data, domain)
     if not findings:
@@ -368,6 +397,7 @@ def build_wpscan_context_block(
 
 # --- Internal helpers ---
 
+
 def _count_findings(data: dict[str, Any]) -> int:
     return (
         sum(len(v.get("vulnerabilities", [])) for v in data.get("plugins", {}).values())
@@ -402,8 +432,13 @@ def _cvss_to_severity(vuln: dict[str, Any]) -> str:
             pass
     # Fall back to WPScan's own severity label
     wp_sev = (vuln.get("severity") or "").lower()
-    sev_map = {"critical": "critical", "high": "high", "medium": "medium",
-               "low": "low", "info": "info"}
+    sev_map = {
+        "critical": "critical",
+        "high": "high",
+        "medium": "medium",
+        "low": "low",
+        "info": "info",
+    }
     return sev_map.get(wp_sev, "medium")
 
 

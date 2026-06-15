@@ -32,6 +32,7 @@ logger = logging.getLogger(__name__)
 # Target profile — config per target, extendable via YAML or dict
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class TargetProfile:
     """Defines how to interact with a specific target website.
@@ -39,6 +40,7 @@ class TargetProfile:
     All fields are optional — the scanner auto-discovers forms and APIs
     when fields are left as defaults.
     """
+
     name: str = ""
     base_url: str = ""
     signup_path: str = "/signup"
@@ -47,21 +49,49 @@ class TargetProfile:
     email_domain: str = "@example.com"
     signup_selectors: dict[str, str] = field(default_factory=dict)
     login_selectors: dict[str, str] = field(default_factory=dict)
-    api_patterns: list[str] = field(default_factory=lambda: [
-        r"/api/", r"/v\d+/", r"/graphql", r"/rest/",
-        r"/users?", r"/account", r"/portfolio", r"/transaction",
-        r"/order", r"/profile", r"/balance", r"/wallet",
-    ])
-    id_patterns: list[str] = field(default_factory=lambda: [
-        r"/\d{5,10}",          # numeric IDs in path
-        r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",  # UUIDs
-    ])
-    id_param_names: list[str] = field(default_factory=lambda: [
-        "id", "userId", "user_id", "accountId", "account_id",
-        "portfolioId", "portfolio_id", "profileId", "profile_id",
-        "customerId", "customer_id", "orderId", "order_id",
-        "transactionId", "transaction_id", "uuid", "token",
-    ])
+    api_patterns: list[str] = field(
+        default_factory=lambda: [
+            r"/api/",
+            r"/v\d+/",
+            r"/graphql",
+            r"/rest/",
+            r"/users?",
+            r"/account",
+            r"/portfolio",
+            r"/transaction",
+            r"/order",
+            r"/profile",
+            r"/balance",
+            r"/wallet",
+        ]
+    )
+    id_patterns: list[str] = field(
+        default_factory=lambda: [
+            r"/\d{5,10}",  # numeric IDs in path
+            r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",  # UUIDs
+        ]
+    )
+    id_param_names: list[str] = field(
+        default_factory=lambda: [
+            "id",
+            "userId",
+            "user_id",
+            "accountId",
+            "account_id",
+            "portfolioId",
+            "portfolio_id",
+            "profileId",
+            "profile_id",
+            "customerId",
+            "customer_id",
+            "orderId",
+            "order_id",
+            "transactionId",
+            "transaction_id",
+            "uuid",
+            "token",
+        ]
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -73,30 +103,44 @@ TARGET_PROFILES: dict[str, TargetProfile] = {}
 # Load extension profiles (from prometheus/tools/idor_scanner/target_profiles.py)
 try:
     from prometheus.tools.idor_scanner.target_profiles import TARGET_PROFILES as _EXTRA  # type: ignore
+
     TARGET_PROFILES.update(_EXTRA)
 except ImportError:
     pass
 
 # Core profiles
-TARGET_PROFILES.setdefault("syfe", TargetProfile(
-    name="Syfe",
-    base_url="https://www.syfe.com",
-    signup_path="/create-account",
-    login_path="/login",
-    pages_to_scan=["/", "/dashboard", "/portfolio", "/transactions"],
-    api_patterns=[
-        r"/api/", r"/v\d+/", r"/graphql",
-        r"/users?", r"/account", r"/portfolio", r"/transaction",
-        r"/order", r"/balance", r"/wallet",
-    ],
-))
-TARGET_PROFILES.setdefault("bullish", TargetProfile(
-    name="Bullish Exchange",
-    base_url="https://simnext.bullish-test.com",
-    signup_path="/register",
-    login_path="/login",
-    pages_to_scan=["/", "/dashboard", "/wallet", "/orders", "/profile"],
-))
+TARGET_PROFILES.setdefault(
+    "syfe",
+    TargetProfile(
+        name="Syfe",
+        base_url="https://www.syfe.com",
+        signup_path="/create-account",
+        login_path="/login",
+        pages_to_scan=["/", "/dashboard", "/portfolio", "/transactions"],
+        api_patterns=[
+            r"/api/",
+            r"/v\d+/",
+            r"/graphql",
+            r"/users?",
+            r"/account",
+            r"/portfolio",
+            r"/transaction",
+            r"/order",
+            r"/balance",
+            r"/wallet",
+        ],
+    ),
+)
+TARGET_PROFILES.setdefault(
+    "bullish",
+    TargetProfile(
+        name="Bullish Exchange",
+        base_url="https://simnext.bullish-test.com",
+        signup_path="/register",
+        login_path="/login",
+        pages_to_scan=["/", "/dashboard", "/wallet", "/orders", "/profile"],
+    ),
+)
 
 
 def get_target_profile(name: str) -> TargetProfile:
@@ -110,6 +154,7 @@ def get_target_profile(name: str) -> TargetProfile:
 # ---------------------------------------------------------------------------
 # Browser session — wraps browser-harness CDP interface
 # ---------------------------------------------------------------------------
+
 
 class BrowserSession:
     """Manages a browser session via CDP for a single user.
@@ -178,11 +223,11 @@ class BrowserSession:
 
         # Fill in discovered fields
         filled = False
-        for field in fields:
-            input_type = field.get("type", "")
-            name = field.get("name", "").lower()
-            placeholder = field.get("placeholder", "").lower()
-            selector = field.get("selector", "")
+        for fld in fields:
+            input_type = fld.get("type", "")
+            name = fld.get("name", "").lower()
+            placeholder = fld.get("placeholder", "").lower()
+            selector = fld.get("selector", "")
 
             if input_type == "email" or "email" in name or "email" in placeholder:
                 h.fill_input(selector, email)
@@ -205,9 +250,16 @@ class BrowserSession:
                     continue
 
         # Try to submit
-        for css in ["button[type=submit]", "form button", "input[type=submit]",
-                     "button:contains('Sign Up')", "button:contains('Create')",
-                     "button:contains('Register')", ".signup-btn", "#signup-btn"]:
+        for css in [
+            "button[type=submit]",
+            "form button",
+            "input[type=submit]",
+            "button:contains('Sign Up')",
+            "button:contains('Create')",
+            "button:contains('Register')",
+            ".signup-btn",
+            "#signup-btn",
+        ]:
             try:
                 h.js(f"document.querySelector('{css}')?.click()")
                 time.sleep(2)
@@ -266,11 +318,11 @@ class BrowserSession:
         filled_email = False
         filled_pass = False
 
-        for field in fields:
-            input_type = field.get("type", "")
-            name = field.get("name", "").lower()
-            placeholder = field.get("placeholder", "").lower()
-            selector = field.get("selector", "")
+        for fld in fields:
+            input_type = fld.get("type", "")
+            name = fld.get("name", "").lower()
+            placeholder = fld.get("placeholder", "").lower()
+            selector = fld.get("selector", "")
 
             if input_type == "email" or "email" in name or "email" in placeholder:
                 h.fill_input(selector, email)
@@ -280,8 +332,13 @@ class BrowserSession:
                 filled_pass = True
 
         if not filled_email:
-            for css in ["input[type=email]", "input[name=email]", "input#email",
-                         "input[placeholder*=mail]", "input[placeholder*=Email]"]:
+            for css in [
+                "input[type=email]",
+                "input[name=email]",
+                "input#email",
+                "input[placeholder*=mail]",
+                "input[placeholder*=Email]",
+            ]:
                 try:
                     h.fill_input(css, email)
                     filled_email = True
@@ -299,9 +356,16 @@ class BrowserSession:
                     continue
 
         # Submit
-        for css in ["button[type=submit]", "form button", "input[type=submit]",
-                     "button:contains('Log in')", "button:contains('Sign in')",
-                     "button:contains('Login')", ".login-btn", "#login-btn"]:
+        for css in [
+            "button[type=submit]",
+            "form button",
+            "input[type=submit]",
+            "button:contains('Log in')",
+            "button:contains('Sign in')",
+            "button:contains('Login')",
+            ".login-btn",
+            "#login-btn",
+        ]:
             try:
                 h.js(f"document.querySelector('{css}')?.click()")
                 time.sleep(2)
@@ -315,9 +379,11 @@ class BrowserSession:
         try:
             raw = h.js("document.cookie")
             if raw:
-                self.auth_cookies = [{"name": c.split("=")[0].strip(),
-                                       "value": "=".join(c.split("=")[1:]).strip()}
-                                      for c in raw.split(";") if "=" in c]
+                self.auth_cookies = [
+                    {"name": c.split("=")[0].strip(), "value": "=".join(c.split("=")[1:]).strip()}
+                    for c in raw.split(";")
+                    if "=" in c
+                ]
         except Exception:
             pass
 
@@ -404,9 +470,12 @@ class BrowserSession:
         from browser_harness import helpers as h
 
         patterns = self.profile.api_patterns
-        js_code = """
+        js_code = (
+            """
         (function() {
-            var patterns = """ + json.dumps(patterns) + """;
+            var patterns = """
+            + json.dumps(patterns)
+            + """;
             var results = new Set();
             var pageText = document.documentElement.innerHTML;
 
@@ -435,6 +504,7 @@ class BrowserSession:
             }));
         })()
         """
+        )
         try:
             raw = h.js(js_code)
             if raw:
@@ -458,13 +528,15 @@ class BrowserSession:
             for pattern in self.profile.id_patterns:
                 matches = re.findall(pattern, url)
                 for m in matches:
-                    candidates.append({
-                        "url": url,
-                        "original_id": m,
-                        "id_type": "numeric" if m.isdigit() else "uuid",
-                        "method": ep.get("method", "GET"),
-                        "source": ep.get("type", "unknown"),
-                    })
+                    candidates.append(
+                        {
+                            "url": url,
+                            "original_id": m,
+                            "id_type": "numeric" if m.isdigit() else "uuid",
+                            "method": ep.get("method", "GET"),
+                            "source": ep.get("type", "unknown"),
+                        }
+                    )
 
             # Check query params with ID-like names
             if "?" in url:
@@ -473,14 +545,16 @@ class BrowserSession:
                     if "=" in param:
                         key, val = param.split("=", 1)
                         if any(id_name in key.lower() for id_name in self.profile.id_param_names):
-                            candidates.append({
-                                "url": url,
-                                "original_id": val,
-                                "id_type": "param",
-                                "param_name": key,
-                                "method": ep.get("method", "GET"),
-                                "source": ep.get("type", "unknown"),
-                            })
+                            candidates.append(
+                                {
+                                    "url": url,
+                                    "original_id": val,
+                                    "id_type": "param",
+                                    "param_name": key,
+                                    "method": ep.get("method", "GET"),
+                                    "source": ep.get("type", "unknown"),
+                                }
+                            )
 
         return candidates
 
@@ -496,6 +570,7 @@ class BrowserSession:
 # ---------------------------------------------------------------------------
 # Standalone browser interaction helpers
 # ---------------------------------------------------------------------------
+
 
 def open_browser(url: str = "") -> None:
     """Open a URL in the local Chrome instance via CDP."""

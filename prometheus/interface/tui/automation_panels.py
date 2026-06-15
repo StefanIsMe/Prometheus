@@ -113,7 +113,6 @@ class ProgramsPanel(VerticalScroll):
                 targets = registry.list_targets(status="active")
                 target_map = {}
                 for t in targets:
-
                     domain = t.get("domain", "")
                     target_map[domain] = t
             except Exception:
@@ -168,9 +167,7 @@ class ProgramsPanel(VerticalScroll):
         for program in programs:
             domain = program.get("domain", "")
             target_data = target_map.get(domain, {})
-            sched_data = schedule_map.get(
-                target_data.get("id", ""), {}
-            )
+            sched_data = schedule_map.get(target_data.get("id", ""), {})
             self._render_program_card(program, sched_data, programs_list)
 
     def _render_program_card(
@@ -196,10 +193,7 @@ class ProgramsPanel(VerticalScroll):
         platform_badge = f"[{platform_color}]{platform.upper()}[/{platform_color}]"
 
         # Auto-scan badge
-        auto_badge = (
-            "[red]AUTO-SCAN DISABLED[/red]" if auto_scan
-            else "[dim]auto-scan off[/dim]"
-        )
+        auto_badge = "[red]AUTO-SCAN DISABLED[/red]" if auto_scan else "[dim]auto-scan off[/dim]"
 
         # Schedule info from scheduler
         interval = sched_data.get("interval_hours", 24)
@@ -244,9 +238,7 @@ class ProgramsPanel(VerticalScroll):
             max_bounty = rewards.get("max", "")
             currency = rewards.get("currency", "USD")
             if min_bounty or max_bounty:
-                card_lines.append(
-                    f"  Bounty: {min_bounty} - {max_bounty} {currency}"
-                )
+                card_lines.append(f"  Bounty: {min_bounty} - {max_bounty} {currency}")
 
         # Scope summary
         if scope:
@@ -289,8 +281,7 @@ class ProgramsPanel(VerticalScroll):
     def action_add_program(self) -> None:
         """Open add program dialog. For now, notify user to edit JSON."""
         self.app.notify(
-            f"Edit {PROGRAMS_FILE} to add programs. "
-            "See format in the existing entries.",
+            f"Edit {PROGRAMS_FILE} to add programs. See format in the existing entries.",
             severity="information",
         )
 
@@ -488,7 +479,11 @@ class TargetsPanel(VerticalScroll):
                         pass
 
                 color = STATUS_COLORS.get(h_status, "#6b7280")
-                findings_str = f"[red]{h_findings} findings[/red]" if h_findings > 0 else "[green]clean[/green]"
+                findings_str = (
+                    f"[red]{h_findings} findings[/red]"
+                    if h_findings > 0
+                    else "[green]clean[/green]"
+                )
                 card_lines.append(
                     f"  [{color}]{h_status:<10}[/{color}] {h_started}  {h_sid}  {findings_str}"
                 )
@@ -699,9 +694,7 @@ class AutomatedScansPanel(VerticalScroll):
             if instance:
                 status = instance.status
                 findings = (
-                    len(instance.report_state.vulnerability_reports)
-                    if instance.report_state
-                    else 0
+                    len(instance.report_state.vulnerability_reports) if instance.report_state else 0
                 )
                 error = instance.error or ""
 
@@ -723,7 +716,9 @@ class AutomatedScansPanel(VerticalScroll):
                         vtitle = vuln.get("title", "Unknown")
                         vsev = vuln.get("severity", "info")
                         vcolor = STATUS_COLORS.get(vsev, "#6b7280")
-                        lines.append(f"  [{vcolor}]{vid}[/{vcolor}]  {vtitle}  [{vcolor}]{vsev.upper()}[/{vcolor}]")
+                        lines.append(
+                            f"  [{vcolor}]{vid}[/{vcolor}]  {vtitle}  [{vcolor}]{vsev.upper()}[/{vcolor}]"
+                        )
 
                 if instance.live_view and instance.live_view.events:
                     lines.append("\n[bold]Recent Events:[/bold]")
@@ -758,6 +753,7 @@ class AutomatedScansPanel(VerticalScroll):
                     if vulns_path.exists():
                         try:
                             import json as _json
+
                             vulns = _json.loads(vulns_path.read_text(encoding="utf-8"))
                             if vulns:
                                 lines.append("\n[bold]Vulnerability Reports:[/bold]")
@@ -768,9 +764,13 @@ class AutomatedScansPanel(VerticalScroll):
                                     vtitle = vuln.get("title", "Unknown")
                                     vsev = vuln.get("severity", "info")
                                     vcolor = STATUS_COLORS.get(vsev, "#6b7280")
-                                    lines.append(f"  [{vcolor}]{vid}[/{vcolor}]  {vtitle}  [{vcolor}]{vsev.upper()}[/{vcolor}]")
+                                    lines.append(
+                                        f"  [{vcolor}]{vid}[/{vcolor}]  {vtitle}  [{vcolor}]{vsev.upper()}[/{vcolor}]"
+                                    )
                         except Exception:
-                            lines.append("  [dim]Could not load vulnerability reports from disk[/dim]")
+                            lines.append(
+                                "  [dim]Could not load vulnerability reports from disk[/dim]"
+                            )
 
                     # Also load executive report if available
                     exec_path = Path(run_dir) / "penetration_test_report.md"

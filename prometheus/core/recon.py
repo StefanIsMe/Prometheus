@@ -42,16 +42,33 @@ _API_PATH_PATTERNS = (
 
 _SECRET_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("aws_access_key_id", re.compile(r"AKIA[0-9A-Z]{16}")),
-    ("aws_secret_access_key", re.compile(r"(?i)aws(.{0,20})?(secret|sk)[^A-Za-z0-9]+([A-Za-z0-9/+]{40})")),
+    (
+        "aws_secret_access_key",
+        re.compile(r"(?i)aws(.{0,20})?(secret|sk)[^A-Za-z0-9]+([A-Za-z0-9/+]{40})"),
+    ),
     ("github_token", re.compile(r"gh[pousr]_[A-Za-z0-9]{36,255}")),
     ("slack_token", re.compile(r"xox[abposr]-[A-Za-z0-9-]{10,}")),
     ("google_api_key", re.compile(r"AIza[0-9A-Za-z\-_]{35}")),
     ("stripe_key", re.compile(r"sk_(?:live|test)_[0-9a-zA-Z]{24,}")),
     ("jwt", re.compile(r"eyJ[A-Za-z0-9_\-]{10,}\.eyJ[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{10,}")),
     ("bearer_token", re.compile(r"(?i)bearer\s+[A-Za-z0-9_\-\.=]{20,}")),
-    ("private_key_block", re.compile(r"-----BEGIN (?:RSA |EC |DSA |OPENSSH |PGP )?PRIVATE KEY-----")),
-    ("internal_ip", re.compile(r"\b(?:10\.\d{1,3}\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}|172\.(?:1[6-9]|2[0-9]|3[0-1])\.\d{1,3}\.\d{1,3})\b")),
-    ("internal_hostname", re.compile(r"\b(?:[a-z0-9-]+\.)*(?:internal|corp|local|lan|intranet|staging|dev|qa|preprod)\.[a-z.]{2,}\b", re.IGNORECASE)),
+    (
+        "private_key_block",
+        re.compile(r"-----BEGIN (?:RSA |EC |DSA |OPENSSH |PGP )?PRIVATE KEY-----"),
+    ),
+    (
+        "internal_ip",
+        re.compile(
+            r"\b(?:10\.\d{1,3}\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}|172\.(?:1[6-9]|2[0-9]|3[0-1])\.\d{1,3}\.\d{1,3})\b"
+        ),
+    ),
+    (
+        "internal_hostname",
+        re.compile(
+            r"\b(?:[a-z0-9-]+\.)*(?:internal|corp|local|lan|intranet|staging|dev|qa|preprod)\.[a-z.]{2,}\b",
+            re.IGNORECASE,
+        ),
+    ),
 )
 
 _MAX_BUNDLE_BYTES = 2 * 1024 * 1024  # 2MB cap per JS bundle
@@ -136,8 +153,10 @@ def _classify_endpoint(url: str) -> str:
     u = url.lower()
     if any(tok in u for tok in ("/admin", "/internal/", "/_admin", "/manage/")):
         return "admin"
-    if any(tok in u for tok in ("/login", "/signup", "/register", "/session",
-                                 "/token", "/oauth", "/auth")):
+    if any(
+        tok in u
+        for tok in ("/login", "/signup", "/register", "/session", "/token", "/oauth", "/auth")
+    ):
         return "authenticated"
     # API-shape paths are authenticated by default; user-scoped paths escalate.
     if any(tok in u for tok in ("/me", "/user", "/account", "/profile", "/users/{")):

@@ -40,6 +40,7 @@ from prometheus.tools.threat_intel.tool import _cvss_score, _pkg_dict  # noqa: E
 # 1. _cvss_score handles the audit's exact failure case
 # ---------------------------------------------------------------------------
 
+
 def test_cvss_score_handles_string_payload():
     """The audit's exact failure mode: adv["cvss"] is a string.
 
@@ -85,6 +86,7 @@ def test_cvss_score_handles_int_score():
 # 2. _pkg_dict handles the same shape of bug
 # ---------------------------------------------------------------------------
 
+
 def test_pkg_dict_handles_dict():
     assert _pkg_dict({"name": "next"}) == {"name": "next"}
 
@@ -108,6 +110,7 @@ def test_pkg_dict_handles_none():
 # ---------------------------------------------------------------------------
 # 3. E2E log-replay: the exact mheducation-com_0887 failure case
 # ---------------------------------------------------------------------------
+
 
 def _load_mheducation_log() -> Path:
     """Return the path of the recorded mheducation-com_0887 prometheus.log

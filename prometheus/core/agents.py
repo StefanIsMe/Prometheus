@@ -250,7 +250,8 @@ class AgentCoordinator:
         # Find the root agent (parent_id is None and status is running)
         async with self._lock:
             root_aids = [
-                aid for aid, status in self.statuses.items()
+                aid
+                for aid, status in self.statuses.items()
                 if status == "running" and self.parent_of.get(aid) is None
             ]
         if not root_aids:
@@ -316,7 +317,11 @@ class AgentCoordinator:
                     # Take first meaningful line/chunk — skip chunk headers
                     for line in raw.split("\n"):
                         line = line.strip()
-                        if line and not line.startswith("Chunk ID:") and not line.startswith("Wall time:"):
+                        if (
+                            line
+                            and not line.startswith("Chunk ID:")
+                            and not line.startswith("Wall time:")
+                        ):
                             output_preview = line[:120]
                             break
                     if not output_preview:
@@ -333,13 +338,9 @@ class AgentCoordinator:
 
             summary = (
                 f"[SESSION COMPACTED: {len(dropped_tools)} earlier tool calls compressed. "
-
                 f"Summary of dropped operations:\n"
-
                 f"{dropped_summary}\n"
-
                 f"Current state preserved in the {len(pairs_to_keep)} most recent operations below.]"
-
             )
 
             # Rebuild session: system items + cumulative summary + recent pairs.
@@ -379,7 +380,10 @@ class AgentCoordinator:
                     await session.add_items(new_items)
                 logger.info(
                     "Compacted root session %s: %d → %d items (dropped %d tool pairs)",
-                    root_id, len(items), len(new_items), len(dropped_tools),
+                    root_id,
+                    len(items),
+                    len(new_items),
+                    len(dropped_tools),
                 )
                 return 1
 

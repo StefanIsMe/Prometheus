@@ -45,92 +45,140 @@ class PoCValidationResult:
 
 _INFORMATIONAL_PATTERNS = [
     # SSR internal hostname/IP disclosure
-    (r"(?:ssr|server.side.render|nuxt|next|angular).*?(?:internal|private|local).*?(?:hostname|ip|address|server)",
-     "SSR internal hostname/IP disclosure is reconnaissance, not a vulnerability"),
-    (r"(?:internal|private|local).*?(?:hostname|ip|address).*?(?:leak|disclos|expos|found|discover)",
-     "Internal hostname/IP discovery is reconnaissance, not exploitation"),
-    (r"(?:railway|vercel|heroku|aws|gcp|azure).*?(?:internal|private).*?(?:hostname|ip|address)",
-     "Cloud platform internal addressing is expected infrastructure behavior"),
-
+    (
+        r"(?:ssr|server.side.render|nuxt|next|angular).*?(?:internal|private|local).*?(?:hostname|ip|address|server)",
+        "SSR internal hostname/IP disclosure is reconnaissance, not a vulnerability",
+    ),
+    (
+        r"(?:internal|private|local).*?(?:hostname|ip|address).*?(?:leak|disclos|expos|found|discover)",
+        "Internal hostname/IP discovery is reconnaissance, not exploitation",
+    ),
+    (
+        r"(?:railway|vercel|heroku|aws|gcp|azure).*?(?:internal|private).*?(?:hostname|ip|address)",
+        "Cloud platform internal addressing is expected infrastructure behavior",
+    ),
     # Version/fingerprint disclosure
-    (r"(?:version|banner|fingerprint).*?(?:disclos|leak|expos|found|discover)",
-     "Version/banner disclosure is reconnaissance, not a vulnerability"),
-    (r"(?:nginx|apache|express|django|laravel|rails|next|nuxt|angular|react|vue).*?(?:version|header|banner)",
-     "Technology fingerprinting is reconnaissance, not exploitation"),
-
+    (
+        r"(?:version|banner|fingerprint).*?(?:disclos|leak|expos|found|discover)",
+        "Version/banner disclosure is reconnaissance, not a vulnerability",
+    ),
+    (
+        r"(?:nginx|apache|express|django|laravel|rails|next|nuxt|angular|react|vue).*?(?:version|header|banner)",
+        "Technology fingerprinting is reconnaissance, not exploitation",
+    ),
     # Missing headers without impact
-    (r"missing.*?(?:header|policy|cors|csp|hsts|x-frame|content-type|referrer)",
-     "Missing security headers without demonstrated impact are informational"),
-    (r"(?:header|policy|cors|csp|hsts).*?(?:missing|absent|not present|not set)",
-     "Security header absence without exploitation is informational"),
-
+    (
+        r"missing.*?(?:header|policy|cors|csp|hsts|x-frame|content-type|referrer)",
+        "Missing security headers without demonstrated impact are informational",
+    ),
+    (
+        r"(?:header|policy|cors|csp|hsts).*?(?:missing|absent|not present|not set)",
+        "Security header absence without exploitation is informational",
+    ),
     # Configuration observations
-    (r"(?:misconfiguration|misconfig|weak|insecure).*?(?:found|discover|detect|identif)",
-     "Configuration observations without exploitation are reconnaissance"),
-    (r"(?:ssl|tls|certificate).*?(?:weak|insecure|deprecated|expired)",
-     "SSL/TLS observations without exploitation are informational"),
-
+    (
+        r"(?:misconfiguration|misconfig|weak|insecure).*?(?:found|discover|detect|identif)",
+        "Configuration observations without exploitation are reconnaissance",
+    ),
+    (
+        r"(?:ssl|tls|certificate).*?(?:weak|insecure|deprecated|expired)",
+        "SSL/TLS observations without exploitation are informational",
+    ),
     # OAuth/PKCE metadata findings (informational without token exchange proof)
-    (r"(?:plain|insecure).*?(?:pkce|code_challenge).*?(?:advertised|supported|accepted)",
-     "PKCE metadata mismatch without confirmed token exchange is informational"),
-    (r"(?:discovery|metadata).*?(?:plain|insecure).*?(?:pkce|code_challenge)",
-     "OIDC discovery metadata issue without exploitation is informational"),
-    (r"(?:missing|no).*?(?:pkce|code_challenge).*?(?:enforcement|required)",
-     "Missing PKCE enforcement without demonstrated code interception is informational"),
+    (
+        r"(?:plain|insecure).*?(?:pkce|code_challenge).*?(?:advertised|supported|accepted)",
+        "PKCE metadata mismatch without confirmed token exchange is informational",
+    ),
+    (
+        r"(?:discovery|metadata).*?(?:plain|insecure).*?(?:pkce|code_challenge)",
+        "OIDC discovery metadata issue without exploitation is informational",
+    ),
+    (
+        r"(?:missing|no).*?(?:pkce|code_challenge).*?(?:enforcement|required)",
+        "Missing PKCE enforcement without demonstrated code interception is informational",
+    ),
 ]
 
 # Patterns that indicate REAL vulnerabilities (exploitable)
 _EXPLOITABLE_PATTERNS = [
     # Data access/exfiltration
-    (r"(?:accessed|read|retrieved|extracted|exfiltrated|downloaded).*?(?:data|records|documents|files|database)",
-     "Demonstrated unauthorized data access"),
-    (r"(?:used|called|executed).*?(?:api|endpoint|service|command).*?(?:with|using).*?(?:found|discovered|leaked)",
-     "Used discovered credentials to access unauthorized resources"),
-
+    (
+        r"(?:accessed|read|retrieved|extracted|exfiltrated|downloaded).*?(?:data|records|documents|files|database)",
+        "Demonstrated unauthorized data access",
+    ),
+    (
+        r"(?:used|called|executed).*?(?:api|endpoint|service|command).*?(?:with|using).*?(?:found|discovered|leaked)",
+        "Used discovered credentials to access unauthorized resources",
+    ),
     # Known vulnerable component versions (CVE-backed)
-    (r"(?:jquery|bootstrap|angular|react|vue|lodash|moment|express|django|laravel|rails|spring|struts|tomcat|nginx|apache|wordpress|drupal|joomla|magento|php|python|ruby|node|postgres|mysql|mariadb|redis|mongodb|elasticsearch|log4j).*?(?:1\.\d|2\.[0-5]|[ck]ve-\d{4}-\d+)",
-     "Known vulnerable version with documented CVEs"),
-    (r"(?:cve-\d{4}-\d{4,}|ghsa-[a-z0-9-]+|npm audit|security advisory)",
-     "References a known CVE or security advisory"),
-    (r"vulnerab(?:le|ility).*?(?:version|library|component|dependency)",
-     "Reports a vulnerable component, not just version disclosure"),
-    (r"(?:outdated|unpatched|unsupported).*?(?:version|library|component|framework)",
-     "Identifies outdated/unpatched software with security implications"),
-
+    (
+        r"(?:jquery|bootstrap|angular|react|vue|lodash|moment|express|django|laravel|rails|spring|struts|tomcat|nginx|apache|wordpress|drupal|joomla|magento|php|python|ruby|node|postgres|mysql|mariadb|redis|mongodb|elasticsearch|log4j).*?(?:1\.\d|2\.[0-5]|[ck]ve-\d{4}-\d+)",
+        "Known vulnerable version with documented CVEs",
+    ),
+    (
+        r"(?:cve-\d{4}-\d{4,}|ghsa-[a-z0-9-]+|npm audit|security advisory)",
+        "References a known CVE or security advisory",
+    ),
+    (
+        r"vulnerab(?:le|ility).*?(?:version|library|component|dependency)",
+        "Reports a vulnerable component, not just version disclosure",
+    ),
+    (
+        r"(?:outdated|unpatched|unsupported).*?(?:version|library|component|framework)",
+        "Identifies outdated/unpatched software with security implications",
+    ),
     # Authentication/authorization bypass
-    (r"(?:bypassed|circumvented|evaded).*?(?:auth|authorization|access.control|permission)",
-     "Demonstrated authentication/authorization bypass"),
-    (r"(?:accessed|viewed|modified).*?(?:other.user|another.user|admin|privilege)",
-     "Accessed unauthorized user data or admin functions"),
-
+    (
+        r"(?:bypassed|circumvented|evaded).*?(?:auth|authorization|access.control|permission)",
+        "Demonstrated authentication/authorization bypass",
+    ),
+    (
+        r"(?:accessed|viewed|modified).*?(?:other.user|another.user|admin|privilege)",
+        "Accessed unauthorized user data or admin functions",
+    ),
     # Code execution
-    (r"(?:executed|ran|injected).*?(?:command|code|script|payload).*?(?:on.server|in.browser|in.context)",
-     "Demonstrated code/command execution"),
-    (r"(?:reverse.shell|command.injection|code.injection).*?(?:successful|confirmed|established)",
-     "Confirmed code/command injection"),
-
+    (
+        r"(?:executed|ran|injected).*?(?:command|code|script|payload).*?(?:on.server|in.browser|in.context)",
+        "Demonstrated code/command execution",
+    ),
+    (
+        r"(?:reverse.shell|command.injection|code.injection).*?(?:successful|confirmed|established)",
+        "Confirmed code/command injection",
+    ),
     # Data modification
-    (r"(?:modified|created|deleted|updated|changed).*?(?:data|record|document|account|user)",
-     "Demonstrated unauthorized data modification"),
-
+    (
+        r"(?:modified|created|deleted|updated|changed).*?(?:data|record|document|account|user)",
+        "Demonstrated unauthorized data modification",
+    ),
     # Financial impact
-    (r"(?:stole|transferred|withdrew|manipulated).*?(?:funds|money|balance|credit|payment)",
-     "Demonstrated financial impact"),
-
+    (
+        r"(?:stole|transferred|withdrew|manipulated).*?(?:funds|money|balance|credit|payment)",
+        "Demonstrated financial impact",
+    ),
     # OAuth/PKCE exploitation
     # PKCE: require ACTUAL token response evidence (HTTP 200 + access_token),
     # not just theoretical description of the attack.
-    (r"(?:pkce.*downgrade|plain.*pkce).*?(?:access_token|refresh_token|token_type|Bearer).*?(?:received|obtained|returned)",
-     "Confirmed PKCE downgrade: received actual tokens via plain code_verifier"),
-    (r"(?:plain.*code_verifier|code_challenge_method.*plain).*?(?:exchanged|traded).*?(?:access_token|refresh_token|Bearer)",
-     "Plain PKCE code_verifier used to exchange auth code for tokens"),
-    (r"(?:intercept|stole|captured).*?(?:authorization.*code|auth.*code|oauth.*code).*?(?:access_token|refresh_token|Bearer).*?(?:received|obtained)",
-     "Authorization code intercepted and exchanged for tokens (full chain)"),
+    (
+        r"(?:pkce.*downgrade|plain.*pkce).*?(?:access_token|refresh_token|token_type|Bearer).*?(?:received|obtained|returned)",
+        "Confirmed PKCE downgrade: received actual tokens via plain code_verifier",
+    ),
+    (
+        r"(?:plain.*code_verifier|code_challenge_method.*plain).*?(?:exchanged|traded).*?(?:access_token|refresh_token|Bearer)",
+        "Plain PKCE code_verifier used to exchange auth code for tokens",
+    ),
+    (
+        r"(?:intercept|stole|captured).*?(?:authorization.*code|auth.*code|oauth.*code).*?(?:access_token|refresh_token|Bearer).*?(?:received|obtained)",
+        "Authorization code intercepted and exchanged for tokens (full chain)",
+    ),
     # These require CONCRETE evidence, not theoretical descriptions
-    (r"(?:oauth|oidc).*?(?:account.*takeover|token.*theft|auth.*bypass).*?(?:confirmed|demonstrated|exploit).*?(?:HTTP\s*200|access_token|Bearer)",
-     "OAuth account takeover or token theft demonstrated with evidence"),
-    (r"(?:jwt|token).*?(?:forged|algorithm.*confusion|none.*algorithm).*?(?:accepted|confirmed).*?(?:HTTP\s*200|access_token|Bearer)",
-     "JWT algorithm confusion or forgery confirmed"),
+    (
+        r"(?:oauth|oidc).*?(?:account.*takeover|token.*theft|auth.*bypass).*?(?:confirmed|demonstrated|exploit).*?(?:HTTP\s*200|access_token|Bearer)",
+        "OAuth account takeover or token theft demonstrated with evidence",
+    ),
+    (
+        r"(?:jwt|token).*?(?:forged|algorithm.*confusion|none.*algorithm).*?(?:accepted|confirmed).*?(?:HTTP\s*200|access_token|Bearer)",
+        "JWT algorithm confusion or forgery confirmed",
+    ),
 ]
 
 
@@ -234,6 +282,7 @@ def _execute_curl_command(command: str, timeout: int = 30) -> tuple[bool, str, s
                     if len(grep_args) >= 2:
                         pattern = grep_args[-1]
                         import re as _re2
+
                         lines = stdout.split("\n")
                         stdout = "\n".join(l for l in lines if _re2.search(pattern, l))
                 elif filt_lower.startswith("head "):
@@ -257,11 +306,21 @@ def _execute_curl_command(command: str, timeout: int = 30) -> tuple[bool, str, s
                         pass
                 elif "grep" in filt_lower:
                     import re as _re2
+
                     parts = shlex.split(filt)
                     for part in parts:
-                        if part not in ("grep", "-i", "-c", "-v", "-E", "-o") and not part.startswith("-"):
+                        if part not in (
+                            "grep",
+                            "-i",
+                            "-c",
+                            "-v",
+                            "-E",
+                            "-o",
+                        ) and not part.startswith("-"):
                             lines = stdout.split("\n")
-                            stdout = "\n".join(l for l in lines if _re2.search(part, l, _re2.IGNORECASE))
+                            stdout = "\n".join(
+                                l for l in lines if _re2.search(part, l, _re2.IGNORECASE)
+                            )
                             break
             # Embed raw stdout for exploitation-checking to use
             stderr = f"[raw_stdout]={raw_stdout}\n{stderr}"
@@ -498,7 +557,8 @@ def _execute_and_validate_poc(
             # stderr as "[raw_stdout]=..." when it applied pipe filters.
             raw_output = stdout
             import re as _re
-            raw_match = _re.search(r'\[raw_stdout\]=((?s:.*))', stderr)
+
+            raw_match = _re.search(r"\[raw_stdout\]=((?s:.*))", stderr)
             if raw_match:
                 raw_output = raw_match.group(1)
 
@@ -582,13 +642,19 @@ def _record_poc_validation_run(
     result: PoCValidationResult,
     command_evidence: list[str],
 ) -> None:
-    finding_id = str(finding.get("finding_id") or finding.get("candidate_id") or finding.get("id") or "")
+    finding_id = str(
+        finding.get("finding_id") or finding.get("candidate_id") or finding.get("id") or ""
+    )
     if not finding_id:
         return
     try:
         from prometheus.core.candidate_store import CandidateStore
 
-        status = "success" if result.verdict == "exploitable" and result.impact_demonstrated else "failed"
+        status = (
+            "success"
+            if result.verdict == "exploitable" and result.impact_demonstrated
+            else "failed"
+        )
         CandidateStore(finding.get("db_path")).record_validation_run(
             finding_id=finding_id,
             validator="poc_execution",

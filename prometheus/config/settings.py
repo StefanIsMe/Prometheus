@@ -57,4 +57,3 @@ class Settings(BaseSettings):
 
     llm: LlmSettings = Field(default_factory=LlmSettings)
     runtime: RuntimeSettings = Field(default_factory=RuntimeSettings)
-

@@ -141,11 +141,13 @@ def _list_custom_skills_impl() -> dict[str, Any]:
             continue
         meta = _parse_frontmatter(content)
         mtime = datetime.fromtimestamp(skill_file.stat().st_mtime, tz=UTC).isoformat()
-        skills.append({
-            "name": skill_file.stem,
-            "description": meta.get("description", ""),
-            "last_modified": mtime,
-        })
+        skills.append(
+            {
+                "name": skill_file.stem,
+                "description": meta.get("description", ""),
+                "last_modified": mtime,
+            }
+        )
     return {"success": True, "skills": skills, "count": len(skills)}
 
 
@@ -167,9 +169,7 @@ def _suggest_skill_update_impl(
         suggestions: list[dict[str, Any]] = []
         if _SUGGESTIONS_PATH.exists():
             try:
-                suggestions = json.loads(
-                    _SUGGESTIONS_PATH.read_text(encoding="utf-8")
-                )
+                suggestions = json.loads(_SUGGESTIONS_PATH.read_text(encoding="utf-8"))
                 if not isinstance(suggestions, list):
                     suggestions = []
             except (json.JSONDecodeError, OSError):
@@ -181,9 +181,7 @@ def _suggest_skill_update_impl(
             encoding="utf-8",
         )
 
-    logger.info(
-        "Skill suggestion logged: %s — %s", skill_name, observation[:80]
-    )
+    logger.info("Skill suggestion logged: %s — %s", skill_name, observation[:80])
     return {
         "success": True,
         "message": (
@@ -224,9 +222,7 @@ async def create_custom_skill(
             workflow steps, etc.).
     """
     return json.dumps(
-        await asyncio.to_thread(
-            _create_custom_skill_impl, name, description, content
-        ),
+        await asyncio.to_thread(_create_custom_skill_impl, name, description, content),
         ensure_ascii=False,
         default=str,
     )
@@ -252,9 +248,7 @@ async def update_custom_skill(
             preserving YAML frontmatter.
     """
     return json.dumps(
-        await asyncio.to_thread(
-            _update_custom_skill_impl, name, new_content, append
-        ),
+        await asyncio.to_thread(_update_custom_skill_impl, name, new_content, append),
         ensure_ascii=False,
         default=str,
     )
@@ -296,9 +290,7 @@ async def suggest_skill_update(
         technique: The technique or payload that worked.
     """
     return json.dumps(
-        await asyncio.to_thread(
-            _suggest_skill_update_impl, skill_name, observation, technique
-        ),
+        await asyncio.to_thread(_suggest_skill_update_impl, skill_name, observation, technique),
         ensure_ascii=False,
         default=str,
     )

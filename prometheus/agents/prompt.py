@@ -44,7 +44,9 @@ def _resolve_skills(
     """
     # Essential skills that are always loaded
     _ESSENTIAL_SKILLS = {
-        "tooling", "coordination", "custom",
+        "tooling",
+        "coordination",
+        "custom",
     }
 
     ordered: list[str] = list(requested or [])

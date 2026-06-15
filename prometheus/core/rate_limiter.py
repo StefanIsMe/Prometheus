@@ -14,6 +14,7 @@ from collections import deque
 DEFAULT_RATE = 50  # requests per second (Stefan wants no limits)
 DEFAULT_BURST = 50  # max concurrent (Stefan wants no limits)
 
+
 class RateLimiter:
     """Token bucket rate limiter for HTTP requests."""
 
@@ -81,22 +82,60 @@ def is_http_command(cmd: str) -> bool:
     """Check if a shell command is likely an HTTP request to a target."""
     # Skip commands that are clearly not HTTP requests (tool installs, file ops, etc.)
     skip_patterns = [
-        r"\bapt\b", r"\bapt-get\b", r"\bpip\b", r"\bpip3\b",
-        r"\bdnf\b", r"\byum\b", r"\bsnap\b",
-        r"\bcat\b", r"\becho\b", r"\bgrep\b", r"\bsed\b", r"\bawk\b",
-        r"\bls\b", r"\bmkdir\b", r"\bcp\b", r"\bmv\b", r"\brm\b",
-        r"\bchmod\b", r"\bchown\b",
-        r"\btar\b", r"\bunzip\b", r"\bgunzip\b",
-        r"\bgit\b", r"\bmake\b", r"\bgo\b", r"\bcargo\b",
+        r"\bapt\b",
+        r"\bapt-get\b",
+        r"\bpip\b",
+        r"\bpip3\b",
+        r"\bdnf\b",
+        r"\byum\b",
+        r"\bsnap\b",
+        r"\bcat\b",
+        r"\becho\b",
+        r"\bgrep\b",
+        r"\bsed\b",
+        r"\bawk\b",
+        r"\bls\b",
+        r"\bmkdir\b",
+        r"\bcp\b",
+        r"\bmv\b",
+        r"\brm\b",
+        r"\bchmod\b",
+        r"\bchown\b",
+        r"\btar\b",
+        r"\bunzip\b",
+        r"\bgunzip\b",
+        r"\bgit\b",
+        r"\bmake\b",
+        r"\bgo\b",
+        r"\bcargo\b",
         r"\bnmap\b.*-[sS]\b",  # nmap SYN scan is network but not HTTP
-        r"\bwhois\b", r"\bdig\b", r"\bhost\b", r"\bnslookup\b",
-        r"\bping\b", r"\btraceroute\b", r"\bmtr\b",
-        r"\bhead\b", r"\btail\b", r"\bwc\b", r"\bfile\b",
-        r"\bwhich\b", r"\bwhereis\b", r"\bfind\b", r"\blocate\b",
-        r"\bps\b", r"\bkill\b", r"\btop\b", r"\bhtop\b",
-        r"\benv\b", r"\bexport\b", r"\bset\b", r"\bunset\b",
-        r"\btype\b", r"\bcommand\b",
-        r"\btee\b", r"\bxargs\b",
+        r"\bwhois\b",
+        r"\bdig\b",
+        r"\bhost\b",
+        r"\bnslookup\b",
+        r"\bping\b",
+        r"\btraceroute\b",
+        r"\bmtr\b",
+        r"\bhead\b",
+        r"\btail\b",
+        r"\bwc\b",
+        r"\bfile\b",
+        r"\bwhich\b",
+        r"\bwhereis\b",
+        r"\bfind\b",
+        r"\blocate\b",
+        r"\bps\b",
+        r"\bkill\b",
+        r"\btop\b",
+        r"\bhtop\b",
+        r"\benv\b",
+        r"\bexport\b",
+        r"\bset\b",
+        r"\bunset\b",
+        r"\btype\b",
+        r"\bcommand\b",
+        r"\btee\b",
+        r"\bxargs\b",
     ]
     for pat in skip_patterns:
         if re.search(pat, cmd):

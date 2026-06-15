@@ -52,12 +52,12 @@ def _default_scope_yaml(domain: str) -> str:
         "# Engagement scope configuration\n"
         "# 4-pattern allowlist + regex via re: + deny-wins + default-deny\n"
         "in_scope:\n"
-        f"  - \"{domain}\"\n"
-        f"  - \"*.{domain}\"\n"
+        f'  - "{domain}"\n'
+        f'  - "*.{domain}"\n'
         "out_of_scope:\n"
-        "  - \"localhost\"\n"
-        "  - \"127.0.0.1\"\n"
-        "  - \"169.254.0.0/16\"   # link-local\n"
+        '  - "localhost"\n'
+        '  - "127.0.0.1"\n'
+        '  - "169.254.0.0/16"   # link-local\n'
     )
 
 
@@ -79,8 +79,7 @@ def _default_scope_md(domain: str) -> str:
 
 def _default_engine_log() -> str:
     return (
-        f"# engine.log — {datetime.now(UTC).isoformat()}\n"
-        "# Append-only log of engagement events.\n"
+        f"# engine.log — {datetime.now(UTC).isoformat()}\n# Append-only log of engagement events.\n"
     )
 
 
@@ -119,9 +118,7 @@ class Engagement:
         eng_root = (root or DEFAULT_ENGAGEMENTS_ROOT) / name
         if eng_root.exists() and not overwrite:
             if (eng_root / "state.json").exists():
-                raise EngagementExistsError(
-                    f"Engagement {name!r} already exists at {eng_root}"
-                )
+                raise EngagementExistsError(f"Engagement {name!r} already exists at {eng_root}")
         eng_root.mkdir(parents=True, exist_ok=True)
         (eng_root / "findings").mkdir(exist_ok=True)
         (eng_root / "evidence").mkdir(exist_ok=True)
@@ -129,9 +126,7 @@ class Engagement:
         (eng_root / "scope.yaml").write_text(
             scope_yaml or _default_scope_yaml(name), encoding="utf-8"
         )
-        (eng_root / "scope.md").write_text(
-            scope_md or _default_scope_md(name), encoding="utf-8"
-        )
+        (eng_root / "scope.md").write_text(scope_md or _default_scope_md(name), encoding="utf-8")
         if not (eng_root / "engine.log").exists():
             (eng_root / "engine.log").write_text(_default_engine_log(), encoding="utf-8")
         state = EngagementState.new(name)
@@ -145,9 +140,7 @@ class Engagement:
         name = _validate_domain(domain)
         eng_root = (root or DEFAULT_ENGAGEMENTS_ROOT) / name
         if not eng_root.is_dir():
-            raise EngagementNotFoundError(
-                f"Engagement {name!r} not found at {eng_root}"
-            )
+            raise EngagementNotFoundError(f"Engagement {name!r} not found at {eng_root}")
         state_path = eng_root / "state.json"
         if state_path.exists():
             try:

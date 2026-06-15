@@ -118,8 +118,14 @@ class TargetRegistry:
                         schedule = ?, status = 'active', updated_at = ?
                     WHERE id = ?
                     """,
-                    (target_type, target_config_json, scan_config_json,
-                     schedule_json, now, target_id),
+                    (
+                        target_type,
+                        target_config_json,
+                        scan_config_json,
+                        schedule_json,
+                        now,
+                        target_id,
+                    ),
                 )
             else:
                 self._conn.execute(
@@ -129,8 +135,16 @@ class TargetRegistry:
                          schedule, status, created_at, updated_at)
                     VALUES (?, ?, ?, ?, ?, ?, 'active', ?, ?)
                     """,
-                    (target_id, domain, target_type, target_config_json,
-                     scan_config_json, schedule_json, now, now),
+                    (
+                        target_id,
+                        domain,
+                        target_type,
+                        target_config_json,
+                        scan_config_json,
+                        schedule_json,
+                        now,
+                        now,
+                    ),
                 )
             self._conn.commit()
 
@@ -147,9 +161,7 @@ class TargetRegistry:
     def remove_target(self, target_id: str) -> dict[str, Any]:
         """Remove a target by id.  Returns success/error."""
         with self._lock:
-            cur = self._conn.execute(
-                "DELETE FROM targets WHERE id = ?", (target_id,)
-            )
+            cur = self._conn.execute("DELETE FROM targets WHERE id = ?", (target_id,))
             self._conn.commit()
             if cur.rowcount == 0:
                 return {"success": False, "error": f"Target '{target_id}' not found"}
@@ -169,9 +181,7 @@ class TargetRegistry:
     def get_target(self, target_id: str) -> dict[str, Any] | None:
         """Get a single target by id, or None."""
         with self._lock:
-            row = self._conn.execute(
-                "SELECT * FROM targets WHERE id = ?", (target_id,)
-            ).fetchone()
+            row = self._conn.execute("SELECT * FROM targets WHERE id = ?", (target_id,)).fetchone()
         if row is None:
             return None
         return self._row_to_dict(row)

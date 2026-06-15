@@ -256,7 +256,8 @@ class CVEWatcher:
                     except Exception:
                         logger.exception(
                             "CVEWatcher: error checking target %s (%s)",
-                            target_id, domain,
+                            target_id,
+                            domain,
                         )
                         summary["targets_err"] += 1
             finally:
@@ -344,7 +345,8 @@ class CVEWatcher:
         if not fingerprints:
             logger.debug(
                 "CVEWatcher: no fingerprints for target %s (%s)",
-                target_id, domain,
+                target_id,
+                domain,
             )
             return []
 
@@ -394,23 +396,27 @@ class CVEWatcher:
                         """,
                         (cve_id, target_id, tech, now),
                     )
-                    new_alerts.append({
-                        "cve_id": cve_id,
-                        "technology": tech,
-                        "version": version,
-                        "severity": cve.get("severity", ""),
-                        "cvss_score": cve.get("cvss_score", 0.0),
-                        "description": cve.get("description", "")[:200],
-                        "cisa_kev": bool(cve.get("cisa_kev")),
-                        "has_exploit": bool(cve.get("has_exploit")),
-                    })
+                    new_alerts.append(
+                        {
+                            "cve_id": cve_id,
+                            "technology": tech,
+                            "version": version,
+                            "severity": cve.get("severity", ""),
+                            "cvss_score": cve.get("cvss_score", 0.0),
+                            "description": cve.get("description", "")[:200],
+                            "cisa_kev": bool(cve.get("cisa_kev")),
+                            "has_exploit": bool(cve.get("has_exploit")),
+                        }
+                    )
 
             self._conn.commit()
 
         if new_alerts:
             logger.info(
                 "CVEWatcher: %d new CVEs for target %s (%s)",
-                len(new_alerts), target_id, domain,
+                len(new_alerts),
+                target_id,
+                domain,
             )
         return new_alerts
 
@@ -470,17 +476,37 @@ class CVEWatcher:
     # ------------------------------------------------------------------
 
     _ECOSYSTEM_MAP: dict[str, str] = {
-        "npm": "npm", "node": "npm", "next.js": "npm", "nextjs": "npm",
-        "react": "npm", "express": "npm", "angular": "npm", "vue": "npm",
+        "npm": "npm",
+        "node": "npm",
+        "next.js": "npm",
+        "nextjs": "npm",
+        "react": "npm",
+        "express": "npm",
+        "angular": "npm",
+        "vue": "npm",
         "nuxt": "npm",
-        "python": "pypi", "pip": "pypi", "flask": "pypi", "django": "pypi",
-        "fastapi": "pypi", "uvicorn": "pypi",
-        "go": "go", "golang": "go",
-        "rust": "crates.io", "cargo": "crates.io",
-        "ruby": "rubygems", "rails": "rubygems", "gem": "rubygems",
-        "java": "maven", "maven": "maven", "spring": "maven",
-        "php": "packagist", "composer": "packagist", "laravel": "packagist",
-        "nuget": "nuget", ".net": "nuget", "csharp": "nuget",
+        "python": "pypi",
+        "pip": "pypi",
+        "flask": "pypi",
+        "django": "pypi",
+        "fastapi": "pypi",
+        "uvicorn": "pypi",
+        "go": "go",
+        "golang": "go",
+        "rust": "crates.io",
+        "cargo": "crates.io",
+        "ruby": "rubygems",
+        "rails": "rubygems",
+        "gem": "rubygems",
+        "java": "maven",
+        "maven": "maven",
+        "spring": "maven",
+        "php": "packagist",
+        "composer": "packagist",
+        "laravel": "packagist",
+        "nuget": "nuget",
+        ".net": "nuget",
+        "csharp": "nuget",
         "swift": "swift",
     }
 
@@ -496,7 +522,8 @@ class CVEWatcher:
 
     @staticmethod
     def _query_cves_by_keyword(
-        intel_db: Any, tech: str,
+        intel_db: Any,
+        tech: str,
     ) -> list[dict[str, Any]]:
         """Fall back to LIKE search on CVE description when no ecosystem match."""
         pattern = f"%{tech.lower()}%"
@@ -571,14 +598,18 @@ class CVEWatcher:
 
             logger.info(
                 "CVEWatcher: launched scan %s for %s on target %s (%s)",
-                scan_id, cve_id, target_id, target.get("domain", ""),
+                scan_id,
+                cve_id,
+                target_id,
+                target.get("domain", ""),
             )
             return scan_id
 
         except Exception:
             logger.exception(
                 "CVEWatcher: failed to launch scan for %s on target %s",
-                cve_id, target_id,
+                cve_id,
+                target_id,
             )
             return None
 

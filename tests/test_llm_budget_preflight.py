@@ -21,6 +21,7 @@ This file:
   6. Unit-tests that the failure-to-load-settings path returns
      ``(True, ...)`` (best-effort).
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -41,7 +42,10 @@ from prometheus.core.runner import _check_llm_budget  # noqa: E402
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _fake_settings(provider: str = "openai", api_base: str = "https://api.openai.com/v1") -> SimpleNamespace:
+
+def _fake_settings(
+    provider: str = "openai", api_base: str = "https://api.openai.com/v1"
+) -> SimpleNamespace:
     return SimpleNamespace(
         llm=SimpleNamespace(provider=provider, api_base=api_base),
     )
@@ -59,6 +63,7 @@ def _mock_response(*, status: int, headers: dict[str, str] | None = None, text: 
 # ---------------------------------------------------------------------------
 # 1. 402 from provider
 # ---------------------------------------------------------------------------
+
 
 def test_402_makes_preflight_fail():
     """A 402 Payment Required response must make the preflight return False."""
@@ -84,6 +89,7 @@ def test_402_makes_preflight_fail():
 # 2. 429 from provider
 # ---------------------------------------------------------------------------
 
+
 def test_429_makes_preflight_fail():
     """A 429 rate-limit response must make the preflight return False."""
 
@@ -107,6 +113,7 @@ def test_429_makes_preflight_fail():
 # ---------------------------------------------------------------------------
 # 3. x-ratelimit-remaining-tokens below headroom
 # ---------------------------------------------------------------------------
+
 
 def test_low_remaining_tokens_makes_preflight_fail():
     """A 200 with ``x-ratelimit-remaining-tokens`` < headroom must fail."""
@@ -135,6 +142,7 @@ def test_low_remaining_tokens_makes_preflight_fail():
 # 4. Normal 200 passes
 # ---------------------------------------------------------------------------
 
+
 def test_normal_200_passes():
     """A 200 with no rate-limit header makes the preflight return True."""
 
@@ -162,6 +170,7 @@ def test_normal_200_passes():
 # 5. Missing API key does not block
 # ---------------------------------------------------------------------------
 
+
 def test_missing_api_key_does_not_block():
     """A missing API key in env must NOT block the scan (best-effort)."""
 
@@ -178,6 +187,7 @@ def test_missing_api_key_does_not_block():
 # ---------------------------------------------------------------------------
 # 6. Settings load failure does not block
 # ---------------------------------------------------------------------------
+
 
 def test_settings_load_failure_does_not_block():
     """If ``load_settings`` raises, the preflight must NOT block."""

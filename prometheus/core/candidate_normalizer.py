@@ -13,13 +13,28 @@ from prometheus.core.candidate_fingerprint import fingerprint_candidate
 from prometheus.core.candidate_schema import FindingCandidate
 
 _REJECT_RULES: tuple[tuple[str, str], ...] = (
-    (r"missing\s+(security\s+)?(header|csp|hsts|x[-\s]?frame|content[-\s]?type|referrer|x\s+frame)", "missing security header without exploit path"),
-    (r"internal\s+(host|hostname|ip|address).*(disclos|leak|expos|found)", "internal hostname disclosure without exploit chain"),
-    (r"(version|banner|fingerprint).*?(disclos|leak|expos|found)", "generic version disclosure without exploit chain"),
+    (
+        r"missing\s+(security\s+)?(header|csp|hsts|x[-\s]?frame|content[-\s]?type|referrer|x\s+frame)",
+        "missing security header without exploit path",
+    ),
+    (
+        r"internal\s+(host|hostname|ip|address).*(disclos|leak|expos|found)",
+        "internal hostname disclosure without exploit chain",
+    ),
+    (
+        r"(version|banner|fingerprint).*?(disclos|leak|expos|found)",
+        "generic version disclosure without exploit chain",
+    ),
     (r"cors.*?(options|preflight).*?(only|no readable|no data)", "CORS preflight only evidence"),
-    (r"source\s*map.*?(only|no exploit|visibility)", "source map without sensitive or exploitable path"),
+    (
+        r"source\s*map.*?(only|no exploit|visibility)",
+        "source map without sensitive or exploitable path",
+    ),
     (r"rate\s*limit.*?(low value|non-sensitive|public)", "rate limit issue on low value endpoint"),
-    (r"public\s+(api|information|asset|documentation)", "public information with no security impact"),
+    (
+        r"public\s+(api|information|asset|documentation)",
+        "public information with no security impact",
+    ),
 )
 
 _VULN_TYPE_PATTERNS: tuple[tuple[str, str], ...] = (
@@ -43,10 +58,14 @@ def normalize_finding(
 ) -> FindingCandidate:
     """Return a canonical candidate from one raw finding dict."""
     domain_clean = _domain_from_url(domain) or domain
-    title = str(raw.get("title") or raw.get("finding_title") or raw.get("name") or "Untitled finding").strip()
+    title = str(
+        raw.get("title") or raw.get("finding_title") or raw.get("name") or "Untitled finding"
+    ).strip()
     endpoint = _first_present(raw, "endpoint", "url", "path", "target_url")
     method = str(raw.get("method") or "GET").upper()
-    vuln_type = str(raw.get("vuln_type") or raw.get("type") or raw.get("category") or "").strip().lower()
+    vuln_type = (
+        str(raw.get("vuln_type") or raw.get("type") or raw.get("category") or "").strip().lower()
+    )
     if not vuln_type:
         vuln_type = infer_vuln_type(title, raw)
     parameter = _first_present(raw, "parameter", "param", "field")
@@ -99,7 +118,14 @@ def normalize_finding(
 def infer_vuln_type(title: str, raw: dict[str, Any]) -> str:
     text = " ".join(
         str(raw.get(key) or "")
-        for key in ("title", "finding_title", "description", "technical_analysis", "impact", "poc_description")
+        for key in (
+            "title",
+            "finding_title",
+            "description",
+            "technical_analysis",
+            "impact",
+            "poc_description",
+        )
     )
     text = f"{title} {text}".lower()
     for pattern, vuln_type in _VULN_TYPE_PATTERNS:
@@ -111,7 +137,15 @@ def infer_vuln_type(title: str, raw: dict[str, Any]) -> str:
 def deterministic_rejection_reason(raw: dict[str, Any], *, title: str | None = None) -> str | None:
     text = " ".join(
         str(raw.get(key) or "")
-        for key in ("title", "finding_title", "description", "technical_analysis", "impact", "poc_description", "evidence")
+        for key in (
+            "title",
+            "finding_title",
+            "description",
+            "technical_analysis",
+            "impact",
+            "poc_description",
+            "evidence",
+        )
     )
     if title:
         text = f"{title} {text}"

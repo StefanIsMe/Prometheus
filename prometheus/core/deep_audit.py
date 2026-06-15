@@ -32,9 +32,11 @@ logger = logging.getLogger(__name__)
 # Data models
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class ResponseFingerprint:
     """Unique signature for an HTTP response."""
+
     status_code: int
     body_hash: str
     body_length: int
@@ -57,6 +59,7 @@ class ResponseFingerprint:
 @dataclass
 class DifferentialResult:
     """Result of comparing multiple response fingerprints."""
+
     endpoint: str
     test_values: list[str]
     fingerprints: list[ResponseFingerprint]
@@ -71,6 +74,7 @@ class DifferentialResult:
 @dataclass
 class AuthFlowStep:
     """A single step in an authentication flow."""
+
     url: str
     method: str
     status_code: int
@@ -83,6 +87,7 @@ class AuthFlowStep:
 @dataclass
 class AuthFlowResult:
     """Complete auth flow trace."""
+
     target_url: str
     steps: list[AuthFlowStep]
     endpoints_discovered: list[str]
@@ -94,6 +99,7 @@ class AuthFlowResult:
 @dataclass
 class RateLimitResult:
     """Result of rate limit probing."""
+
     endpoint: str
     requests_made: int
     requests_per_second: float
@@ -109,6 +115,7 @@ class RateLimitResult:
 # ---------------------------------------------------------------------------
 # Response fingerprinting
 # ---------------------------------------------------------------------------
+
 
 def fingerprint_response(
     status_code: int,
@@ -142,19 +149,23 @@ def _normalize_body(body: str) -> str:
     """Strip non-deterministic content from response body for hashing."""
     # Remove timestamps (ISO 8601, Unix timestamps, etc.)
     normalized = re.sub(
-        r'\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}[.\d]*Z?',
-        '<TIMESTAMP>', body,
+        r"\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}[.\d]*Z?",
+        "<TIMESTAMP>",
+        body,
     )
-    normalized = re.sub(r'\b\d{10,13}\b', '<EPOCH>', normalized)
+    normalized = re.sub(r"\b\d{10,13}\b", "<EPOCH>", normalized)
     # Remove UUIDs
     normalized = re.sub(
-        r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}',
-        '<UUID>', normalized, flags=re.IGNORECASE,
+        r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",
+        "<UUID>",
+        normalized,
+        flags=re.IGNORECASE,
     )
     # Remove request IDs / trace IDs
     normalized = re.sub(
         r'"(?:request_id|trace_id|requestId|traceId|correlation_id)"\s*:\s*"[^"]*"',
-        '"request_id":"<ID>"', normalized,
+        '"request_id":"<ID>"',
+        normalized,
     )
     return normalized
 
@@ -185,6 +196,7 @@ def classify_responses(
 # ---------------------------------------------------------------------------
 # Differential response analysis
 # ---------------------------------------------------------------------------
+
 
 def analyze_differential(
     endpoint: str,
@@ -272,8 +284,10 @@ def _classify_differential_type(
     if has_error and (200 in statuses or has_redirect):
         if has_redirect:
             redirect_urls = [fp.redirect_url for fp in fingerprints if fp.redirect_url]
-            if any("saml" in u.lower() or "sso" in u.lower() or "oauth" in u.lower()
-                   for u in redirect_urls):
+            if any(
+                "saml" in u.lower() or "sso" in u.lower() or "oauth" in u.lower()
+                for u in redirect_urls
+            ):
                 return "account_enumeration_with_sso"
         return "account_enumeration"
 
@@ -288,6 +302,7 @@ def _classify_differential_type(
 # ---------------------------------------------------------------------------
 # Auth flow tracing (browser-based)
 # ---------------------------------------------------------------------------
+
 
 def build_auth_flow_trace_script(
     login_url: str,
@@ -434,6 +449,7 @@ if __name__ == "__main__":
 # Rate limit probing
 # ---------------------------------------------------------------------------
 
+
 def analyze_rate_limit(
     endpoint: str,
     responses: list[dict[str, Any]],
@@ -451,10 +467,16 @@ def analyze_rate_limit(
     """
     if not responses:
         return RateLimitResult(
-            endpoint=endpoint, requests_made=0, requests_per_second=0,
-            limited=False, limit_threshold=None, limit_response_code=None,
-            limit_response_body="", retry_after=None,
-            verdict="no_data", confidence=0.0,
+            endpoint=endpoint,
+            requests_made=0,
+            requests_per_second=0,
+            limited=False,
+            limit_threshold=None,
+            limit_response_code=None,
+            limit_response_body="",
+            retry_after=None,
+            verdict="no_data",
+            confidence=0.0,
         )
 
     rps = len(responses) / max(time_span_seconds, 0.1)
@@ -513,6 +535,7 @@ def analyze_rate_limit(
 # ---------------------------------------------------------------------------
 # PoC generation
 # ---------------------------------------------------------------------------
+
 
 def generate_poc_script(
     finding_title: str,
@@ -657,6 +680,7 @@ if __name__ == "__main__":
 # Report generation for bug bounty platforms
 # ---------------------------------------------------------------------------
 
+
 def generate_bugcrowd_report(
     title: str,
     target: str,
@@ -690,15 +714,17 @@ def generate_bugcrowd_report(
     for i, step in enumerate(poc_steps, 1):
         desc_parts.append(f"{i}. {step}")
 
-    desc_parts.extend([
-        "",
-        "## Evidence",
-        "",
-        "The following distinct responses were observed:",
-        "",
-        "| Input | HTTP Status | Response |",
-        "|-------|-------------|----------|",
-    ])
+    desc_parts.extend(
+        [
+            "",
+            "## Evidence",
+            "",
+            "The following distinct responses were observed:",
+            "",
+            "| Input | HTTP Status | Response |",
+            "|-------|-------------|----------|",
+        ]
+    )
 
     for fp_key, values in differential_result.response_classes.items():
         status = fp_key.split(":")[0]
@@ -709,18 +735,20 @@ def generate_bugcrowd_report(
                     desc_parts.append(f"| {v[:30]} | {status} | {snippet} |")
                 break
 
-    desc_parts.extend([
-        "",
-        f"Total distinct response classes: {differential_result.distinct_responses}",
-        "",
-        "## Classification",
-        "",
-        f"- CWE: {cwe}",
-        f"- CVSS: {cvss_score} ({cvss_vector})",
-        "",
-        "## Remediation",
-        "",
-    ])
+    desc_parts.extend(
+        [
+            "",
+            f"Total distinct response classes: {differential_result.distinct_responses}",
+            "",
+            "## Classification",
+            "",
+            f"- CWE: {cwe}",
+            f"- CVSS: {cvss_score} ({cvss_vector})",
+            "",
+            "## Remediation",
+            "",
+        ]
+    )
     for i, fix in enumerate(remediation, 1):
         desc_parts.append(f"{i}. {fix}")
 
@@ -729,6 +757,7 @@ def generate_bugcrowd_report(
     # Use VRT classifier for accurate category mapping
     try:
         from prometheus.core.vrt_classifier import get_vrt_classifier
+
         vrt = get_vrt_classifier()
         classification = vrt.classify(
             title=title,
@@ -762,6 +791,7 @@ def generate_bugcrowd_report(
 # Orchestrator: full deep audit pipeline
 # ---------------------------------------------------------------------------
 
+
 def build_deep_audit_plan(
     target_url: str,
     finding_hint: str = "",
@@ -774,55 +804,63 @@ def build_deep_audit_plan(
     phases: list[dict[str, Any]] = []
 
     # Phase 1: Auth flow mapping (if login detected)
-    phases.append({
-        "name": "auth_flow_mapping",
-        "description": "Navigate to login page via browser, trace auth flow, discover API endpoints",
-        "tool": "browser-harness",
-        "steps": [
-            "Navigate to target login page",
-            "Monitor network traffic for API calls",
-            "Submit test email and capture request/response",
-            "Document all discovered endpoints",
-        ],
-    })
+    phases.append(
+        {
+            "name": "auth_flow_mapping",
+            "description": "Navigate to login page via browser, trace auth flow, discover API endpoints",
+            "tool": "browser-harness",
+            "steps": [
+                "Navigate to target login page",
+                "Monitor network traffic for API calls",
+                "Submit test email and capture request/response",
+                "Document all discovered endpoints",
+            ],
+        }
+    )
 
     # Phase 2: Differential response analysis
-    phases.append({
-        "name": "differential_analysis",
-        "description": "Test endpoint with varied inputs, compare response fingerprints",
-        "tool": "curl_cffi or browser-harness",
-        "steps": [
-            "Identify the primary auth endpoint from Phase 1",
-            "Send 3+ distinct test values (nonexistent, valid, SSO)",
-            "Fingerprint each response (status, body hash, redirect)",
-            "Classify responses and determine if differential",
-        ],
-    })
+    phases.append(
+        {
+            "name": "differential_analysis",
+            "description": "Test endpoint with varied inputs, compare response fingerprints",
+            "tool": "curl_cffi or browser-harness",
+            "steps": [
+                "Identify the primary auth endpoint from Phase 1",
+                "Send 3+ distinct test values (nonexistent, valid, SSO)",
+                "Fingerprint each response (status, body hash, redirect)",
+                "Classify responses and determine if differential",
+            ],
+        }
+    )
 
     # Phase 3: Rate limit testing
-    phases.append({
-        "name": "rate_limit_probing",
-        "description": "Send rapid requests to check for rate limiting",
-        "tool": "curl_cffi",
-        "steps": [
-            "Send 20+ rapid requests to the endpoint",
-            "Track response codes over time",
-            "Detect 429/503 responses or CAPTCHA challenges",
-            "Calculate effective rate limit threshold",
-        ],
-    })
+    phases.append(
+        {
+            "name": "rate_limit_probing",
+            "description": "Send rapid requests to check for rate limiting",
+            "tool": "curl_cffi",
+            "steps": [
+                "Send 20+ rapid requests to the endpoint",
+                "Track response codes over time",
+                "Detect 429/503 responses or CAPTCHA challenges",
+                "Calculate effective rate limit threshold",
+            ],
+        }
+    )
 
     # Phase 4: PoC generation
-    phases.append({
-        "name": "poc_generation",
-        "description": "Generate executable PoC from collected evidence",
-        "tool": "code generation",
-        "steps": [
-            "Build PoC script from test cases and responses",
-            "Include real request/response evidence",
-            "Generate submission-ready report",
-        ],
-    })
+    phases.append(
+        {
+            "name": "poc_generation",
+            "description": "Generate executable PoC from collected evidence",
+            "tool": "code generation",
+            "steps": [
+                "Build PoC script from test cases and responses",
+                "Include real request/response evidence",
+                "Generate submission-ready report",
+            ],
+        }
+    )
 
     return {
         "target": target_url,

@@ -6,6 +6,7 @@ WARNING-level log line. The new behaviour:
   2. Logs at INFO with the actual requested vs. granted values
   3. Falls back to the default 60 on missing/invalid env var
 """
+
 from __future__ import annotations
 
 import sys
@@ -51,6 +52,7 @@ def test_honours_high_override(monkeypatch):
 def test_invalid_string_falls_back_to_default(monkeypatch, caplog):
     monkeypatch.setenv(_CHILD_MAX_TURNS_ENV, "not-a-number")
     import logging
+
     with caplog.at_level(logging.WARNING, logger="prometheus.core.execution"):
         result = _resolve_child_max_turns()
     assert result == _MAX_CHILD_TURNS
@@ -62,6 +64,7 @@ def test_zero_falls_back_to_default(monkeypatch, caplog):
     """A zero cap would kill any child agent — reject it."""
     monkeypatch.setenv(_CHILD_MAX_TURNS_ENV, "0")
     import logging
+
     with caplog.at_level(logging.WARNING, logger="prometheus.core.execution"):
         result = _resolve_child_max_turns()
     assert result == _MAX_CHILD_TURNS
@@ -71,6 +74,7 @@ def test_zero_falls_back_to_default(monkeypatch, caplog):
 def test_negative_falls_back_to_default(monkeypatch, caplog):
     monkeypatch.setenv(_CHILD_MAX_TURNS_ENV, "-5")
     import logging
+
     with caplog.at_level(logging.WARNING, logger="prometheus.core.execution"):
         result = _resolve_child_max_turns()
     assert result == _MAX_CHILD_TURNS
@@ -97,6 +101,7 @@ def test_env_var_name_is_documented():
 
 if __name__ == "__main__":
     import logging
+
     logging.basicConfig(level=logging.DEBUG)
     test_default_when_env_var_unset()
     test_default_when_env_var_empty()

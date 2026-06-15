@@ -131,8 +131,11 @@ def _q2_untrusted_actor(finding: dict[str, Any]) -> tuple[bool, str]:
     """Untrusted actor reaches the code path."""
     text = _finding_text(finding)
     blockers = (
-        "self-xss", "self xss", "only the attacker can",
-        "attacker must control the victim", "requires the victim to click their own",
+        "self-xss",
+        "self xss",
+        "only the attacker can",
+        "attacker must control the victim",
+        "requires the victim to click their own",
     )
     for blocker in blockers:
         if blocker in text:
@@ -176,10 +179,20 @@ def _q6_actual_victim_data(finding: dict[str, Any]) -> tuple[bool, str]:
     """Actual victim data exfil/modification in evidence."""
     text = _finding_text(finding)
     indicators = (
-        "exfiltrat", "data returned", "balance changed", "token returned",
-        "iam credential", "session cookie", "private key", "password returned",
-        "ssn returned", "credit card", "api key returned",
-        "200 ok", "response body", "exfil",
+        "exfiltrat",
+        "data returned",
+        "balance changed",
+        "token returned",
+        "iam credential",
+        "session cookie",
+        "private key",
+        "password returned",
+        "ssn returned",
+        "credit card",
+        "api key returned",
+        "200 ok",
+        "response body",
+        "exfil",
     )
     if not any(i in text for i in indicators):
         return False, "no victim-data evidence (no exfil, no body diff, no creds)"
@@ -211,9 +224,23 @@ def _finding_text(finding: dict[str, Any]) -> str:
     import json
 
     parts: list[str] = []
-    for key in ("title", "summary", "description", "vuln_type", "endpoint",
-                "chain_context", "chain", "tags", "evidence", "request",
-                "response", "impact", "cost", "setup", "reproduction_steps"):
+    for key in (
+        "title",
+        "summary",
+        "description",
+        "vuln_type",
+        "endpoint",
+        "chain_context",
+        "chain",
+        "tags",
+        "evidence",
+        "request",
+        "response",
+        "impact",
+        "cost",
+        "setup",
+        "reproduction_steps",
+    ):
         v = finding.get(key)
         if isinstance(v, str):
             parts.append(v)

@@ -109,6 +109,7 @@ def _reset_event_sink_health(agent_id: str) -> None:
     """Reset the per-agent sink health (e.g. on a new scan / agent)."""
     _sink_dead.discard(agent_id)
 
+
 # --- Fix 5: stream stall watchdog ---
 # If no stream event arrives within this many seconds, the LLM connection is
 # considered dead (CLOSE-WAIT / half-open).  The timeout resets on every event.
@@ -1173,7 +1174,9 @@ def _check_consecutive_tool_errors(
                     "[agent %s] gate '%s' has refused %d times — escape "
                     "hatch open: next finish_scan will be allowed through "
                     "with a warning.",
-                    agent_id, gate_name, refusal_count,
+                    agent_id,
+                    gate_name,
+                    refusal_count,
                 )
             return
         if is_infra:
@@ -1307,10 +1310,12 @@ _CLAIM_PHRASES: tuple[str, ...] = (
 
 # Tools that file a finding. If one of these fires within
 # _CLAIM_WINDOW_S of the claim, the claim is considered filed.
-_FINDING_FILE_TOOLS: frozenset[str] = frozenset({
-    "create_vulnerability_report",
-    "run_scan_pipeline",
-})
+_FINDING_FILE_TOOLS: frozenset[str] = frozenset(
+    {
+        "create_vulnerability_report",
+        "run_scan_pipeline",
+    }
+)
 
 _CLAIM_WINDOW_S: float = 60.0
 # Per-agent state: maps claim_key -> first_seen_monotonic. claim_key is
@@ -1409,13 +1414,17 @@ def _maybe_emit_unfiled_claims(agent_id: str, run_id: str) -> int:
             continue
         phrase, hint = key.split("|", 1)
         try:
-            write_status(run_id, "unfiled_claim", {
-                "agent_id": agent_id,
-                "phrase": phrase,
-                "hint": hint,
-                "age_s": round(now - first_seen, 1),
-                "claim_window_s": _CLAIM_WINDOW_S,
-            })
+            write_status(
+                run_id,
+                "unfiled_claim",
+                {
+                    "agent_id": agent_id,
+                    "phrase": phrase,
+                    "hint": hint,
+                    "age_s": round(now - first_seen, 1),
+                    "claim_window_s": _CLAIM_WINDOW_S,
+                },
+            )
             fired.append(key)
         except Exception:
             logger.debug("unfiled_claim emit failed", exc_info=True)
@@ -1443,7 +1452,9 @@ def _emit_stream_event_to_comms(agent_id: str, event: Any) -> None:
     last = _LAST_COMMS_EVENT_TS.get((agent_id, etype), 0.0)
     now = time.monotonic()
     if (now - last) < (_COMMS_THROTTLE_MS / 1000.0) and etype in {
-        "tool_called", "tool_output", "message_output_created"
+        "tool_called",
+        "tool_output",
+        "message_output_created",
     }:
         return
     _LAST_COMMS_EVENT_TS[(agent_id, etype)] = now
@@ -1459,11 +1470,15 @@ def _emit_stream_event_to_comms(agent_id: str, event: Any) -> None:
                 a = getattr(raw, "arguments", None)
                 if a:
                     args = a if isinstance(a, str) else json.dumps(a)
-            write_status(run_id, "tool_call_stream", {
-                "agent_id": agent_id,
-                "tool": tool_name,
-                "args": args,
-            })
+            write_status(
+                run_id,
+                "tool_call_stream",
+                {
+                    "agent_id": agent_id,
+                    "tool": tool_name,
+                    "args": args,
+                },
+            )
             # A successful (or even attempted) call to a finding-filing
             # tool clears any pending "agent claims a finding" alert for
             # the same agent. The gate still enforces that the filing
@@ -1481,11 +1496,15 @@ def _emit_stream_event_to_comms(agent_id: str, event: Any) -> None:
             # OK + 404 Not Found body was cut to "200 OK" and the agent
             # (and operator) pattern-matched to "reachable."
             output = getattr(event.item, "output", "") or ""
-            write_status(run_id, "tool_output", {
-                "agent_id": agent_id,
-                "tool": tool_name,
-                "output": str(output),
-            })
+            write_status(
+                run_id,
+                "tool_output",
+                {
+                    "agent_id": agent_id,
+                    "tool": tool_name,
+                    "output": str(output),
+                },
+            )
             # Detect gate-block events and surface them with the gate name
             # + consecutive-refusal count. This is what makes a stuck-on-gate
             # scan visible to the live tailer in real time — before this,
@@ -1497,15 +1516,17 @@ def _emit_stream_event_to_comms(agent_id: str, event: Any) -> None:
                 gate_name = _classify_gate_block(str(output))
                 if gate_name is not None:
                     refusal_count = _record_gate_block(agent_id, gate_name)
-                    write_status(run_id, "gate_blocked", {
-                        "agent_id": agent_id,
-                        "tool": tool_name,
-                        "gate": gate_name,
-                        "consecutive_refusals": refusal_count,
-                        "escape_hatch_open": (
-                            refusal_count >= _MAX_CONSECUTIVE_GATE_BLOCKS
-                        ),
-                    })
+                    write_status(
+                        run_id,
+                        "gate_blocked",
+                        {
+                            "agent_id": agent_id,
+                            "tool": tool_name,
+                            "gate": gate_name,
+                            "consecutive_refusals": refusal_count,
+                            "escape_hatch_open": (refusal_count >= _MAX_CONSECUTIVE_GATE_BLOCKS),
+                        },
+                    )
             except Exception:
                 logger.debug("gate_blocked comms emit failed", exc_info=True)
         elif etype == "message_output_created":
@@ -1520,21 +1541,29 @@ def _emit_stream_event_to_comms(agent_id: str, event: Any) -> None:
                     # the tailer truncates at display time. This way an
                     # AI agent reading the jsonl can see the agent's
                     # full chain of thought, not just the lead sentence.
-                    write_status(run_id, "thinking", {
-                        "agent_id": agent_id,
-                        "model": _infer_model_from_raw(raw),
-                        "text": thinking,
-                        "visible_chars": len(visible),
-                    })
+                    write_status(
+                        run_id,
+                        "thinking",
+                        {
+                            "agent_id": agent_id,
+                            "model": _infer_model_from_raw(raw),
+                            "text": thinking,
+                            "visible_chars": len(visible),
+                        },
+                    )
                 if visible:
                     # Same principle: full visible text in the record.
                     # LLM can produce multi-paragraph final answers —
                     # a 200-char cap was hiding real evidence.
-                    write_status(run_id, "llm_message", {
-                        "agent_id": agent_id,
-                        "model": _infer_model_from_raw(raw),
-                        "text": visible,
-                    })
+                    write_status(
+                        run_id,
+                        "llm_message",
+                        {
+                            "agent_id": agent_id,
+                            "model": _infer_model_from_raw(raw),
+                            "text": visible,
+                        },
+                    )
                     # Claimed-finding detector. Fires UNFILED_CLAIM if
                     # the LLM uses claim-phrase language ("**Major
                     # finding**", "**Critical finding**", etc.) but no
@@ -1678,20 +1707,18 @@ def _split_thinking(text: str) -> tuple[str, str]:
     if m_open:
         m_close = _THINK_CLOSE_RE.search(text, m_open.end())
         if m_close:
-            thinking = text[m_open.end():m_close.start()].strip()
-            visible = (text[:m_open.start()] + text[m_close.end():]).strip()
+            thinking = text[m_open.end() : m_close.start()].strip()
+            visible = (text[: m_open.start()] + text[m_close.end() :]).strip()
             return visible, thinking
         # Unclosed <think> — model streamed a chunk that was all thinking.
         # Treat the whole thing as thinking so the tailer still gets it.
         return "", text.strip()
     # Try <thinking>...</thinking> (Anthropic extended thinking, when present
     # in text rather than as a separate block — rare but worth a shot).
-    anthro_match = re.search(
-        r"<thinking>(.*?)</thinking>", text, re.DOTALL | re.IGNORECASE
-    )
+    anthro_match = re.search(r"<thinking>(.*?)</thinking>", text, re.DOTALL | re.IGNORECASE)
     if anthro_match:
         thinking = anthro_match.group(1).strip()
-        visible = (text[:anthro_match.start()] + text[anthro_match.end():]).strip()
+        visible = (text[: anthro_match.start()] + text[anthro_match.end() :]).strip()
         return visible, thinking
     return text, ""
 

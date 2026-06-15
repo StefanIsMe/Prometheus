@@ -36,7 +36,11 @@ _BROWSERCODE_MOUNT = "/opt/browsercode"
 
 # Scan pipeline script mount — the script isn't in the upstream prometheus-sandbox image.
 # Mount the entire scripts/ directory so Docker can create /scripts/ as a mount point.
-_PIPELINE_SCRIPTS_HOST = Path(os.environ.get("PROMETHEUS_SCRIPTS_DIR", str(Path(__file__).resolve().parent.parent / "scripts")))
+_PIPELINE_SCRIPTS_HOST = Path(
+    os.environ.get(
+        "PROMETHEUS_SCRIPTS_DIR", str(Path(__file__).resolve().parent.parent / "scripts")
+    )
+)
 _PIPELINE_SCRIPTS_MOUNT = "/scripts"
 
 # Extra bind mounts pending injection into the next Docker container creation.
@@ -57,7 +61,8 @@ async def _setup_browser_automation(session: Any) -> None:
     # Bypass Tor for pip install — this is internal setup, not scanning traffic.
     logger.info("Installing browser-harness dependencies in sandbox...")
     deps_result = await session.exec(
-        "sh", "-c",
+        "sh",
+        "-c",
         "http_proxy= https_proxy= ALL_PROXY= "
         "/app/.venv/bin/pip install --no-cache-dir "
         "cdp-use==1.4.5 fetch-use==0.4.0 pillow websockets 2>&1 | tail -5",
@@ -75,7 +80,8 @@ async def _setup_browser_automation(session: Any) -> None:
     # Chromium is already installed in the sandbox image at /usr/bin/chromium.
     logger.info("Starting Chromium with CDP on port 9222...")
     chrome_result = await session.exec(
-        "sh", "-c",
+        "sh",
+        "-c",
         "nohup /usr/bin/chromium "
         "--no-sandbox "
         "--disable-gpu "
@@ -138,30 +144,38 @@ async def create_or_reuse(
     # They are passed as extra bind mounts via _EXTRA_BIND_MOUNTS in docker_client.py.
     _extra_bind_mounts: list[dict[str, str]] = []
     if _BROWSER_HARNESS_HOST.is_dir():
-        _extra_bind_mounts.append({
-            "host": str(_BROWSER_HARNESS_HOST.resolve()),
-            "container": _BROWSER_HARNESS_MOUNT,
-        })
+        _extra_bind_mounts.append(
+            {
+                "host": str(_BROWSER_HARNESS_HOST.resolve()),
+                "container": _BROWSER_HARNESS_MOUNT,
+            }
+        )
         logger.info("Will mount browser-harness from %s", _BROWSER_HARNESS_HOST)
     else:
-        logger.warning("browser-harness not found at %s — browser tools unavailable", _BROWSER_HARNESS_HOST)
+        logger.warning(
+            "browser-harness not found at %s — browser tools unavailable", _BROWSER_HARNESS_HOST
+        )
 
     # Mount browsercode from host if available (read-only).
     if _BROWSERCODE_HOST.is_dir():
-        _extra_bind_mounts.append({
-            "host": str(_BROWSERCODE_HOST.resolve()),
-            "container": _BROWSERCODE_MOUNT,
-        })
+        _extra_bind_mounts.append(
+            {
+                "host": str(_BROWSERCODE_HOST.resolve()),
+                "container": _BROWSERCODE_MOUNT,
+            }
+        )
         logger.info("Will mount browsercode from %s", _BROWSERCODE_HOST)
     else:
         logger.warning("browsercode not found at %s — browsercode unavailable", _BROWSERCODE_HOST)
 
     # Mount scan pipeline script (required — scan fails without it).
     if _PIPELINE_SCRIPTS_HOST.is_dir():
-        _extra_bind_mounts.append({
-            "host": str(_PIPELINE_SCRIPTS_HOST.resolve()),
-            "container": _PIPELINE_SCRIPTS_MOUNT,
-        })
+        _extra_bind_mounts.append(
+            {
+                "host": str(_PIPELINE_SCRIPTS_HOST.resolve()),
+                "container": _PIPELINE_SCRIPTS_MOUNT,
+            }
+        )
         logger.info("Will mount scripts/ from %s", _PIPELINE_SCRIPTS_HOST)
     else:
         logger.error(
@@ -215,6 +229,7 @@ async def create_or_reuse(
         image,
     )
     import asyncio
+
     _max_retries = 3
     _last_exc = None
     client = None
@@ -235,7 +250,10 @@ async def create_or_reuse(
                 _delay = 5 * _attempt
                 logger.warning(
                     "Sandbox creation attempt %d/%d failed: %s -- retrying in %ds",
-                    _attempt, _max_retries, exc, _delay,
+                    _attempt,
+                    _max_retries,
+                    exc,
+                    _delay,
                 )
                 await asyncio.sleep(_delay)
             else:
@@ -338,7 +356,8 @@ def _force_cleanup_container(bundle: dict[str, Any], scan_id: str) -> None:
     log a WARNING.
     """
     import docker.errors  # noqa: PLC0415  — kept local so module import
-                           # doesn't pull the docker SDK at top level
+
+    # doesn't pull the docker SDK at top level
     _ = docker.errors  # silence "imported but unused" warnings
 
     container_id: str | None = None
@@ -369,13 +388,15 @@ def _force_cleanup_container(bundle: dict[str, Any], scan_id: str) -> None:
     except docker.errors.NotFound:
         logger.info(
             "cleanup(%s): container %s already gone",
-            scan_id, container_id[:12],
+            scan_id,
+            container_id[:12],
         )
         return
     except Exception:
         logger.info(
             "cleanup(%s): container %s lookup failed; treating as gone",
-            scan_id, container_id[:12],
+            scan_id,
+            container_id[:12],
             exc_info=True,
         )
         return
@@ -388,7 +409,8 @@ def _force_cleanup_container(bundle: dict[str, Any], scan_id: str) -> None:
     except docker.errors.NotFound:
         logger.info(
             "cleanup(%s): container %s disappeared during stop",
-            scan_id, container_id[:12],
+            scan_id,
+            container_id[:12],
         )
         return
     except Exception:
@@ -405,13 +427,15 @@ def _force_cleanup_container(bundle: dict[str, Any], scan_id: str) -> None:
             container.remove(force=True)
             logger.info(
                 "cleanup(%s): removed container %s",
-                scan_id, container_id[:12],
+                scan_id,
+                container_id[:12],
             )
             return
         except docker.errors.NotFound:
             logger.info(
                 "cleanup(%s): container %s already removed",
-                scan_id, container_id[:12],
+                scan_id,
+                container_id[:12],
             )
             return
         except docker.errors.APIError as exc:
@@ -419,7 +443,9 @@ def _force_cleanup_container(bundle: dict[str, Any], scan_id: str) -> None:
             if status == 409 and _attempt < 3:
                 logger.warning(
                     "cleanup(%s): 409 removing %s (attempt %d/3), retrying in 2s",
-                    scan_id, container_id[:12], _attempt,
+                    scan_id,
+                    container_id[:12],
+                    _attempt,
                 )
                 time.sleep(2.0)
                 continue

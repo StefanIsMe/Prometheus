@@ -149,7 +149,9 @@ def _normalize_priority(priority: str | None, default: str = "normal") -> str:
     mapped = _PRIORITY_SYNONYMS.get(candidate, candidate)
     if mapped != candidate:
         logger.info(
-            "priority synonym: %r -> %r (audit Phase 4C)", priority, mapped,
+            "priority synonym: %r -> %r (audit Phase 4C)",
+            priority,
+            mapped,
         )
         candidate = mapped
     if candidate not in VALID_PRIORITIES:
@@ -177,8 +179,7 @@ def get_pending_high_priority_todos(agent_id: str) -> list[dict[str, Any]]:
     return [
         {**todo, "todo_id": todo_id}
         for todo_id, todo in agent_todos.items()
-        if todo.get("status") not in _resolved
-        and todo.get("priority") in ("high", "critical")
+        if todo.get("status") not in _resolved and todo.get("priority") in ("high", "critical")
     ]
 
 
@@ -212,7 +213,9 @@ def _apply_single_update(
                 "error": f"Invalid status. Must be one of: {', '.join(VALID_STATUSES)}",
             }
         todo["status"] = status_candidate
-        todo["completed_at"] = datetime.now(UTC).isoformat() if status_candidate in ("done", "cancelled") else None
+        todo["completed_at"] = (
+            datetime.now(UTC).isoformat() if status_candidate in ("done", "cancelled") else None
+        )
     todo["updated_at"] = datetime.now(UTC).isoformat()
     return None
 
@@ -285,7 +288,10 @@ def _apply_bulk_status(todo_ids: Any, new_status: str, agent_id: str) -> str:
     agent_todos = _get_agent_todos(agent_id)
     if not todo_ids:
         return json.dumps(
-            {"success": False, "error": f"Provide a non-empty 'todo_ids' list to mark as {new_status}"},
+            {
+                "success": False,
+                "error": f"Provide a non-empty 'todo_ids' list to mark as {new_status}",
+            },
             ensure_ascii=False,
             default=str,
         )
@@ -374,7 +380,12 @@ async def create_todo(ctx: RunContextWrapper, todos: list[_CreateTodoInput]) -> 
             default=str,
         )
     _persist()
-    logger.debug("create_todo: agent=%s created=%d total=%d", agent_id, len(created), len(_get_agent_todos(agent_id)))
+    logger.debug(
+        "create_todo: agent=%s created=%d total=%d",
+        agent_id,
+        len(created),
+        len(_get_agent_todos(agent_id)),
+    )
     return json.dumps(
         {
             "success": True,

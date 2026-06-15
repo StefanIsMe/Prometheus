@@ -6,13 +6,41 @@ import json
 from typing import Any
 
 _REQUIRED_BY_TYPE: dict[str, dict[str, Any]] = {
-    "idor": {"positive_controls": 2, "negative_controls": 1, "signals": ["unauthorized", "other user", "cross tenant", "read", "write"]},
-    "auth_bypass": {"positive_controls": 1, "negative_controls": 1, "signals": ["protected", "without auth", "denied", "bypass"]},
-    "account_enumeration": {"positive_controls": 2, "negative_controls": 0, "signals": ["differential", "fingerprint", "exists", "not found"]},
-    "ssrf": {"positive_controls": 1, "negative_controls": 0, "signals": ["internal", "callback", "metadata", "reachability"]},
-    "cors": {"positive_controls": 1, "negative_controls": 0, "signals": ["readable", "protected", "state changing", "authenticated"]},
-    "exposed_unauthenticated_endpoint": {"positive_controls": 1, "negative_controls": 0, "signals": ["sensitive", "privileged", "unauthenticated"]},
-    "source_map_or_bundle_leak": {"positive_controls": 1, "negative_controls": 0, "signals": ["exploit chain", "sensitive", "secret", "endpoint"]},
+    "idor": {
+        "positive_controls": 2,
+        "negative_controls": 1,
+        "signals": ["unauthorized", "other user", "cross tenant", "read", "write"],
+    },
+    "auth_bypass": {
+        "positive_controls": 1,
+        "negative_controls": 1,
+        "signals": ["protected", "without auth", "denied", "bypass"],
+    },
+    "account_enumeration": {
+        "positive_controls": 2,
+        "negative_controls": 0,
+        "signals": ["differential", "fingerprint", "exists", "not found"],
+    },
+    "ssrf": {
+        "positive_controls": 1,
+        "negative_controls": 0,
+        "signals": ["internal", "callback", "metadata", "reachability"],
+    },
+    "cors": {
+        "positive_controls": 1,
+        "negative_controls": 0,
+        "signals": ["readable", "protected", "state changing", "authenticated"],
+    },
+    "exposed_unauthenticated_endpoint": {
+        "positive_controls": 1,
+        "negative_controls": 0,
+        "signals": ["sensitive", "privileged", "unauthenticated"],
+    },
+    "source_map_or_bundle_leak": {
+        "positive_controls": 1,
+        "negative_controls": 0,
+        "signals": ["exploit chain", "sensitive", "secret", "endpoint"],
+    },
 }
 
 
@@ -26,7 +54,11 @@ def evaluate_validation_gate(
     normalized_type = vuln_type.lower().strip()
     requirement = _REQUIRED_BY_TYPE.get(normalized_type)
     if requirement is None:
-        return {"passed": False, "reason": f"No v1 validation gate for vuln_type={vuln_type}", "missing": ["supported vuln_type"]}
+        return {
+            "passed": False,
+            "reason": f"No v1 validation gate for vuln_type={vuln_type}",
+            "missing": ["supported vuln_type"],
+        }
 
     positive = _count_control(evidence, "positive")
     negative = _count_control(evidence, "negative")

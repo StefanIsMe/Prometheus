@@ -176,9 +176,7 @@ def _hypothesis_from_dict(raw: dict[str, Any]) -> Hypothesis:
         difficulty_score=_clamp01(raw.get("difficulty_score")),
         evidence_score=_clamp01(raw.get("evidence_score")),
         status=(
-            str(raw.get("status"))
-            if str(raw.get("status")) in VALID_HYPOTHESIS_STATUSES
-            else "new"
+            str(raw.get("status")) if str(raw.get("status")) in VALID_HYPOTHESIS_STATUSES else "new"
         ),
         attempts=max(0, int(raw.get("attempts") or 0)),
         evidence=evidence,

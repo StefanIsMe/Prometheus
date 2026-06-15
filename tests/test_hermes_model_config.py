@@ -14,7 +14,9 @@ from prometheus.config.models import configure_sdk_model_defaults, uses_chat_com
 from prometheus.config.settings import Settings
 
 
-def test_resolves_active_hermes_provider_and_model_from_loader(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_resolves_active_hermes_provider_and_model_from_loader(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr(
         hermes_bridge,
         "_load_hermes_config",
@@ -64,7 +66,9 @@ def test_applies_hermes_base_url_to_sdk_defaults(monkeypatch: pytest.MonkeyPatch
 
 
 def test_fails_loud_on_invalid_hermes_config(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(hermes_bridge, "_load_hermes_config", lambda: {"model": {"provider": "openai-codex"}})
+    monkeypatch.setattr(
+        hermes_bridge, "_load_hermes_config", lambda: {"model": {"provider": "openai-codex"}}
+    )
 
     with pytest.raises(HermesModelResolutionError, match="model.default"):
         resolve_active_hermes_model()
@@ -79,7 +83,13 @@ def test_does_not_fall_back_to_local_default(monkeypatch: pytest.MonkeyPatch) ->
     monkeypatch.setattr(
         hermes_bridge,
         "_load_hermes_config",
-        lambda: {"model": {"provider": "openai-codex", "default": "gpt-5.4", "base_url": "https://chatgpt.com/backend-api/codex"}},
+        lambda: {
+            "model": {
+                "provider": "openai-codex",
+                "default": "gpt-5.4",
+                "base_url": "https://chatgpt.com/backend-api/codex",
+            }
+        },
     )
     settings = Settings()
     # First save the current values, then call the function (which may

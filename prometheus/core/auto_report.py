@@ -130,11 +130,31 @@ class AutoReporter:
 
         # Include any extra fields as raw data
         standard_keys = {
-            "id", "finding_id", "domain", "target_name", "target_domain",
-            "severity", "title", "name", "description", "details",
-            "evidence", "proof", "remediation", "fix", "url", "endpoint",
-            "cvss_score", "cvss", "cve", "cve_id", "h1_likely_outcome",
-            "verdict", "confidence", "scan_id", "ts",
+            "id",
+            "finding_id",
+            "domain",
+            "target_name",
+            "target_domain",
+            "severity",
+            "title",
+            "name",
+            "description",
+            "details",
+            "evidence",
+            "proof",
+            "remediation",
+            "fix",
+            "url",
+            "endpoint",
+            "cvss_score",
+            "cvss",
+            "cve",
+            "cve_id",
+            "h1_likely_outcome",
+            "verdict",
+            "confidence",
+            "scan_id",
+            "ts",
         }
         extras = {k: v for k, v in finding_data.items() if k not in standard_keys}
         if extras:
@@ -195,17 +215,21 @@ class AutoReporter:
                 else:
                     reports = []
             except (json.JSONDecodeError, OSError):
-                logger.debug("_update_summary: could not read reports summary; starting fresh", exc_info=True)
+                logger.debug(
+                    "_update_summary: could not read reports summary; starting fresh", exc_info=True
+                )
                 reports = []
 
-            reports.append({
-                "finding_id": finding_id,
-                "domain": domain,
-                "severity": severity,
-                "title": title,
-                "report_path": report_path,
-                "generated_at": when.isoformat(),
-            })
+            reports.append(
+                {
+                    "finding_id": finding_id,
+                    "domain": domain,
+                    "severity": severity,
+                    "title": title,
+                    "report_path": report_path,
+                    "generated_at": when.isoformat(),
+                }
+            )
 
             try:
                 _REPORTS_SUMMARY.write_text(

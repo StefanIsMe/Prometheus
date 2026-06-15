@@ -6,6 +6,7 @@ import asyncio
 import json
 import sys
 import os
+from pathlib import Path
 
 # Add the prometheus source to path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -63,7 +64,7 @@ def test_is_html_response():
     assert _is_html_response("<!DOCTYPE html><html>...")
     assert _is_html_response("<html><body>test</body></html>")
     assert not _is_html_response("normal terminal output")
-    assert _is_html_response('[' + '{"key": "value"}' * 1000 + ']')  # Large JSON
+    assert _is_html_response("[" + '{"key": "value"}' * 1000 + "]")  # Large JSON
     print("  PASS: _is_html_response")
 
 
@@ -72,7 +73,7 @@ def test_truncate_base64_image():
     # Create a fake base64 image (800KB)
     fake_image = '[{"type":"input_image","image_url":"data:image/png;base64,' + "A" * 800000 + '"}]'
     result, overflow_key = truncate_tool_output(fake_image)
-    
+
     assert "Screenshot captured" in result
     assert "781KB" in result or "780KB" in result or "Screenshot captured" in result
     assert overflow_key is not None
@@ -85,7 +86,7 @@ def test_truncate_terminal_output():
     # Create a fake 100KB terminal output
     fake_output = "A" * 100000
     result, overflow_key = truncate_tool_output(fake_output, tool_name="shell")
-    
+
     assert len(result) < MAX_TERMINAL_OUTPUT_BYTES + 200  # Allow for truncation message
     assert overflow_key is not None
     assert "Truncated from" in result
@@ -98,7 +99,7 @@ def test_truncate_html_response():
     # Create a fake 50KB HTML response
     fake_html = "<!DOCTYPE html><html>" + "B" * 50000 + "</html>"
     result, overflow_key = truncate_tool_output(fake_html)
-    
+
     assert len(result) < MAX_HTML_OUTPUT_BYTES + 200
     assert overflow_key is not None
     assert "Truncated from" in result
@@ -109,7 +110,7 @@ def test_no_truncate_small_output():
     """Small outputs should not be truncated."""
     small_output = '{"result": "ok", "status": 200}'
     result, overflow_key = truncate_tool_output(small_output)
-    
+
     assert result == small_output
     assert overflow_key is None
     print("  PASS: no_truncate_small_output")
@@ -129,7 +130,7 @@ def test_mask_old_tool_output():
     masked = mask_old_tool_output(output, 5)
     assert "evicted" in masked
     assert output not in masked
-    
+
     # Very old
     masked = mask_old_tool_output(output, 20)
     assert "evicted" in masked
@@ -153,7 +154,7 @@ def test_summarize_child_result():
     parsed = json.loads(result)
     assert parsed["success"] is True
     assert "xss" in parsed["findings"][0]
-    
+
     # Large non-JSON — truncate
     large_output = "A" * 5000
     result = summarize_child_result(large_output, "recon-agent")
@@ -165,11 +166,11 @@ def test_summarize_child_result():
 def test_overflow_store():
     """Phase 4: Overflow store should store and retrieve."""
     store = ContextOverflowStore()
-    
+
     store.store("abc123", "full output data here")
     assert store.retrieve("abc123") == "full output data here"
     assert store.retrieve("nonexistent") is None
-    
+
     stats = store.get_stats()
     assert stats["stored"] == 1
     assert stats["retrieved"] == 1
@@ -185,30 +186,30 @@ async def test_context_managed_session_truncation():
         enable_truncation=True,
         enable_masking=False,
     )
-    
+
     # Add a large tool output
     large_output = "A" * 100000
     items = [
         {"type": "function_call_output", "output": large_output, "call_id": "test1"},
         {"type": "message", "content": "normal message"},
     ]
-    
+
     await cms.add_items(items)
-    
+
     # Check that the stored output was truncated
     stored = mock._items[0]
     assert stored["type"] == "function_call_output"
     assert len(stored["output"]) < len(large_output)
     assert "Truncated" in stored["output"]
-    
+
     # Check that normal messages pass through unchanged
     assert mock._items[1]["type"] == "message"
-    
+
     # Check overflow store has the full output
     overflow = cms.get_overflow_store()
     stats = overflow.get_stats()
     assert stats["stored"] == 1
-    
+
     print("  PASS: context_managed_session_truncation")
 
 
@@ -221,33 +222,37 @@ async def test_context_managed_session_masking():
         enable_masking=True,
         mask_after_turns=2,
     )
-    
+
     # Add items simulating a conversation
     for i in range(10):
-        mock._items.append({
-            "type": "function_call_output",
-            "output": f"tool output from turn {i}",
-            "call_id": f"call_{i}",
-        })
-        mock._items.append({
-            "type": "message",
-            "content": f"message from turn {i}",
-        })
-    
+        mock._items.append(
+            {
+                "type": "function_call_output",
+                "output": f"tool output from turn {i}",
+                "call_id": f"call_{i}",
+            }
+        )
+        mock._items.append(
+            {
+                "type": "message",
+                "content": f"message from turn {i}",
+            }
+        )
+
     # Get items — old tool outputs should be masked
     items = await cms.get_items()
-    
+
     # Recent items should be preserved
     recent_output = items[-2]  # Last function_call_output
     assert "tool output from turn" in recent_output["output"]
-    
+
     # Old items should be masked
     old_output = items[0]  # First function_call_output
     if old_output["type"] == "function_call_output":
         # It should be masked if it's old enough
         if "evicted" in old_output["output"]:
             assert "evicted" in old_output["output"]
-    
+
     print("  PASS: context_managed_session_masking")
 
 
@@ -259,16 +264,16 @@ async def test_context_managed_session_no_op():
         enable_truncation=False,
         enable_masking=False,
     )
-    
+
     items = [
         {"type": "function_call_output", "output": "A" * 100000, "call_id": "test1"},
     ]
-    
+
     await cms.add_items(items)
-    
+
     # Should be unchanged
     assert len(mock._items[0]["output"]) == 100000
-    
+
     print("  PASS: context_managed_session_no_op")
 
 
@@ -281,16 +286,16 @@ async def test_factory_function():
         enable_masking=True,
         mask_after_turns=5,
     )
-    
+
     assert isinstance(cms, ContextManagedSession)
     assert cms._mask_after_turns == 5
     assert cms._enable_truncation is True
     assert cms._enable_masking is True
-    
+
     stats = cms.get_stats()
     assert stats["turn_counter"] == 0
     assert stats["mask_after_turns"] == 5
-    
+
     print("  PASS: factory_function")
 
 
@@ -303,25 +308,29 @@ async def test_integration_truncation_and_masking():
         enable_masking=True,
         mask_after_turns=2,
     )
-    
+
     # Simulate multiple turns
     for turn in range(6):
         items = [
-            {"type": "function_call_output", "output": f"output from turn {turn} " * 100, "call_id": f"call_{turn}"},
+            {
+                "type": "function_call_output",
+                "output": f"output from turn {turn} " * 100,
+                "call_id": f"call_{turn}",
+            },
             {"type": "message", "content": f"message {turn}"},
         ]
         await cms.add_items(items)
-    
+
     # Get items — should have both truncation and masking
     all_items = await cms.get_items()
-    
+
     # Verify we got items back
     assert len(all_items) > 0
-    
+
     # Verify stats
     stats = cms.get_stats()
     assert stats["turn_counter"] == 6
-    
+
     print("  PASS: integration_truncation_and_masking")
 
 
@@ -334,14 +343,14 @@ def run_sync_tests():
     test_truncate_terminal_output()
     test_truncate_html_response()
     test_no_truncate_small_output()
-    
+
     print("\n=== Phase 1: Observation Masking Tests ===")
     test_mask_old_tool_output()
     test_mask_preserves_stubs()
-    
+
     print("\n=== Phase 2: Child Isolation Tests ===")
     test_summarize_child_result()
-    
+
     print("\n=== Phase 4: Demand Paging Tests ===")
     test_overflow_store()
 
@@ -360,10 +369,10 @@ if __name__ == "__main__":
     print("=" * 60)
     print("CONTEXT MANAGER TEST SUITE")
     print("=" * 60)
-    
+
     run_sync_tests()
     asyncio.run(run_async_tests())
-    
+
     print("\n" + "=" * 60)
     print("ALL TESTS PASSED")
     print("=" * 60)
