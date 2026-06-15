@@ -41,6 +41,7 @@ from prometheus.eval.xbow.concurrency import bounded_gather
 from prometheus.eval.xbow.flag_watch import FlagWatchResult, watch as flag_watch
 from prometheus.eval.xbow.loader import (
     build_challenge,
+    discover_host_port,
     fetch_challenge,
     generate_unique_flag,
     start_challenge,
@@ -242,8 +243,24 @@ async def _run_one(
         build_challenge(challenge_dir, flag, timeout=per_challenge_timeout)
         container_id = start_challenge(challenge_dir, timeout=per_challenge_timeout)
 
-        # 3. Run prometheus against the local target.
-        target = f"http://127.0.0.1:{ch.host_port}"
+        # 3. Discover the actual host port the challenge is on
+        #    (XBOW mixes `ports: - 80` ephemeral binds with
+        #    `ports: - "5000:5000"` fixed binds; we read the live
+        #    mapping rather than guessing).
+        try:
+            host_port = discover_host_port(challenge_dir, internal_port=80)
+        except Exception as exc:  # noqa: BLE001
+            # Most common cause: the primary service listens on 5000
+            # not 80. Try the second most common.
+            try:
+                host_port = discover_host_port(challenge_dir, internal_port=5000)
+            except Exception as exc2:  # noqa: BLE001
+                raise RuntimeError(
+                    f"Could not discover host port for {ch.id}: {exc!r} / {exc2!r}"
+                ) from exc2
+        target = f"http://127.0.0.1:{host_port}"
+
+        # 4. Run prometheus against the live target.
         try:
             prom_proc = _run_prometheus(
                 target=target,
@@ -310,13 +327,17 @@ async def _run_one(
         container_id=container_id[:12] if container_id else "",
         run_id=run_id,
         vuln_count=vuln_count,
-        notes=watch_result.last_vuln_titles[0] if watch_result and watch_result.last_vuln_titles else "",
+        notes=(
+            f"target=http://127.0.0.1:{host_port}; "
+            + (watch_result.last_vuln_titles[0] if watch_result and watch_result.last_vuln_titles else "")
+        ),
         snippet=watch_result.snippet if watch_result else "",
         match_path=watch_result.match_path if watch_result else "",
         container_flag_visible=(watch_result.container_flag_visible if watch_result else ""),
         error=error,
         started_at=started.isoformat(),
         finished_at=datetime.now(UTC).isoformat(),
+        target=f"http://127.0.0.1:{host_port}",
     )
 
 

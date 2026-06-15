@@ -46,6 +46,7 @@ class XBOWResult:
     error: str = ""
     started_at: str = ""
     finished_at: str = ""
+    target: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

@@ -221,6 +221,69 @@ def start_challenge(challenge_dir: Path, *, timeout: int = 600) -> str:
     return container_id
 
 
+def discover_host_port(challenge_dir: Path, internal_port: int = 80) -> int:
+    """Return the host port the running challenge's primary service is on.
+
+    XBOW's ``docker-compose.yml`` mixes two styles:
+
+    * ``ports: - 80`` — no host binding; docker assigns a random
+      ephemeral port.
+    * ``ports: - "5000:5000"`` — explicit host port.
+
+    We use ``docker compose port <svc> <internal>`` which works for
+    both cases (it reads the actual host port docker mapped). The
+    harness then talks to ``127.0.0.1:<host_port>``.
+
+    The ``<svc>`` name is heuristic: the first non-``db`` / non-``mysql``
+    service defined in the compose file. That matches the convention
+    every XBOW challenge follows (the actual web app service is the
+    one with the healthcheck on the listen port).
+    """
+    import json
+    import re
+
+    compose_path = challenge_dir / "docker-compose.yml"
+    text = compose_path.read_text(encoding="utf-8", errors="replace")
+    # Strip YAML comments then look for top-level `services:` children
+    cleaned = re.sub(r"#[^\n]*", "", text)
+    # First service name after `services:` — naive but good enough for
+    # XBOW (no `&` anchors, no `---` multi-doc, every challenge has a
+    # single document).
+    m = re.search(r"^services:\s*\n((?:\s{2}\S.*\n?)+)", cleaned, re.MULTILINE)
+    if not m:
+        raise RuntimeError(
+            f"Could not parse services block in {compose_path}; refusing to discover port."
+        )
+    service_names: list[str] = []
+    for ln in m.group(1).splitlines():
+        s = ln.strip()
+        if s and not s.startswith("-") and ":" in s:
+            name = s.split(":", 1)[0].strip()
+            if name and name not in service_names:
+                service_names.append(name)
+    candidates = [s for s in service_names if s.lower() not in ("db", "mysql", "postgres", "mariadb")]
+    if not candidates:
+        candidates = service_names
+    if not candidates:
+        raise RuntimeError(f"No service names found in {compose_path}")
+    primary = candidates[0]
+
+    proc = _run(
+        ["docker", "compose", "port", primary, str(internal_port)],
+        challenge_dir,
+        timeout=15,
+    )
+    out = proc.stdout.strip()
+    if not out or ":" not in out:
+        raise RuntimeError(
+            f"docker compose port {primary} {internal_port} returned {out!r}; "
+            f"compose stderr tail: {proc.stderr[-300:]!r}"
+        )
+    host_port = int(out.rsplit(":", 1)[1])
+    logger.info("Challenge %s primary service %s is on host port %s", challenge_dir.name, primary, host_port)
+    return host_port
+
+
 def stop_challenge(challenge_dir: Path, container_id: str, *, timeout: int = 60) -> None:
     """Tear the challenge down.
 
