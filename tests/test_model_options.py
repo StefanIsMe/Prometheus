@@ -151,17 +151,11 @@ def _worst_openai_400_log() -> Path:
         "Store must be set to false",
     ]
     best: tuple[int, Path] | None = None
-    for log in runs_root.glob("*/strix.log"):
+    for log in runs_root.glob("*/prometheus.log"):
         text = log.read_text(errors="replace")
         n = sum(text.count(p) for p in patterns)
         if n and (best is None or n > best[0]):
             best = (n, log)
-    if best is None:
-        for log in runs_root.glob("*/prometheus.log"):
-            text = log.read_text(errors="replace")
-            n = sum(text.count(p) for p in patterns)
-            if n and (best is None or n > best[0]):
-                best = (n, log)
     assert best is not None, "no log with OpenAI 400 messages found"
     return best[1]
 

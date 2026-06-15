@@ -149,17 +149,11 @@ def _worst_sink_failure_log() -> Path:
     runs_root = SOURCE_ROOT / "prometheus_runs"
     best: tuple[int, Path] | None = None
     pattern = "stream event sink failed"
-    for log in runs_root.glob("*/strix.log"):
+    for log in runs_root.glob("*/prometheus.log"):
         text = log.read_text(errors="replace")
         n = text.count(pattern)
         if n and (best is None or n > best[0]):
             best = (n, log)
-    if best is None:
-        for log in runs_root.glob("*/prometheus.log"):
-            text = log.read_text(errors="replace")
-            n = text.count(pattern)
-            if n and (best is None or n > best[0]):
-                best = (n, log)
     assert best is not None, "no log with 'stream event sink failed' found"
     return best[1]
 

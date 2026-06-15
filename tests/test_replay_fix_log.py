@@ -72,7 +72,7 @@ from prometheus.tools.todo.tools import _normalize_priority  # noqa: E402
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _find_log_with(pattern: str, glob: str = "strix.log") -> Path:
+def _find_log_with(pattern: str, glob: str = "prometheus.log") -> Path:
     """Find a log under ``prometheus_runs/`` whose text contains ``pattern``.
 
     Tries the requested ``glob`` first, then falls back to ``prometheus.log``.

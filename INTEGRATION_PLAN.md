@@ -8,11 +8,10 @@
 - `/home/stefan/audit-reports/prometheus-gap-analysis.md` (VVAH)
 - `/home/stefan/audit-reports/prometheus-cbh-gap-analysis.md` (CBH)
 
-**Goal:** Merge the strongest ideas from Visa's VVAH and ElementalSouls' Claude-BugHunter into Prometheus without breaking the existing PRD or the live RL loop. Prioritize changes that directly attack the 0-finding problem and the open-questions in the PRD.
+**Goal:** Merge the strongest ideas from Visa's VVAH and ElementalSouls' Claude-BugHunter into Prometheus without breaking the existing PRD. Prioritize changes that directly attack the 0-finding problem and the open-questions in the PRD.
 
 **Authoritative source-of-truth files inside Prometheus:**
 - `PROMETHEUS_BUILD_SPEC_PRD.md` — v1 scope, v1 classes, validation rules.
-- `~/.prometheus/prom_rl_state.db` — current loop state (stuck on SCAN-only, 0 findings).
 - `prometheus/config/models.py` — **broken (file ends in `_OL...`, invalid syntax per PRD §3.5) — fix first.**
 
 ---
@@ -554,5 +553,4 @@ These need user input before continuing:
 - CBH audit: `/home/stefan/audit-reports/claude-bughunter-audit.md`
 - VVAH gap analysis: `/home/stefan/audit-reports/prometheus-gap-analysis.md`
 - CBH gap analysis: `/home/stefan/audit-reports/prometheus-cbh-gap-analysis.md`
-- RL state DB: `~/.prometheus/prom_rl_state.db`
 - Plan file (originating from /loop session): `/home/stefan/.claude/plans/imperative-sleeping-bunny.md`

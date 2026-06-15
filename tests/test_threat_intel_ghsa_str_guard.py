@@ -17,7 +17,7 @@ These tests verify:
   1. _cvss_score returns 0.0 for the string payload (the audit's case).
   2. _cvss_score returns the score for the normal dict payload.
   3. _pkg_dict returns {} for a string package.
-  4. E2E log-replay: the recorded mheducation-com_0887 strix.log that
+  4. E2E log-replay: the recorded mheducation-com_0887 prometheus.log that
      contains the exact error is now a no-op (no AttributeError).
 """
 
@@ -110,19 +110,19 @@ def test_pkg_dict_handles_none():
 # ---------------------------------------------------------------------------
 
 def _load_mheducation_log() -> Path:
-    """Return the path of the recorded mheducation-com_0887 strix.log
+    """Return the path of the recorded mheducation-com_0887 prometheus.log
     that contains the ``'str' object has no attribute 'get'`` error."""
     runs_root = SOURCE_ROOT / "prometheus_runs"
-    preferred = runs_root / "mheducation-com_0887" / "strix.log"
+    preferred = runs_root / "mheducation-com_0887" / "prometheus.log"
     assert preferred.exists(), (
-        "the recorded mheducation-com_0887 strix.log is missing — "
+        "the recorded mheducation-com_0887 prometheus.log is missing — "
         "the audit's bug fixture has been pruned"
     )
     return preferred
 
 
 def test_log_replay_mheducation_0887_gc_string_payload_no_longer_raises():
-    """The recorded mheducation-com_0887 strix.log contains the exact
+    """The recorded mheducation-com_0887 prometheus.log contains the exact
     error ``GHSA query failed for 'Java' (high): 'str' object has no
     attribute 'get'``. With the new ``_cvss_score`` helper in place,
     feeding the same payload shape into the function must NOT raise

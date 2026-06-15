@@ -133,10 +133,6 @@ def _find_priority_error_log() -> Path:
     """Find a run that hit ``Invalid priority. Must be one of``."""
     runs_root = SOURCE_ROOT / "prometheus_runs"
     pattern = "Invalid priority"
-    for log in runs_root.glob("*/strix.log"):
-        text = log.read_text(errors="replace")
-        if pattern in text:
-            return log
     for log in runs_root.glob("*/prometheus.log"):
         text = log.read_text(errors="replace")
         if pattern in text:

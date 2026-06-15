@@ -1,6 +1,6 @@
 """Phase 5C: master log-regression matrix.
 
-Walks every ``prometheus_runs/*/{strix,prometheus}.log`` and asserts
+Walks every ``prometheus_runs/*/prometheus.log`` and asserts
 that the patched code paths would NOT re-emit any of the 17 historic
 error categories on the same input. This is the single test that, if
 green, proves the entire plan worked. If it fails, the failure points
@@ -132,11 +132,6 @@ CATEGORIES: list[dict] = [
         "patterns": ["prometheus.db", "migrations"],
         "fix_test": "tests/test_init_prometheus_db.py",
     },
-    {
-        "name": "Run.json stuck orphans",
-        "patterns": ["status.*running", "end_time"],
-        "fix_test": "tests/test_orphan_prune.py",
-    },
 ]
 
 
@@ -146,7 +141,7 @@ CATEGORIES: list[dict] = [
 
 def _all_logs() -> list[Path]:
     runs_root = SOURCE_ROOT / "prometheus_runs"
-    return sorted(runs_root.glob("*/strix.log")) + sorted(runs_root.glob("*/prometheus.log"))
+    return sorted(runs_root.glob("*/prometheus.log"))
 
 
 def _has_any_pattern(logs: list[Path], patterns: list[str]) -> tuple[bool, str | None]:

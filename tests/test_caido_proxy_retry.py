@@ -10,7 +10,7 @@ These tests:
 
   1. Unit-test the helper directly with a fake exception sequence.
   2. Unit-test that user-input errors are NOT retried (deterministic).
-  3. E2E log-replay: load ``prometheus_runs/1win-com_bd4f/strix.log``,
+  3. E2E log-replay: load ``prometheus_runs/1win-com_bd4f/prometheus.log``,
      count the historic ``list_requests failed`` lines, and assert that
      the new code would have produced zero of them (i.e. the retry
      helper recovers from the same flake pattern).
@@ -200,24 +200,18 @@ def _load_log_replay_target() -> Path:
     # Pick the log with the most NetworkUserError occurrences — these are
     # the cases the audit identified and that the fix targets.
     best: tuple[int, Path] | None = None
-    for log in runs_root.glob("*/strix.log"):
+    for log in runs_root.glob("*/prometheus.log"):
         text = log.read_text(errors="replace")
         n = text.count("caido_sdk_client.errors.graphql.NetworkUserError")
         if n and (best is None or n > best[0]):
             best = (n, log)
-    if best is None:
-        for log in runs_root.glob("*/prometheus.log"):
-            text = log.read_text(errors="replace")
-            n = text.count("caido_sdk_client.errors.graphql.NetworkUserError")
-            if n and (best is None or n > best[0]):
-                best = (n, log)
     assert best is not None, "no log with NetworkUserError found"
     return best[1]
 
 
 def test_log_replay_list_requests_would_be_resolved():
     """The audit found that the Caido ``NetworkUserError`` is the underlying
-    cause of every ``strix.tools.proxy.tools: list_requests failed`` line.
+    cause of every ``prometheus.tools.proxy.tools: list_requests failed`` line.
     The new ``caido_retry`` helper handles exactly this class of error.
 
     This test verifies the helper recovers from the recorded exception

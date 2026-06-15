@@ -1427,7 +1427,7 @@ def _maybe_emit_unfiled_claims(agent_id: str, run_id: str) -> int:
 def _emit_stream_event_to_comms(agent_id: str, event: Any) -> None:
     """Best-effort: forward interesting SDK stream events to comms/status.jsonl.
 
-    Used by the live tailer (prom_rl_tail.py) to render real-time progress.
+    Used by the live tailer (prometheus_tail.sh) to render real-time progress.
     Per-agent throttle prevents event floods from drowning the JSONL.
     Never raises — observability is allowed to fail silently.
     """
@@ -2090,7 +2090,7 @@ async def _run_cycle(  # noqa: PLR0912
                         ):
                             _check_consecutive_tool_errors(agent_id, event)
                         # --- Live observability: emit LLM + tool events to comms ---
-                        # The tailer (prom_rl_tail.py) reads these to show what
+                        # The tailer (prometheus_tail.sh) reads these to show what
                         # each agent is doing in real time. Cheap, best-effort.
                         _emit_stream_event_to_comms(agent_id, event)
                         # --- Fix 7: track agent activity for stall detection ---
