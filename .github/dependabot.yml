@@ -1,0 +1,97 @@
+# Dependabot — keep Python deps, GitHub Actions, and pre-commit hooks fresh.
+# Repo-level security-update toggles (Dependabot alerts, security updates,
+# secret scanning, push protection) are also enabled via the GitHub API in
+# `scripts/enable-github-security.sh`. This file only controls how PRs are
+# batched, labelled, and timed.
+#
+# Reference: https://docs.github.com/en/code-security/dependabot
+version: 2
+
+# Enable auto-rebase and require PRs from Dependabot to be signed.
+# Sign-offs are enforced at the repo level (web_commit_signoff_required) too.
+enable-beta-ecosystems: false
+
+# Open a maximum of 10 dependabot PRs at a time — anything older is
+# automatically closed/dropped to keep the queue from snowballing.
+open-pull-requests-limit: 10
+
+# ---------------------------------------------------------------------------
+# Python deps (uv / pip)
+# ---------------------------------------------------------------------------
+- package-ecosystem: "pip"
+  directory: "/"
+  schedule:
+    interval: "weekly"
+    day: "monday"
+    time: "08:00"
+    timezone: "UTC"
+  # uv.lock is committed — bump lock and manifest in lockstep.
+  versioning-strategy: lockfile
+  rebase-strategy: "auto"
+  labels:
+    - "dependencies"
+    - "python"
+    - "automated"
+  groups:
+    # Roll patch + minor non-major bumps into a single weekly PR to cut
+    # the noise on a single-maintainer repo. Major bumps stay separate so
+    # they get human review.
+    python-minor-and-patch:
+      applies-to: version-updates
+      update-types:
+        - "minor"
+        - "patch"
+      patterns:
+        - "*"
+    python-major:
+      applies-to: version-updates
+      update-types:
+        - "major"
+      patterns:
+        - "*"
+  # Pre-commit autoupdate is already wired in .pre-commit-config.yaml
+  # (autoupdate_schedule: weekly). Skip the dev-tooling group here to avoid
+  # two bots racing each other.
+  ignore:
+    - dependency-name: "ruff*"
+    - dependency-name: "mypy*"
+    - dependency-name: "pyright*"
+    - dependency-name: "bandit*"
+    - dependency-name: "pre-commit*"
+    - dependency-name: "pyupgrade*"
+    # openai-agents is pinned exactly on 0.14.6 (see pyproject.toml); bumps
+    # can break SDK tool registration and need a manual migration.
+    - dependency-name: "openai-agents*"
+
+# ---------------------------------------------------------------------------
+# GitHub Actions — bump weekly, grouped so we don't get 12 PRs at once
+# ---------------------------------------------------------------------------
+- package-ecosystem: "github-actions"
+  directory: "/"
+  schedule:
+    interval: "weekly"
+    day: "monday"
+    time: "08:30"
+    timezone: "UTC"
+  commit-message:
+    prefix: "ci"
+    prefix-development: "ci(draft)"
+    include: "scope"
+  labels:
+    - "dependencies"
+    - "github-actions"
+    - "automated"
+  groups:
+    actions-minor-and-patch:
+      applies-to: version-updates
+      update-types:
+        - "minor"
+        - "patch"
+      patterns:
+        - "*"
+    actions-major:
+      applies-to: version-updates
+      update-types:
+        - "major"
+      patterns:
+        - "*"

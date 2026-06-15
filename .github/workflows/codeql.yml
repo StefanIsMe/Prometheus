@@ -1,0 +1,76 @@
+name: CodeQL
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Weekly deep scan — catches findings that emerge in third-party
+    # dependencies or the broader Python corpus between PRs.
+    - cron: "30 6 * * 1"
+  workflow_dispatch:
+
+# CodeQL is read-only and only uploads SARIF — minimum permissions.
+permissions:
+  contents: read
+  # 'security-events: write' is required to upload SARIF to the
+  # Code Scanning tab; the GITHUB_TOKEN is automatically granted this
+  # only when the workflow is in a repository with code-scanning enabled.
+  security-events: write
+  actions: read
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: python
+            build-mode: none
+          # If you ever add JS/Vue/etc. to the docs site, drop them in here.
+          # - language: javascript-typescript
+          #   build-mode: none
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      # -------------------------------------------------------------------------
+      # Initialize the CodeQL toolchain for the matrix language.
+      # `security-and-quality` is the extended query suite — adds the
+      # security-and-quality queries on top of the default `security-suite`,
+      # catching things like cleartext-credentials, inefficient regular
+      # expressions, and a wider set of taint sources. Free for public repos.
+      # -------------------------------------------------------------------------
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+          queries: security-and-quality
+          # Persist the SARIF output in the workflow run as an artifact
+          # in case the upload step fails (e.g. permission flap).
+          upload-extra-analytics: true
+
+      # -------------------------------------------------------------------------
+      # Autobuild attempts to detect the build system. For a pure Python
+      # project with no compiled extensions, this is a no-op — we set
+      # build-mode: none above. If a future commit adds C extensions,
+      # switch the matrix entry to `build-mode: autobuild` and drop this
+      # manual autobuild step.
+      # -------------------------------------------------------------------------
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{ matrix.language }}"
+          # Upload the SARIF bundle even on failure so the alert is visible.
+          upload: always
+          # Add a per-run summary in the Actions UI.
+          add-paths: ignored-and-not-generated
