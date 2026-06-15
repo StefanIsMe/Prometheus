@@ -291,9 +291,9 @@ prometheus/
 └── utils/          # Small helpers
 ```
 
-A few root-level files are probe artifacts and helper scripts used
-during local development (`jquery-1.8.1`, `x.com`,
-`prometheus_comms.py`, `prometheus-safe-launch.sh`, `prometheus_tail.sh`).
+A few root-level files are helper scripts used
+during local development (`prometheus_comms.py`, `prometheus-safe-launch.sh`,
+`prometheus_tail.sh`).
 The canonical tool is the `prometheus` console script installed by the
 Python package.
 
