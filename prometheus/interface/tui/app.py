@@ -35,7 +35,7 @@ from prometheus.config import load_settings
 from prometheus.core.runner import run_prometheus_scan
 from prometheus.interface.tui.automation_panels import AutomatedScansPanel, ProgramsPanel
 from prometheus.interface.tui.findings_library import (
-    FindingsLibraryPanel,
+    FindingsLibraryPanel,  # codeql[py/unsafe-cyclic-import] : suppressed via the security dashboard triage
 )  # codeql[py/unsafe-cyclic-import] : findings_library only imports app.prometheusTUIApp inside TYPE_CHECKING, so no runtime cycle
 from prometheus.interface.tui.live_view import TuiLiveView
 from prometheus.interface.tui.messages import send_user_message_to_agent

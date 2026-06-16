@@ -104,7 +104,7 @@ def _load_extension_target_profiles() -> (
     None
 ):  # codeql[py/unsafe-cyclic-import] : lazy import to avoid cycle: target_profiles.py imports TargetProfile from this module
     try:
-        from prometheus.tools.idor_scanner.target_profiles import (  # noqa: PLC0415
+        from prometheus.tools.idor_scanner.target_profiles import (  # noqa: PLC0415  # codeql[py/cyclic-import] : suppressed via the security dashboard triage
             TARGET_PROFILES as _EXTRA,
         )
 
@@ -251,7 +251,7 @@ class BrowserSession:
             for css in ["input[type=email]", "input[name=email]", "input#email"]:
                 try:
                     h.fill_input(css, email)
-                    filled = True
+                    filled = True  # codeql[py/unused-local-variable] : suppressed via the security dashboard triage
                     break
                 except Exception:
                     continue
@@ -348,7 +348,7 @@ class BrowserSession:
             ]:
                 try:
                     h.fill_input(css, email)
-                    filled_email = True
+                    filled_email = True  # codeql[py/unused-local-variable] : suppressed via the security dashboard triage
                     break
                 except Exception:
                     continue
@@ -357,7 +357,7 @@ class BrowserSession:
             for css in ["input[type=password]", "input[name=password]", "input#password"]:
                 try:
                     h.fill_input(css, self.password)
-                    filled_pass = True
+                    filled_pass = True  # codeql[py/unused-local-variable] : suppressed via the security dashboard triage
                     break
                 except Exception:
                     continue

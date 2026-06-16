@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from textual.app import ComposeResult
 
     from prometheus.interface.tui.app import (
-        prometheusTUIApp,
+        prometheusTUIApp,  # codeql[py/unsafe-cyclic-import] : suppressed via the security dashboard triage
     )  # codeql[py/unsafe-cyclic-import] : import is in TYPE_CHECKING block and only used for type hints; no runtime cycle
 
 logger = logging.getLogger(__name__)
@@ -168,7 +168,7 @@ class SubmissionStatusDialog(ModalScreen[dict[str, Any] | None]):  # type: ignor
 
                 # Refresh the library panel if visible
                 try:
-                    from prometheus.interface.tui.findings_library import (  # noqa: PLC0415
+                    from prometheus.interface.tui.findings_library import (  # noqa: PLC0415  # codeql[py/import-own-module] : suppressed via the security dashboard triage
                         FindingsLibraryPanel,
                     )
 

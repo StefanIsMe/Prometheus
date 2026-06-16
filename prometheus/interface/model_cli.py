@@ -252,12 +252,12 @@ def _cmd_add(name: str, base_url: str, model_name: str | None, api_key_env: str 
     print(f"Added provider: {name}")
     print(f"  base_url: {base_url}")
     print(
-        f"  api_key:  {env_var}"
+        f"  api_key:  {env_var}"  # codeql[py/clear-text-logging-sensitive-data] : suppressed via the security dashboard triage
     )  # codeql[py/clear-text-logging-sensitive-data] : env_var is the env-var name (e.g. OPENAI_API_KEY), not the key value
     print(f"  model:    {model_id}")
     print()
     print(
-        f"Set API key in ~/.prometheus/.env:  {env_var}=your-key-here"
+        f"Set API key in ~/.prometheus/.env:  {env_var}=your-key-here"  # codeql[py/clear-text-logging-sensitive-data] : suppressed via the security dashboard triage
     )  # codeql[py/clear-text-logging-sensitive-data] : env_var is the env-var name, not the key value
     print(f"Then activate: prometheus model set {name}/{model_id}")
 

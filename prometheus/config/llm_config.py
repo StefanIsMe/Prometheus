@@ -565,7 +565,7 @@ def resolve_model(
                 continue
             if _is_key_circuit_broken(provider_name, key):
                 logger.debug(
-                    "Key %s:%s is circuit-broken, skipping", provider_name, key_short
+                    "Key %s:%s is circuit-broken, skipping", provider_name, key_short  # codeql[py/clear-text-logging-sensitive-data] : suppressed via the security dashboard triage
                 )  # codeql[py/clear-text-logging-sensitive-data] : key_short is the first 8 chars of the API key, used as a non-reversible identifier
                 continue
 

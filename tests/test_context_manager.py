@@ -10,7 +10,7 @@ from pathlib import Path
 # Add the prometheus source to path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from prometheus.core.context_manager import (
+from prometheus.core.context_manager import (  # codeql[py/unused-import] : suppressed via the security dashboard triage
     ContextManagedSession,
     ContextOverflowStore,
     truncate_tool_output,

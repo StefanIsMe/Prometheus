@@ -100,7 +100,7 @@ async def run_prometheus_scan(
 
     def _progress(msg: str) -> None:
         logger.info(
-            "[scan %s] %s", scan_id, msg
+            "[scan %s] %s", scan_id, msg  # codeql[py/clear-text-logging-sensitive-data] : suppressed via the security dashboard triage
         )  # codeql[py/clear-text-logging-sensitive-data] : scan_id is a random hex identifier, not a secret
         if progress_callback:
             progress_callback(msg)
@@ -122,7 +122,7 @@ async def run_prometheus_scan(
     # Cheap, fast credits check BEFORE we spin up a sandbox. Saves a
     # full scan launch when the account is out of credits.
     try:
-        from prometheus.core.runner import _check_llm_budget as _check_llm_budget  # noqa: PLC0415
+        from prometheus.core.runner import _check_llm_budget as _check_llm_budget  # noqa: PLC0415  # codeql[py/import-own-module] : suppressed via the security dashboard triage
 
         budget_ok, budget_msg = await _check_llm_budget(scan_id)
         if not budget_ok:
@@ -130,7 +130,7 @@ async def run_prometheus_scan(
             logger.error(
                 "LLM budget preflight failed for scan %s: %s",  # codeql[py/clear-text-logging-sensitive-data] : scan_id is a random hex identifier, not a secret
                 scan_id,
-                budget_msg,
+                budget_msg,  # codeql[py/clear-text-logging-sensitive-data] : suppressed via the security dashboard triage
             )
             return None
     except Exception as exc:

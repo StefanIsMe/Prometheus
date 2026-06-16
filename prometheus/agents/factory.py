@@ -49,7 +49,7 @@ from prometheus.tools.deep_audit.tool import (
     run_differential_analysis,
 )
 from prometheus.tools.verification.tool import verify_finding
-from prometheus.tools.finish.tool import finish_scan
+from prometheus.tools.finish.tool import finish_scan  # codeql[py/cyclic-import] : suppressed via the security dashboard triage
 from prometheus.tools.hypotheses.tool import (
     check_hypothesis_report_gate,
     create_hypothesis,

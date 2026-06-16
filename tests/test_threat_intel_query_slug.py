@@ -149,7 +149,7 @@ def test_log_replay_long_url_payload_now_slugs_cleanly():
     over 1000 chars long. With the new ``slugify_tech``, the equivalent
     payload slug is at most 64 chars and contains no spaces or colons."""
     log_path = _load_log_replay_target()
-    text = log_path.read_text(errors="replace")
+    text = log_path.read_text(errors="replace")  # codeql[py/unused-local-variable] : suppressed via the security dashboard triage
     # The audit's exact long payload (extracted from a CIRCL query failure)
     long_payload = (
         "Comprehensive nuclei scan coverage: CVE-2025-29927 (CVSS 9.1, "

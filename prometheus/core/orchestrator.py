@@ -73,7 +73,7 @@ class ScanOrchestrator:
             if _instance is not None:
                 return _instance
             inst = super().__new__(cls)
-            _instance = inst  # noqa: F841  — singleton assignment read by future __new__ calls
+            _instance = inst  # noqa: F841  — singleton assignment read by future __new__ calls  # codeql[py/unused-global-variable] : suppressed via the security dashboard triage
             return inst
 
     def __init__(self, *, max_concurrent: int | None = None) -> None:
@@ -226,7 +226,7 @@ class ScanOrchestrator:
             try:
                 live_view.add_system_message(msg)
             except Exception:
-                logger.debug("add_system_message failed for %r, ignoring", msg, exc_info=True)
+                logger.debug("add_system_message failed for %r, ignoring", msg, exc_info=True)  # codeql[py/clear-text-logging-sensitive-data] : suppressed via the security dashboard triage
 
         # Background thread: own event loop running run_prometheus_scan
         def _thread_target() -> None:

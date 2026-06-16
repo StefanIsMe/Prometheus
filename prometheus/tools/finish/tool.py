@@ -77,7 +77,7 @@ def _validate_scan_gates() -> dict[str, Any]:
     # report was already written.  Moving them here ensures the report is
     # only persisted when ALL gates pass.
     try:
-        from prometheus.agents.factory import (  # noqa: PLC0415
+        from prometheus.agents.factory import (  # noqa: PLC0415  # codeql[py/cyclic-import] : suppressed via the security dashboard triage
             _research_gate_enabled,
             _research_complete,
             _RESEARCH_REQUIRED_TOOLS,

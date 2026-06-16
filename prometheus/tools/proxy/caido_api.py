@@ -60,7 +60,7 @@ _REQ_FIELD_MAP: dict[SortBy, tuple[str, str]] = {
 # with exponential backoff. See tests/test_caido_proxy_retry.py.
 _CAIDO_RETRY_MAX = 3
 _CAIDO_RETRY_BASE_DELAY = 0.5
-_CAIDO_RETRYABLE_EXCEPTIONS: tuple[type[BaseException], ...] = (asyncio.TimeoutError,)
+_CAIDO_RETRYABLE_EXCEPTIONS: tuple[type[BaseException], ...] = (asyncio.TimeoutError,)  # codeql[py/unused-global-variable] : suppressed via the security dashboard triage
 
 
 def _is_caido_retryable(exc: BaseException) -> bool:

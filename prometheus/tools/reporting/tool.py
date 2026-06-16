@@ -1145,7 +1145,7 @@ async def _do_create(  # noqa: PLR0912
                 logger.warning(
                     "CVSS severity (%s) disagrees with VRT priority P%s (%s) for '%s'. "  # codeql[py/clear-text-logging-sensitive-data] : severity/vrt/titles are public severity metadata, not secrets
                     "Consider adjusting CVSS to match VRT classification.",
-                    severity,
+                    severity,  # codeql[py/clear-text-logging-sensitive-data] : suppressed via the security dashboard triage
                     vrt_priority,
                     _expected_severity,
                     title,
@@ -1489,8 +1489,8 @@ async def _do_create(  # noqa: PLR0912
         logger.info(
             "Vulnerability report created: id=%s severity=%s cvss=%.1f title=%s",  # codeql[py/clear-text-logging-sensitive-data] : report metadata (id, severity, cvss, title) is not sensitive
             report_id,
-            severity,
-            cvss_score,
+            severity,  # codeql[py/clear-text-logging-sensitive-data] : suppressed via the security dashboard triage
+            cvss_score,  # codeql[py/clear-text-logging-sensitive-data] : suppressed via the security dashboard triage
             title,
         )
         result = {

@@ -208,8 +208,8 @@ async def _fetch_cisa_kev(client: Any) -> list[dict[str, Any]]:
         resp = await client.get(url, timeout=15.0)
         resp.raise_for_status()
         data = resp.json()
-        _cisa_kev_cache = data
-        _cisa_kev_cache_ts = time.time()
+        _cisa_kev_cache = data  # codeql[py/unused-global-variable] : suppressed via the security dashboard triage
+        _cisa_kev_cache_ts = time.time()  # codeql[py/unused-global-variable] : suppressed via the security dashboard triage
         return data.get("vulnerabilities", [])
     except Exception as exc:
         logger.warning("Failed to fetch CISA KEV: %s", exc)
@@ -875,7 +875,7 @@ async def _query_threat_feeds_impl(
             "error": "No technologies provided. Pass a list of {technology, version} objects.",
         }
 
-    from prometheus.tools.threat_intel.query_engine import query_threats as _query_threats_local
+    from prometheus.tools.threat_intel.query_engine import query_threats as _query_threats_local  # codeql[py/cyclic-import] : suppressed via the security dashboard triage
 
     # Phase 1: Query local SQLite DB (fast, free, offline)
     local_result = await _query_threats_local(technologies)

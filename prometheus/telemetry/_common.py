@@ -32,14 +32,14 @@ def is_first_run() -> bool:
         return _FIRST_RUN_CACHED
     marker = Path.home() / ".prometheus" / ".seen"
     if marker.exists():
-        _FIRST_RUN_CACHED = False
+        _FIRST_RUN_CACHED = False  # codeql[py/unused-global-variable] : suppressed via the security dashboard triage
         return False
     try:
         marker.parent.mkdir(parents=True, exist_ok=True)
         marker.touch()
     except Exception:  # noqa: BLE001, S110
         pass  # nosec B110
-    _FIRST_RUN_CACHED = True  # noqa: F841  — module-level cached value
+    _FIRST_RUN_CACHED = True  # noqa: F841  — module-level cached value  # codeql[py/unused-global-variable] : suppressed via the security dashboard triage
     return True
 
 

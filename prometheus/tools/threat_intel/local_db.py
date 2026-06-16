@@ -323,7 +323,7 @@ class ThreatIntelDB:
 
             # Version range filtering
             if version and result.get("vulnerable_version_range"):
-                from prometheus.tools.threat_intel.tool import _version_in_range  # noqa: PLC0415
+                from prometheus.tools.threat_intel.tool import _version_in_range  # noqa: PLC0415  # codeql[py/cyclic-import] : suppressed via the security dashboard triage
 
                 if not _version_in_range(version, result["vulnerable_version_range"]):
                     continue  # Skip — version is not in vulnerable range

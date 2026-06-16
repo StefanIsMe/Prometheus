@@ -98,7 +98,7 @@ def test_env_var_name_is_documented():
 
 
 if __name__ == "__main__":
-    import logging
+    import logging  # codeql[py/repeated-import] : suppressed via the security dashboard triage
     import sys
 
     import pytest

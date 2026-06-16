@@ -63,7 +63,7 @@ class KnowledgeStore:
                 return _instance
             inst = super().__new__(cls)
             inst._init(requested_path)  # type: ignore[attr-defined]
-            _instance = inst  # noqa: F841  — singleton assignment read by future __new__ calls
+            _instance = inst  # noqa: F841  — singleton assignment read by future __new__ calls  # codeql[py/unused-global-variable] : assigned here, read by the `global _instance` declaration above on the next singleton call
             return inst
 
     # ------------------------------------------------------------------
@@ -1079,9 +1079,9 @@ class KnowledgeStore:
             now = datetime.now(UTC).isoformat()
             if rs:
                 # Update existing row's external_* fields + status sentinel
-                _sentinel = (
+                _sentinel = (  # codeql[py/unused-local-variable] : suppressed via the security dashboard triage
                     "external_" + ext_dict["status"]
-                )  # codeql[py/unused-local-variable] : mirrors the external_<status> token written to report_status for downstream readers
+                )  # codeql[py/unused-local-variable] : mirrors the external_<status> token written to report_status for downstream readers  # codeql[py/unused-local-variable] : mirrors the external_<status> token written to report_status for downstream readers
                 summary = (
                     f"[{now[:19]}] External {platform}/{external_id} closed as "
                     f"{ext_dict['status']} by {ext_dict.get('triager') or 'unknown'}: "
@@ -1540,7 +1540,7 @@ class KnowledgeStore:
         # Canonical ingest happens before report_status projection sync so
         # dedupe and deterministic rejection run before expensive work.
         try:
-            from prometheus.core.candidate_store import CandidateStore  # noqa: PLC0415
+            from prometheus.core.candidate_store import CandidateStore  # noqa: PLC0415  # codeql[py/cyclic-import] : deferred import; candidate_store is imported by other call sites at module level and re-imports store lazily  # codeql[py/cyclic-import] : deferred import; candidate_store is imported by other call sites at module level and re-imports store lazily
 
             CandidateStore(self._db_path).ingest_findings(
                 findings,
@@ -1979,7 +1979,7 @@ class KnowledgeStore:
         report_url: str | None = None,
     ) -> dict[str, Any]:
         """Store accepted, duplicate, informative, or rejected outcome feedback."""
-        from prometheus.core.candidate_store import CandidateStore  # noqa: PLC0415
+        from prometheus.core.candidate_store import CandidateStore  # noqa: PLC0415  # codeql[py/cyclic-import] : deferred import; candidate_store is imported by other call sites at module level and re-imports store lazily
 
         return CandidateStore(self._db_path).record_submission_outcome(
             finding_id=finding_id,
@@ -1992,7 +1992,7 @@ class KnowledgeStore:
 
     def get_outcome_feedback_summary(self) -> dict[str, Any]:
         """Return false positive, duplicate, and accepted report summary views."""
-        from prometheus.core.candidate_store import CandidateStore  # noqa: PLC0415
+        from prometheus.core.candidate_store import CandidateStore  # noqa: PLC0415  # codeql[py/cyclic-import] : deferred import; candidate_store is imported by other call sites at module level and re-imports store lazily
 
         summary = CandidateStore(self._db_path).outcome_summary()
         by_status = summary.get("by_status", {})

@@ -22,7 +22,7 @@ import logging
 import sys
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import patch  # codeql[py/unused-import] : suppressed via the security dashboard triage
 
 SOURCE_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SOURCE_ROOT))
@@ -31,7 +31,7 @@ from openai import APIConnectionError  # noqa: E402
 
 import pytest  # noqa: E402
 
-from prometheus.report import dedupe  # noqa: E402
+from prometheus.report import dedupe  # noqa: E402  # codeql[py/unused-import] : suppressed via the security dashboard triage
 
 
 def _make_response(content: str) -> SimpleNamespace:

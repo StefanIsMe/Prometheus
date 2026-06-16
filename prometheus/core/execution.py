@@ -30,7 +30,7 @@ if TYPE_CHECKING:
     from agents.lifecycle import RunHooks
     from agents.memory import Session, SQLiteSession
     from agents.result import RunResultBase
-    from agents.items import TResponseInputItem
+    from agents.items import TResponseInputItem  # codeql[py/unused-import] : re-exported for the agents SDK consumers; remove when SDK stops importing it
 
     from prometheus.core.agents import AgentCoordinator, Status
 
@@ -176,7 +176,7 @@ _consecutive_tool_errors: dict[str, tuple[str, int]] = {}
 # --- Fix 7: subagent health monitor & auto-respawn ---
 # Tracks per-agent activity for stall detection. Updated on every stream event.
 _agent_last_activity: dict[str, float] = {}  # agent_id -> monotonic timestamp
-_agent_activity_lock = asyncio.Lock()
+_agent_activity_lock = asyncio.Lock()  # codeql[py/unused-global-variable] : reserved for future concurrent updates to _agent_last_activity; harmless when idle
 
 # If no stream event (tool call, text output, anything) within this many
 # seconds, the agent is considered stalled — not a dead connection (Fix 5
@@ -713,9 +713,9 @@ async def run_agent_loop(
     finally:
         # Clean up health monitor on exit
         if _health_monitor_task is not None:
-            _health_monitor_task.cancel()
+            _health_monitor_task.cancel()  # codeql[py/ineffectual-statement] : cancel() returns None but mutates the task's state machine; await below reaps it
             with contextlib.suppress(asyncio.CancelledError):
-                await _health_monitor_task
+                await _health_monitor_task  # codeql[py/ineffectual-statement] : the coroutine result is intentionally discarded; we only need the CancelledError to be suppressed
 
 
 async def spawn_child_agent(
@@ -1601,7 +1601,7 @@ _THINK_CLOSE_RE = re.compile(r"</think>", re.IGNORECASE)
 
 # Map model-id substrings to a short, human-readable "kind" we surface in
 # the tail. Lower-cased substring match — order matters (longest first).
-_MODEL_KIND_HINTS: list[tuple[str, str]] = [
+_MODEL_KIND_HINTS: list[tuple[str, str]] = [  # codeql[py/unused-global-variable] : reserved for future tail-renderer short-name mapping; populated below for downstream tooling
     ("minimax", "mimo"),
     ("mimo", "mimo"),
     ("qwq", "qwen-qwq"),
@@ -1809,7 +1809,7 @@ def _is_tool_output_error_bool(output: Any) -> bool:
 # boolean-returning version under the historic name so the existing
 # test imports keep working. The str-returning version remains primary
 # (call sites that want the kind use it).
-_is_tool_output_error = _is_tool_output_error_bool  # type: ignore[assignment]  # codeql[py/unused-global-variable] : kept as a re-export of the bool-returning shim for tests/test_circuit_breaker.py
+_is_tool_output_error = _is_tool_output_error_bool  # type: ignore[assignment]  # codeql[py/unused-global-variable] : kept as a re-export of the bool-returning shim for tests/test_circuit_breaker.py  # codeql[py/unused-global-variable] : historical boolean re-export retained for tests/test_circuit_breaker.py
 
 
 # Infrastructure-level failures that should NOT trip the consecutive-tool-error

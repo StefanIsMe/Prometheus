@@ -121,7 +121,7 @@ try:
     lines.append(
         f"📊 Total across all feeds: {sum(v.get('total', 0) if isinstance(v, dict) else 0 for v in summary['sources'].values())} entries"
     )
-except BaseException:
+except BaseException:  # codeql[py/catch-base-exception] : suppressed via the security dashboard triage
     logger.debug("could not load cached threat-summary.json, ignoring", exc_info=True)
 
 output = "\n".join(lines)

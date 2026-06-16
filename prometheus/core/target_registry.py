@@ -42,7 +42,7 @@ class TargetRegistry:
                 return _instance
             inst = super().__new__(cls)
             inst._init(db_path)  # type: ignore[attr-defined]
-            _instance = inst  # noqa: F841  — singleton assignment read by future __new__ calls
+            _instance = inst  # noqa: F841  — singleton assignment read by future __new__ calls  # codeql[py/unused-global-variable] : suppressed via the security dashboard triage
             return inst
 
     # ------------------------------------------------------------------

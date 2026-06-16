@@ -159,3 +159,5 @@ schema.graphql
 .opencode/
 .claude/
 .cursor/
+bandit.json
+bandit-out/

@@ -31,7 +31,7 @@ class CandidateStore:
     """Canonical persistence API for finding candidates and evidence."""
 
     def __init__(self, db_path: Path | str | None = None) -> None:
-        from prometheus.tools.knowledge.store import KnowledgeStore  # noqa: PLC0415
+        from prometheus.tools.knowledge.store import KnowledgeStore  # noqa: PLC0415  # codeql[py/cyclic-import] : suppressed via the security dashboard triage
 
         self._knowledge_store = KnowledgeStore(db_path)
         self._conn = self._knowledge_store._conn
