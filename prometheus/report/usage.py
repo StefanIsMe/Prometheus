@@ -299,7 +299,11 @@ def _litellm_model_name(model: str | None) -> str | None:
                     normalized = f"{provider_name}/{normalized}"
                     break
         except Exception:
-            pass
+            logger.debug(
+                "provider lookup failed for %r, returning normalized as-is",
+                normalized,
+                exc_info=True,
+            )
     return normalized or None
 
 

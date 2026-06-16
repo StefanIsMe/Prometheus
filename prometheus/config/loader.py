@@ -88,7 +88,7 @@ def persist_current() -> None:
                 if isinstance(raw, dict):
                     existing_env = {str(k).upper(): str(v) for k, v in raw.items()}
         except (json.JSONDecodeError, OSError):
-            pass
+            logger.debug("could not load existing settings env, starting empty", exc_info=True)
 
     env_block: dict[str, str] = dict(existing_env)  # start with existing
     for sub_name in s.model_fields:

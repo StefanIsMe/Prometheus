@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Any
 
 
 if TYPE_CHECKING:
-    from prometheus.report.state import ReportState
+    pass  # codeql[py/unsafe-cyclic-import] : stub module — TYPE_CHECKING block is empty, no cycle
 
 
 def start(*_args: Any, **_kwargs: Any) -> None:  # noqa: D401

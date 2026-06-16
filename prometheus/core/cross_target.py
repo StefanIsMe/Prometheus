@@ -130,7 +130,7 @@ class CrossTargetIntel:
                 return _instance
             inst = super().__new__(cls)
             inst._init()
-            _instance = inst
+            _instance = inst  # noqa: F841  — singleton assignment read by future __new__ calls
             return inst
 
     # ------------------------------------------------------------------

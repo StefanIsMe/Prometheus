@@ -71,7 +71,7 @@ class ScanOrchestrator:
             if _instance is not None:
                 return _instance
             inst = super().__new__(cls)
-            _instance = inst
+            _instance = inst  # noqa: F841  — singleton assignment read by future __new__ calls
             return inst
 
     def __init__(self, *, max_concurrent: int | None = None) -> None:
@@ -224,7 +224,7 @@ class ScanOrchestrator:
             try:
                 live_view.add_system_message(msg)
             except Exception:
-                pass
+                logger.debug("add_system_message failed for %r, ignoring", msg, exc_info=True)
 
         # Background thread: own event loop running run_prometheus_scan
         def _thread_target() -> None:
@@ -275,7 +275,7 @@ class ScanOrchestrator:
 
                     clear_thread_report_state()
                 except Exception:
-                    pass
+                    logger.debug("clear_thread_report_state failed, ignoring", exc_info=True)
 
         thread = threading.Thread(
             target=_thread_target,

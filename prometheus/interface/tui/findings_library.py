@@ -20,7 +20,9 @@ if TYPE_CHECKING:
     from textual import events
     from textual.app import ComposeResult
 
-    from prometheus.interface.tui.app import prometheusTUIApp
+    from prometheus.interface.tui.app import (
+        prometheusTUIApp,
+    )  # codeql[py/unsafe-cyclic-import] : import is in TYPE_CHECKING block and only used for type hints; no runtime cycle
 
 logger = logging.getLogger(__name__)
 
@@ -166,12 +168,14 @@ class SubmissionStatusDialog(ModalScreen[dict[str, Any] | None]):  # type: ignor
 
                 # Refresh the library panel if visible
                 try:
-                    from prometheus.interface.tui.findings_library import FindingsLibraryPanel
+                    from prometheus.interface.tui.findings_library import (  # noqa: PLC0415
+                        FindingsLibraryPanel,
+                    )
 
                     panel = self.app.query_one("#findings_library", FindingsLibraryPanel)
                     panel.refresh_findings()
                 except Exception:
-                    pass
+                    logger.debug("could not refresh findings_library panel", exc_info=True)
 
             except Exception as exc:
                 logger.exception("Failed to update status")
@@ -959,7 +963,11 @@ class FindingsLibraryPanel(VerticalScroll):
             if 0 <= self._selected_index < len(children):
                 children[self._selected_index].remove_class("selected")
         except (ValueError, IndexError):
-            pass
+            logger.debug(
+                "could not remove 'selected' class from finding %d",
+                self._selected_index,
+                exc_info=True,
+            )
 
         self._selected_index = max(
             0, min(len(self._filtered_findings) - 1, self._selected_index + direction)
@@ -972,7 +980,9 @@ class FindingsLibraryPanel(VerticalScroll):
                 children[self._selected_index].add_class("selected")
                 children[self._selected_index].scroll_visible()
         except (ValueError, IndexError):
-            pass
+            logger.debug(
+                "could not add 'selected' class to finding %d", self._selected_index, exc_info=True
+            )
 
     def on_key(self, event: events.Key) -> None:
         if event.key == "up":

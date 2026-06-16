@@ -59,7 +59,9 @@ def write_vulnerabilities(
 
     for report in new_reports:
         (vuln_dir / f"{report['id']}.md").write_text(
-            render_vulnerability_md(report),
+            render_vulnerability_md(
+                report
+            ),  # codeql[py/clear-text-storage-sensitive-data] : vulnerability report bodies are public bug-bounty writeups, not secrets
             encoding="utf-8",
         )
         saved_vuln_ids.add(report["id"])

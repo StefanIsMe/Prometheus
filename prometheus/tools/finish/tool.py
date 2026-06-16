@@ -19,7 +19,6 @@ logger = logging.getLogger(__name__)
 # Minimum phases that MUST be completed before finish_scan is accepted.
 # EXPLOITATION is skippable (no vulns found). REPORTING is completed by this call.
 _REQUIRED_PHASES = {"RECON", "FINGERPRINT", "THREAT_INTEL", "VULNERABILITY_SCAN"}
-_SKIPPABLE_PHASES = {"EXPLOITATION"}
 
 
 def _validate_scan_gates() -> dict[str, Any]:
@@ -78,7 +77,7 @@ def _validate_scan_gates() -> dict[str, Any]:
     # report was already written.  Moving them here ensures the report is
     # only persisted when ALL gates pass.
     try:
-        from prometheus.agents.factory import (
+        from prometheus.agents.factory import (  # noqa: PLC0415
             _research_gate_enabled,
             _research_complete,
             _RESEARCH_REQUIRED_TOOLS,

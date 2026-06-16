@@ -19,7 +19,6 @@ These tests:
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 import sys
 from pathlib import Path
@@ -34,7 +33,6 @@ sys.path.insert(0, str(SOURCE_ROOT))
 
 from prometheus.tools.proxy import caido_api  # noqa: E402
 from prometheus.tools.proxy.caido_api import (  # noqa: E402
-    _CAIDO_RETRY_BASE_DELAY,
     _CAIDO_RETRY_MAX,
     caido_retry,
 )

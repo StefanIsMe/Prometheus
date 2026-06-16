@@ -1,5 +1,6 @@
 import ipaddress
 import json
+import logging
 import os
 import re
 import secrets
@@ -21,6 +22,8 @@ from rich.panel import Panel
 from rich.text import Text
 
 from prometheus.config import load_settings
+
+logger = logging.getLogger(__name__)
 
 
 def get_severity_color(severity: str) -> str:
@@ -827,9 +830,11 @@ def _truncate_file_list(
 def build_diff_scope_instruction(scopes: list[RepoDiffScope]) -> str:
     lines = [
         "The user is requesting a review of a Pull Request.",
-        "Instruction: Direct your analysis primarily at the changes in the listed files. "
-        "You may reference other files in the repository for context (imports, definitions, "
-        "usage), but report findings only if they relate to the listed changes.",
+        (
+            "Instruction: Direct your analysis primarily at the changes in the listed files. "
+            "You may reference other files in the repository for context (imports, definitions, "
+            "usage), but report findings only if they relate to the listed changes."
+        ),
         "For Added files, review the entire file content.",
         "For Modified files, focus primarily on the changed areas.",
     ]
@@ -1248,7 +1253,9 @@ def _is_localhost_host(host: str) -> bool:
         if isinstance(ip, ipaddress.IPv6Address):
             return ip.is_loopback  # ::1
     except ValueError:
-        pass
+        logger.debug(
+            "ip_address(%r) raised ValueError, treating as non-loopback", host_lower, exc_info=True
+        )
 
     return False
 

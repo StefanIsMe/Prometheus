@@ -24,13 +24,11 @@ from __future__ import annotations
 
 import logging
 import sys
-import time
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
 import docker.errors
-import pytest
 
 SOURCE_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SOURCE_ROOT))

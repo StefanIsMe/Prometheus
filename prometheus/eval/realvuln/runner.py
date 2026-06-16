@@ -27,7 +27,6 @@ from typing import Any, Sequence
 from prometheus.eval.xbow.concurrency import bounded_gather
 
 from .challenges import (
-    GROUND_TRUTH_DIR,
     REPO_SLUGS,
     SCAN_RESULTS_DIR,
     SCANNER_SLUG,

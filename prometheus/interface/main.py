@@ -538,6 +538,7 @@ def _load_resume_state(args: argparse.Namespace, parser: argparse.ArgumentParser
     """Populate ``args.targets_info`` and friends from a prior run's run.json."""
     run_dir = run_dir_for(args.resume)
     state_path = run_dir / "run.json"
+    state: dict = {}  # codeql[py/uninitialized-local-variable] : initialized to a safe default before the read_run_record() call below
     if not state_path.exists():
         parser.error(
             f"--resume {args.resume}: no such run "
@@ -1007,7 +1008,7 @@ def main() -> None:
                                 console.print(f"  [dim]{name}: tool: {cmd}[/]")
                         last_event_line[scan_id] = len(events)
                 except Exception:
-                    pass
+                    logger.debug("scan event tail failed for %s, ignoring", scan_id, exc_info=True)
 
             # Print status panel
             panel_text = "\n".join(status_lines)

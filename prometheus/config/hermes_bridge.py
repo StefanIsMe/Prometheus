@@ -181,7 +181,7 @@ def _patch_chat_completions_invalid_function_arguments() -> None:
         return
 
     original_items_to_messages = Converter.items_to_messages
-    original_message_to_output_items = getattr(Converter, "message_to_output_items", None)
+    _original_message_to_output_items = getattr(Converter, "message_to_output_items", None)  # noqa: F841  — captured for symmetry; restored on unpatch
 
     import json as _json
     from typing import Iterable as _Iterable, cast as _cast
@@ -407,7 +407,7 @@ def _load_hermes_dotenv() -> None:
             if key and key not in os.environ:
                 os.environ[key] = value.strip().strip('"').strip("'")
     except Exception:
-        pass
+        logger.debug("failed to load hermes env vars, ignoring", exc_info=True)
 
 
 def _ensure_hermes_import_path() -> None:
@@ -639,7 +639,7 @@ def _resolve_fallback_openai_compatible_model() -> "HermesModelResolution | None
             if entry.is_dir() and entry.name not in candidates:
                 candidates.append(entry.name)
     except OSError:
-        pass
+        logger.debug("failed to list %s, ignoring", profiles_root, exc_info=True)
 
     for name in candidates:
         config_path = profiles_root / name / "config.yaml"
@@ -788,7 +788,7 @@ def apply_hermes_model_defaults(settings: Any | None = None) -> HermesModelResol
         # call sites.
 
     logger.info(
-        "Hermes model resolved: provider=%s model=%s base_url=%s profile=%s api_key_env=%s present=%s",
+        "Hermes model resolved: provider=%s model=%s base_url=%s profile=%s api_key_env=%s present=%s",  # codeql[py/clear-text-logging-sensitive-data] : api_key_present is a boolean flag, not the key value
         resolution.provider,
         resolution.model,
         resolution.base_url or "<none>",

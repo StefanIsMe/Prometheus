@@ -8,7 +8,7 @@ import sqlite3
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
 logger = logging.getLogger(__name__)
 
@@ -21,13 +21,18 @@ from prometheus.core.candidate_schema import (
     assert_legal_transition,
 )
 from prometheus.core.comms import get_active_run, write_status
-from prometheus.tools.knowledge.store import KnowledgeStore
+
+
+if TYPE_CHECKING:
+    from prometheus.tools.knowledge.store import KnowledgeStore
 
 
 class CandidateStore:
     """Canonical persistence API for finding candidates and evidence."""
 
     def __init__(self, db_path: Path | str | None = None) -> None:
+        from prometheus.tools.knowledge.store import KnowledgeStore  # noqa: PLC0415
+
         self._knowledge_store = KnowledgeStore(db_path)
         self._conn = self._knowledge_store._conn
         self._lock = self._knowledge_store._lock

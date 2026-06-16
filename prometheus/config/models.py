@@ -18,7 +18,6 @@ from prometheus.config.llm_config import (
     get_config,
     resolve_model,
     resolve_tier,
-    should_set_tool_choice,
 )
 
 if TYPE_CHECKING:

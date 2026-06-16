@@ -15,11 +15,9 @@ tightened to a single retry.
 from __future__ import annotations
 
 import asyncio
-import logging
 import sys
 from pathlib import Path
-from types import SimpleNamespace
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 
 SOURCE_ROOT = Path(__file__).resolve().parents[1]
 if str(SOURCE_ROOT) not in sys.path:
@@ -34,7 +32,7 @@ from prometheus.core.execution import (  # noqa: E402
 
 
 def _run(coro):
-    return asyncio.get_event_loop().run_until_complete(coro) if False else asyncio.run(coro)
+    return asyncio.run(coro)
 
 
 # ---------------------------------------------------------------------------

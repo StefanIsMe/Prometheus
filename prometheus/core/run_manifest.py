@@ -30,14 +30,11 @@ from __future__ import annotations
 import datetime as _dt
 import hashlib
 import json
-import logging
 import os
 import sys
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Iterable, Mapping
-
-logger = logging.getLogger(__name__)
 
 
 SCHEMA_VERSION = 1
@@ -120,6 +117,7 @@ def _python_version() -> str:
 
 
 def _prometheus_version() -> str:
+    PackageNotFoundError: type[Exception] = Exception  # type: ignore[misc]  # codeql[py/uninitialized-local-variable] : ensure name is bound before the `except` clause below
     try:
         from importlib.metadata import version, PackageNotFoundError
 

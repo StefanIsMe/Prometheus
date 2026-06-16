@@ -26,7 +26,6 @@ with KILL_TIMEOUT.
 
 from __future__ import annotations
 
-import logging
 import time
 from dataclasses import dataclass
 from enum import Enum
@@ -34,9 +33,6 @@ from typing import Any
 
 from prometheus.core.always_rejected import match_rejection
 from prometheus.core.conditionally_valid import conditionally_valid
-
-logger = logging.getLogger(__name__)
-
 
 DEFAULT_TIMEOUT_S = 1800  # 30 min
 

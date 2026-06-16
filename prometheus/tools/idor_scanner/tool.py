@@ -24,18 +24,15 @@ import json
 import logging
 import os
 import random
-import re
 import sqlite3
 import sys
-import time
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 # Prometheus imports
-from prometheus.agents.browser_session import BrowserSession, TargetProfile, get_target_profile
-from prometheus.tools.knowledge.store import KnowledgeStore
+from prometheus.agents.browser_session import BrowserSession, get_target_profile
 
 
 logger = logging.getLogger(__name__)
@@ -125,7 +122,7 @@ def _fetch_via_cdp(url: str, method: str = "GET", body: str = "") -> str | None:
         try:
             h.cdp("Fetch.disable")
         except Exception:
-            pass
+            logger.debug("Fetch.disable failed, ignoring", exc_info=True)
 
     return None
 

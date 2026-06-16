@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 import json
 import sys
-import os
 from pathlib import Path
 
 # Add the prometheus source to path
@@ -20,7 +19,6 @@ from prometheus.core.context_manager import (
     create_context_managed_session,
     _is_base64_image,
     _is_html_response,
-    MAX_TOOL_OUTPUT_BYTES,
     MAX_IMAGE_OUTPUT_BYTES,
     MAX_HTML_OUTPUT_BYTES,
     MAX_TERMINAL_OUTPUT_BYTES,

@@ -24,8 +24,6 @@ demonstrates end-to-end coverage of every category from the audit.
 from __future__ import annotations
 
 import asyncio
-import json
-import logging
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -34,7 +32,6 @@ from unittest.mock import patch
 import docker.errors
 import pytest
 from caido_sdk_client.errors import NetworkUserError
-from openai import APIConnectionError
 
 SOURCE_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SOURCE_ROOT))

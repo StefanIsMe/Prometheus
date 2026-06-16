@@ -12,15 +12,11 @@ import os
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
-from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
 _DEFAULT_PATH = Path(__file__).resolve().parent / "role_routing.yaml"
-
-
-_VALID_TIERS = frozenset({"cheap", "standard", "strong", "haiku", "sonnet", "opus"})
 
 
 _TIER_ALIASES = {

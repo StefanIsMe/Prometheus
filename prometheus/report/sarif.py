@@ -10,13 +10,10 @@ Schema reference: https://docs.oasis-open.org/sarif/sarif/v2.1.0/
 from __future__ import annotations
 
 import datetime as _dt
-import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Iterable
 from urllib.parse import urlparse
-
-logger = logging.getLogger(__name__)
 
 
 SARIF_SCHEMA = "https://schemastore.azurewebsites.net/schemas/json/sarif-2.1.0-rtm.5.json"

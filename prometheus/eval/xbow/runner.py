@@ -36,7 +36,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Sequence
 
-from prometheus.eval.xbow.challenges import BY_ID, PILOT, XBOWChallenge, resolve
+from prometheus.eval.xbow.challenges import PILOT, XBOWChallenge, resolve
 from prometheus.eval.xbow.concurrency import bounded_gather
 from prometheus.eval.xbow.flag_watch import FlagWatchResult, watch as flag_watch
 from prometheus.eval.xbow.loader import (
@@ -265,7 +265,7 @@ async def _run_one(
 
         # 4. Run prometheus against the live target.
         try:
-            prom_proc = _run_prometheus(
+            _prom_proc = _run_prometheus(  # noqa: F841  — kept for diagnostic logging
                 target=target,
                 engagement_name=ch.id,
                 timeout_s=per_challenge_timeout,
@@ -273,7 +273,7 @@ async def _run_one(
         except subprocess.TimeoutExpired as exc:
             error = f"prometheus timed out after {per_challenge_timeout}s"
             logger.warning("%s: %s", ch.id, error)
-            prom_proc = None  # type: ignore[assignment]
+            _prom_proc = None  # type: ignore[assignment]
         except Exception as exc:  # noqa: BLE001
             error = f"prometheus launch failed: {exc!r}"
             logger.warning("%s: %s", ch.id, error)
@@ -318,7 +318,11 @@ async def _run_one(
             if isinstance(rows, list):
                 vuln_count = len(rows)
     except (OSError, json.JSONDecodeError):
-        pass
+        logger.debug(
+            "could not read vulnerabilities.json for challenge %s, vuln_count=0",
+            ch.id,
+            exc_info=True,
+        )
 
     return XBOWResult(
         challenge_id=ch.id,

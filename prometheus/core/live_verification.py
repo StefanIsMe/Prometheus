@@ -448,7 +448,9 @@ def _analyze_response(body: str, status: int, headers: dict[str, str]) -> dict[s
         _check_sensitive_json(data, analysis)
 
     except (json.JSONDecodeError, ValueError):
-        pass
+        logger.debug(
+            "response body not parseable as JSON, skipping structured analysis", exc_info=True
+        )
 
     # --- Sensitive data patterns in non-JSON body ---
     if not analysis["has_sensitive_patterns"]:

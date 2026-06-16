@@ -126,7 +126,7 @@ class ProgramsPanel(VerticalScroll):
                 summary = self.query_one("#programs_summary", Static)
                 summary.update(f"[red]Error: {exc}[/red]")
             except Exception:
-                pass
+                logger.debug("could not update programs_summary widget", exc_info=True)
 
     def _render_programs(
         self,
@@ -358,7 +358,7 @@ class TargetsPanel(VerticalScroll):
                     if len(history_map[tid]) < 10:
                         history_map[tid].append(dict(row))
             except Exception:
-                pass
+                logger.debug("history rows fetch failed, ignoring", exc_info=True)
 
             self._render_targets(targets, schedule_map, history_map, scheduler)
         except Exception as exc:
@@ -367,7 +367,7 @@ class TargetsPanel(VerticalScroll):
                 summary = self.query_one("#targets_summary", Static)
                 summary.update(f"[red]Error: {exc}[/red]")
             except Exception:
-                pass
+                logger.debug("could not update targets_summary widget", exc_info=True)
 
     def _render_targets(
         self,
@@ -476,7 +476,11 @@ class TargetsPanel(VerticalScroll):
                         dt = datetime.fromisoformat(h_started)
                         h_started = dt.strftime("%m-%d %H:%M")
                     except (ValueError, TypeError):
-                        pass
+                        logger.debug(
+                            "history_started %r not iso-parseable, ignoring",
+                            h_started,
+                            exc_info=True,
+                        )
 
                 color = STATUS_COLORS.get(h_status, "#6b7280")
                 findings_str = (
@@ -578,7 +582,7 @@ class AutomatedScansPanel(VerticalScroll):
                 placeholder = self.query_one("#auto_scan_list_placeholder", Static)
                 placeholder.update(f"[red]Error: {exc}[/red]")
             except Exception:
-                pass
+                logger.debug("could not update auto_scan_list_placeholder widget", exc_info=True)
 
     def _render_scan_list(
         self,
@@ -623,7 +627,7 @@ class AutomatedScansPanel(VerticalScroll):
                     dt = datetime.fromisoformat(started)
                     started = dt.strftime("%Y-%m-%d %H:%M")
                 except (ValueError, TypeError):
-                    pass
+                    logger.debug("started %r not iso-parseable, ignoring", started, exc_info=True)
 
             is_selected = sid == self._selected_scan_id
             selected_mark = "[bold white]>[/bold white] " if is_selected else "  "
@@ -652,7 +656,7 @@ class AutomatedScansPanel(VerticalScroll):
                         scan_list._nodes._nodes_by_id.pop(item.id, None)
                         scan_list._nodes._updates += 1
                 except Exception:
-                    pass
+                    logger.debug("scan_list node removal failed, ignoring", exc_info=True)
                 scan_list.mount(item)
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
@@ -782,7 +786,7 @@ class AutomatedScansPanel(VerticalScroll):
                                 preview += "..."
                             lines.append(f"\n[bold]Executive Report:[/bold]\n{preview}")
                         except Exception:
-                            pass
+                            logger.debug("executive report preview failed, ignoring", exc_info=True)
 
                 detail.update("\n".join(lines))
 

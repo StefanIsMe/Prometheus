@@ -19,6 +19,7 @@ This file:
 
 from __future__ import annotations
 
+import logging
 import sys
 from pathlib import Path
 from unittest.mock import patch
@@ -32,6 +33,8 @@ sys.path.insert(0, str(SOURCE_ROOT))
 import sqlite3  # noqa: E402
 
 from prometheus.db.migrations import init_prometheus_db  # noqa: E402
+
+logger = logging.getLogger(__name__)
 
 
 def _seed_report_status(db_path: Path) -> None:
@@ -154,4 +157,4 @@ def test_init_prometheus_db_default_path_is_home_prometheus(tmp_path: Path) -> N
         try:
             returned.unlink()
         except OSError:
-            pass
+            logger.debug("cleanup unlink failed for %s, ignoring", returned, exc_info=True)

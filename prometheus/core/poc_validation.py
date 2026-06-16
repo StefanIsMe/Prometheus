@@ -290,7 +290,9 @@ def _execute_curl_command(command: str, timeout: int = 30) -> tuple[bool, str, s
                         n = int(shlex.split(filt)[-1])
                         stdout = "\n".join(stdout.split("\n")[:n])
                     except (ValueError, IndexError):
-                        pass
+                        logger.debug(
+                            "head filter %r could not be parsed, ignoring", filt, exc_info=True
+                        )
                 elif filt_lower.startswith("wc "):
                     if "-l" in filt_lower:
                         stdout = str(len(stdout.split("\n")))
@@ -303,7 +305,9 @@ def _execute_curl_command(command: str, timeout: int = 30) -> tuple[bool, str, s
                         n = int(shlex.split(filt)[-1])
                         stdout = "\n".join(stdout.split("\n")[-n:])
                     except (ValueError, IndexError):
-                        pass
+                        logger.debug(
+                            "tail filter %r could not be parsed, ignoring", filt, exc_info=True
+                        )
                 elif "grep" in filt_lower:
                     import re as _re2
 

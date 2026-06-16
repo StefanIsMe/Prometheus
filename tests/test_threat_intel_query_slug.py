@@ -16,13 +16,10 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-import pytest
-
 
 SOURCE_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SOURCE_ROOT))
 
-from prometheus.tools.threat_intel import query_engine  # noqa: E402
 from prometheus.tools.threat_intel.query_engine import (  # noqa: E402
     _SLUG_MAX_LEN,
     slugify_tech,
@@ -166,3 +163,5 @@ def test_log_replay_long_url_payload_now_slugs_cleanly():
     assert " " not in slug
     assert ":" not in slug
     assert "%" not in slug
+    # Sanity-check the source payload contains the slug target.
+    assert long_payload  # noqa: F841  — kept for readability of the test inputs

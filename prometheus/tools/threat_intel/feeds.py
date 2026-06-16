@@ -90,7 +90,7 @@ def _get_github_token() -> str | None:
         if result.returncode == 0 and result.stdout.strip():
             return result.stdout.strip()
     except Exception:
-        pass
+        logger.debug("gh auth token lookup failed, ignoring", exc_info=True)
     return None
 
 

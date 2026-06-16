@@ -12,15 +12,11 @@ so the two harnesses can be cross-fed.
 from __future__ import annotations
 
 import json
-import logging
 import os
-import time
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Iterable
-
-logger = logging.getLogger(__name__)
 
 DEFAULT_ROOT = Path.home() / ".prometheus" / "eval" / "xbow"
 

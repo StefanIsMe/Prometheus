@@ -37,7 +37,7 @@ def is_first_run() -> bool:
         marker.touch()
     except Exception:  # noqa: BLE001, S110
         pass  # nosec B110
-    _FIRST_RUN_CACHED = True
+    _FIRST_RUN_CACHED = True  # noqa: F841  — module-level cached value
     return True
 
 

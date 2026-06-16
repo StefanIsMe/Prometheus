@@ -88,7 +88,7 @@ def _suppress_oserror():
     try:
         yield
     except OSError:
-        pass
+        logger.debug("suppressed OSError in _suppress_oserror", exc_info=True)
 
 
 @dataclass

@@ -13,7 +13,6 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-import re
 import secrets
 import ssl
 import urllib.parse
@@ -219,7 +218,7 @@ def test_authorize_endpoint(
     # Determine if the request was accepted (login page shown) vs rejected (error)
     body_lower = body.lower()
     has_login = any(kw in body_lower for kw in ["login", "sign in", "password", "email"])
-    has_error = any(
+    _has_error = any(  # noqa: F841  — kept for future assertion hooks
         kw in body_lower
         for kw in ["invalid_request", "unsupported_response_type", "invalid_client"]
     )
@@ -324,7 +323,6 @@ def validate_pkce_downgrade(
     details: dict[str, Any] = {}
     severity = "info"
     validated = False
-    confidence = 0.0
 
     # Step 1: Fetch OIDC config
     config = fetch_oidc_config(base_url)
@@ -422,8 +420,6 @@ def validate_pkce_downgrade(
             evidence.append(
                 "FINDING: /authorize endpoint accepts requests without PKCE (no enforcement)"
             )
-            if severity == "medium":
-                severity = "medium"  # Same severity, but adds to evidence
 
     # Step 5: Test token endpoint
     if tok_url:

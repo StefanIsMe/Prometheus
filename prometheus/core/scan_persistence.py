@@ -18,8 +18,6 @@ from typing import Any, Self
 
 logger = logging.getLogger(__name__)
 
-_DEFAULT_DB_PATH = Path.home() / ".prometheus" / "prometheus.db"
-
 _instance: ScanPersistence | None = None
 _instance_lock = threading.Lock()
 
@@ -40,7 +38,7 @@ class ScanPersistence:
                 return _instance
             inst = super().__new__(cls)
             inst._init(db_path)  # type: ignore[attr-defined]
-            _instance = inst
+            _instance = inst  # noqa: F841  — singleton assignment read by future __new__ calls
             return inst
 
     # ------------------------------------------------------------------

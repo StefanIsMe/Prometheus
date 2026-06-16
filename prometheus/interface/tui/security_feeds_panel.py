@@ -149,7 +149,7 @@ class SecurityFeedsPanel(VerticalScroll):
                 summary = self.query_one("#feeds_summary", Static)
                 summary.update(f"[red]Error: {exc}[/red]")
             except Exception:
-                pass
+                logger.debug("could not update feeds_summary widget", exc_info=True)
 
     def _render_feeds(self, stats: dict[str, Any]) -> None:
         """Render the feed status cards."""

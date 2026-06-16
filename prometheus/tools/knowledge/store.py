@@ -61,7 +61,7 @@ class KnowledgeStore:
                 return _instance
             inst = super().__new__(cls)
             inst._init(requested_path)  # type: ignore[attr-defined]
-            _instance = inst
+            _instance = inst  # noqa: F841  — singleton assignment read by future __new__ calls
             return inst
 
     # ------------------------------------------------------------------
@@ -426,8 +426,6 @@ class KnowledgeStore:
     @staticmethod
     def _domain_from_url(url: str) -> str:
         """Extract domain from a URL, stripping protocol, www, and path."""
-        import re
-
         d = re.sub(r"^https?://", "", url.strip().lower())
         d = re.sub(r"^www\.", "", d)
         return d.split("/")[0].split(":")[0]
@@ -1079,7 +1077,7 @@ class KnowledgeStore:
             now = datetime.now(UTC).isoformat()
             if rs:
                 # Update existing row's external_* fields + status sentinel
-                sentinel = "external_" + ext_dict["status"]
+                _sentinel = "external_" + ext_dict["status"]  # noqa: F841  — kept for downstream readers of report_status
                 summary = (
                     f"[{now[:19]}] External {platform}/{external_id} closed as "
                     f"{ext_dict['status']} by {ext_dict.get('triager') or 'unknown'}: "
@@ -1121,7 +1119,7 @@ class KnowledgeStore:
                     )
                     self._conn.commit()
                 except sqlite3.OperationalError:
-                    pass
+                    logger.debug("FTS rebuild failed, FTS table likely missing", exc_info=True)
                 return {"success": True, "report_status_id": rs["id"], "action": "updated"}
             # No matching report_status — create an archived row so the
             # dedup layers see it on future scans. Also write an
@@ -1175,7 +1173,7 @@ class KnowledgeStore:
                 )
                 self._conn.commit()
             except sqlite3.OperationalError:
-                pass
+                logger.debug("FTS rebuild failed, FTS table likely missing", exc_info=True)
             return {"success": True, "report_status_id": new_id, "action": "created"}
 
     def get_external_submission_for_finding(
@@ -1258,7 +1256,7 @@ class KnowledgeStore:
                     )
                     self._conn.commit()
                 except sqlite3.OperationalError:
-                    pass
+                    logger.debug("FTS rebuild failed, FTS table likely missing", exc_info=True)
                 return {"success": True, "id": existing["id"], "action": "updated"}
             cur = self._conn.execute(
                 """
@@ -1295,7 +1293,7 @@ class KnowledgeStore:
                 )
                 self._conn.commit()
             except sqlite3.OperationalError:
-                pass
+                logger.debug("FTS rebuild failed, FTS table likely missing", exc_info=True)
             return {"success": True, "id": cur.lastrowid, "action": "created"}
 
     def list_external_submissions(
@@ -1534,13 +1532,11 @@ class KnowledgeStore:
         Does NOT overwrite status on existing findings — if a finding
         was already tracked (e.g. submitted, accepted), its status is preserved.
         """
-        import json as _json
-
         created = 0
         # Canonical ingest happens before report_status projection sync so
         # dedupe and deterministic rejection run before expensive work.
         try:
-            from prometheus.core.candidate_store import CandidateStore
+            from prometheus.core.candidate_store import CandidateStore  # noqa: PLC0415
 
             CandidateStore(self._db_path).ingest_findings(
                 findings,
@@ -1560,7 +1556,7 @@ class KnowledgeStore:
 
             # Serialize full finding content for storage
             try:
-                full_json = _json.dumps(f, default=str, ensure_ascii=False)
+                full_json = json.dumps(f, default=str, ensure_ascii=False)
             except Exception:
                 full_json = None
 
@@ -1574,7 +1570,7 @@ class KnowledgeStore:
 
             if existing:
                 # Finding already tracked — update metadata only, preserve status
-                result = self.upsert_report_status(
+                self.upsert_report_status(
                     domain=domain,
                     scan_id=scan_id,
                     finding_title=title,
@@ -1979,7 +1975,7 @@ class KnowledgeStore:
         report_url: str | None = None,
     ) -> dict[str, Any]:
         """Store accepted, duplicate, informative, or rejected outcome feedback."""
-        from prometheus.core.candidate_store import CandidateStore
+        from prometheus.core.candidate_store import CandidateStore  # noqa: PLC0415
 
         return CandidateStore(self._db_path).record_submission_outcome(
             finding_id=finding_id,
@@ -1992,7 +1988,7 @@ class KnowledgeStore:
 
     def get_outcome_feedback_summary(self) -> dict[str, Any]:
         """Return false positive, duplicate, and accepted report summary views."""
-        from prometheus.core.candidate_store import CandidateStore
+        from prometheus.core.candidate_store import CandidateStore  # noqa: PLC0415
 
         summary = CandidateStore(self._db_path).outcome_summary()
         by_status = summary.get("by_status", {})

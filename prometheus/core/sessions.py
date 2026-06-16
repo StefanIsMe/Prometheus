@@ -37,7 +37,7 @@ async def strip_latest_image_from_session(session: Session) -> bool:
     await session.pop_item()
     await session.add_items(
         cast(
-            "list[TResponseInputItem]",
+            list[TResponseInputItem],
             [
                 {
                     "type": "function_call_output",

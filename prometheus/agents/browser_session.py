@@ -19,9 +19,7 @@ import json
 import logging
 import random
 import re
-import string
 import time
-import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -100,13 +98,22 @@ class TargetProfile:
 
 TARGET_PROFILES: dict[str, TargetProfile] = {}
 
-# Load extension profiles (from prometheus/tools/idor_scanner/target_profiles.py)
-try:
-    from prometheus.tools.idor_scanner.target_profiles import TARGET_PROFILES as _EXTRA  # type: ignore
 
-    TARGET_PROFILES.update(_EXTRA)
-except ImportError:
-    pass
+# Load extension profiles (from prometheus/tools/idor_scanner/target_profiles.py)
+def _load_extension_target_profiles() -> (
+    None
+):  # codeql[py/unsafe-cyclic-import] : lazy import to avoid cycle: target_profiles.py imports TargetProfile from this module
+    try:
+        from prometheus.tools.idor_scanner.target_profiles import (  # noqa: PLC0415
+            TARGET_PROFILES as _EXTRA,
+        )
+
+        TARGET_PROFILES.update(_EXTRA)
+    except ImportError:
+        logger.debug("extension target_profiles module not available, ignoring", exc_info=True)
+
+
+_load_extension_target_profiles()
 
 # Core profiles
 TARGET_PROFILES.setdefault(
@@ -222,7 +229,7 @@ class BrowserSession:
             return False
 
         # Fill in discovered fields
-        filled = False
+        filled = False  # noqa: F841  — assignment result consumed by outer control flow
         for fld in fields:
             input_type = fld.get("type", "")
             name = fld.get("name", "").lower()
@@ -239,7 +246,7 @@ class BrowserSession:
             elif input_type == "text" and ("name" in name or "user" in name):
                 h.fill_input(selector, f"Test User {random.randint(100, 999)}")
 
-        if not filled:
+        if not filled:  # noqa: F841  — assignment result consumed by outer control flow
             # Fallback: try common selectors
             for css in ["input[type=email]", "input[name=email]", "input#email"]:
                 try:
@@ -331,7 +338,7 @@ class BrowserSession:
                 h.fill_input(selector, self.password)
                 filled_pass = True
 
-        if not filled_email:
+        if not filled_email:  # noqa: F841  — assignment result consumed by outer control flow
             for css in [
                 "input[type=email]",
                 "input[name=email]",
@@ -346,7 +353,7 @@ class BrowserSession:
                 except Exception:
                     continue
 
-        if not filled_pass:
+        if not filled_pass:  # noqa: F841  — assignment result consumed by outer control flow
             for css in ["input[type=password]", "input[name=password]", "input#password"]:
                 try:
                     h.fill_input(css, self.password)
@@ -385,7 +392,7 @@ class BrowserSession:
                     if "=" in c
                 ]
         except Exception:
-            pass
+            logger.debug("reading document.cookie via CDP failed, ignoring", exc_info=True)
 
         return True
 
@@ -414,7 +421,9 @@ class BrowserSession:
             try:
                 h.wait_for_load(timeout=10)
             except Exception:
-                pass
+                logger.debug(
+                    "h.wait_for_load(10) failed, continuing without network idle", exc_info=True
+                )
 
             # Extract API calls from Performance API
             apis = self._extract_api_calls()

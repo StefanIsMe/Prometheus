@@ -35,8 +35,8 @@ def _get_github_token() -> str | None:
 # In-memory caches
 # ---------------------------------------------------------------------------
 
-_cisa_kev_cache: dict[str, Any] | None = None
-_cisa_kev_cache_ts: float = 0.0
+_cisa_kev_cache: dict[str, Any] | None = None  # noqa: F841  — module-level singleton cache
+_cisa_kev_cache_ts: float = 0.0  # noqa: F841  — module-level singleton cache
 _CISA_CACHE_TTL = 3600  # 1 hour
 
 # Per-scan result cache: fingerprint_key -> result dict

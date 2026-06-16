@@ -64,7 +64,7 @@ try:
         OSError,
     )
 except ImportError:
-    pass
+    logger.debug("optional timeout/connection imports unavailable, ignoring", exc_info=True)
 
 
 def _is_docker_alive() -> bool:

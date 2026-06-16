@@ -39,7 +39,7 @@ class ScanNotifications:
             if _instance is not None:
                 return _instance
             inst = super().__new__(cls)
-            _instance = inst
+            _instance = inst  # noqa: F841  — singleton assignment read by future __new__ calls
             return inst
 
     def __init__(self) -> None:

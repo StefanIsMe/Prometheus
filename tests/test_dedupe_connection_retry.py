@@ -22,14 +22,14 @@ import logging
 import sys
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, patch
-
-import pytest
+from unittest.mock import patch
 
 SOURCE_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SOURCE_ROOT))
 
 from openai import APIConnectionError  # noqa: E402
+
+import pytest  # noqa: E402
 
 from prometheus.report import dedupe  # noqa: E402
 

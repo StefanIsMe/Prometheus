@@ -25,7 +25,7 @@ import httpx
 
 from prometheus.core.always_rejected import match_rejection
 from prometheus.core.conditionally_valid import conditionally_valid
-from prometheus.core.seven_question_gate import run_gate, GateOutcome
+from prometheus.core.seven_question_gate import run_gate
 
 logger = logging.getLogger(__name__)
 

@@ -113,7 +113,7 @@ async def caido_retry(
     for attempt in range(1, attempts + 1):
         try:
             return await fn(*args, **kwargs)
-        except BaseException as exc:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001
             last_exc = exc
             if attempt >= attempts or not _is_caido_retryable(exc):
                 raise

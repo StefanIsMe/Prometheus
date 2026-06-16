@@ -12,9 +12,12 @@ Ported from CBH ``evidence-hygiene`` skill. Exposes:
 
 from __future__ import annotations
 
+import logging
 import re
 from dataclasses import dataclass
-from typing import Any, Iterable
+from typing import Iterable
+
+logger = logging.getLogger(__name__)
 
 
 # Canonical names of secrets that must never appear in a screenshot,
@@ -202,7 +205,7 @@ def scan_image_for_secrets(path: str) -> list[EvidenceFinding]:
             for hit in scan_text_for_secrets(r.stdout, location=f"exiftool:{p.name}"):
                 findings.append(hit)
         except Exception:
-            pass
+            logger.debug("exiftool scan failed for %s, ignoring", p, exc_info=True)
     if shutil.which("tesseract"):
         try:
             r = subprocess.run(
@@ -214,7 +217,7 @@ def scan_image_for_secrets(path: str) -> list[EvidenceFinding]:
             for hit in scan_text_for_secrets(r.stdout, location=f"ocr:{p.name}"):
                 findings.append(hit)
         except Exception:
-            pass
+            logger.debug("tesseract OCR failed for %s, ignoring", p, exc_info=True)
     return findings
 
 

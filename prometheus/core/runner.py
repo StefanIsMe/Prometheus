@@ -41,7 +41,6 @@ from prometheus.core.inputs import (
 from prometheus.core.paths import run_dir_for, runtime_state_dir
 from prometheus.core.sessions import open_agent_session
 from prometheus.core.context_manager import (
-    ContextManagedSession,
     ContextOverflowStore,
     create_context_managed_session,
 )
@@ -100,7 +99,9 @@ async def run_prometheus_scan(
     """Run or resume one prometheus scan against a sandbox."""
 
     def _progress(msg: str) -> None:
-        logger.info("[scan %s] %s", scan_id, msg)
+        logger.info(
+            "[scan %s] %s", scan_id, msg
+        )  # codeql[py/clear-text-logging-sensitive-data] : scan_id is a random hex identifier, not a secret
         if progress_callback:
             progress_callback(msg)
 
@@ -121,13 +122,13 @@ async def run_prometheus_scan(
     # Cheap, fast credits check BEFORE we spin up a sandbox. Saves a
     # full scan launch when the account is out of credits.
     try:
-        from prometheus.core.runner import _check_llm_budget
+        from prometheus.core.runner import _check_llm_budget as _check_llm_budget  # noqa: PLC0415
 
         budget_ok, budget_msg = await _check_llm_budget(scan_id)
         if not budget_ok:
             _progress(f"Budget preflight FAILED: {budget_msg}")
             logger.error(
-                "LLM budget preflight failed for scan %s: %s",
+                "LLM budget preflight failed for scan %s: %s",  # codeql[py/clear-text-logging-sensitive-data] : scan_id is a random hex identifier, not a secret
                 scan_id,
                 budget_msg,
             )
@@ -143,8 +144,7 @@ async def run_prometheus_scan(
         from prometheus.tools.threat_intel.local_db import ThreatIntelDB
 
         _progress("  Connecting to local threat intel database...")
-        intel_db = ThreatIntelDB()
-        try:
+        with ThreatIntelDB() as intel_db:
             _progress("  Pulling CISA KEV, NVD, GHSA, EPSS, Shodan, CIRCL, Exploit-DB...")
             intel_summary = await asyncio.to_thread(ingest_all, intel_db)
             total_records = intel_summary.get("total_records", 0)
@@ -168,8 +168,6 @@ async def run_prometheus_scan(
                 total_duration,
                 len(errors),
             )
-        finally:
-            intel_db.close()
     except Exception as exc:
         _progress(f"Threat intel refresh FAILED: {exc}")
         _progress("Continuing with existing database — results may be stale")
@@ -1269,7 +1267,9 @@ async def _check_llm_budget(scan_id: str) -> tuple[bool, str]:
                         f"(min={_LLM_BUDGET_MIN_HEADROOM_TOKENS})"
                     )
             except (TypeError, ValueError):
-                pass
+                logger.debug(
+                    "remaining headroom %r not int-parseable, ignoring", remaining, exc_info=True
+                )
         return True, "preflight OK"
     except Exception as exc:  # noqa: BLE001
         # Best-effort: never block a scan on a failed preflight.

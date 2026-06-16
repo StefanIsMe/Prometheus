@@ -262,7 +262,9 @@ def _coerce_todo_ids(value: Any) -> list[str]:
                 if isinstance(parsed, dict):
                     return [str(k).strip() for k in parsed.keys() if str(k).strip()]
             except json.JSONDecodeError:
-                pass
+                logger.debug(
+                    "failed to parse dict-as-string %r, falling through", stripped, exc_info=True
+                )
         # Comma-separated string: "abc, def, ghi"
         if "," in stripped:
             return [piece.strip() for piece in stripped.split(",") if piece.strip()]

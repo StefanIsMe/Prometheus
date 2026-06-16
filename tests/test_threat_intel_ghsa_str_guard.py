@@ -26,13 +26,10 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-import pytest
-
 
 SOURCE_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SOURCE_ROOT))
 
-from prometheus.tools.threat_intel import tool as ti_tool  # noqa: E402
 from prometheus.tools.threat_intel.tool import _cvss_score, _pkg_dict  # noqa: E402
 
 

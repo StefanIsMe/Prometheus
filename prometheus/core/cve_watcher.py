@@ -49,7 +49,7 @@ class CVEWatcher:
             if _instance is not None:
                 return _instance
             inst = super().__new__(cls)
-            _instance = inst
+            _instance = inst  # noqa: F841  — singleton assignment read by future __new__ calls
             return inst
 
     def __init__(self, *, db_path: Path | str | None = None) -> None:
@@ -237,9 +237,7 @@ class CVEWatcher:
             #      and query local threat intel DB for new CVEs
             from prometheus.tools.threat_intel.local_db import ThreatIntelDB
 
-            intel_db = ThreatIntelDB()
-
-            try:
+            with ThreatIntelDB() as intel_db:
                 for target in targets:
                     target_id = target.get("id", "")
                     domain = target.get("domain", "")
@@ -260,8 +258,6 @@ class CVEWatcher:
                             domain,
                         )
                         summary["targets_err"] += 1
-            finally:
-                intel_db.close()
 
         except Exception as exc:
             logger.exception("CVEWatcher: check cycle failed")
@@ -291,24 +287,22 @@ class CVEWatcher:
         """Pull latest data from CISA KEV and GHSA into the local DB."""
         from prometheus.tools.threat_intel.local_db import ThreatIntelDB
 
-        intel_db = ThreatIntelDB()
-        try:
-            from prometheus.tools.threat_intel.feeds import (
-                ingest_cisa_kev,
-                ingest_ghsa_bulk,
-            )
+        with ThreatIntelDB() as intel_db:
+            try:
+                from prometheus.tools.threat_intel.feeds import (
+                    ingest_cisa_kev,
+                    ingest_ghsa_bulk,
+                )
 
-            logger.info("CVEWatcher: refreshing CISA KEV feed")
-            result_kev = ingest_cisa_kev(intel_db)
-            logger.info("CVEWatcher: CISA KEV result: %s", result_kev.get("status"))
+                logger.info("CVEWatcher: refreshing CISA KEV feed")
+                result_kev = ingest_cisa_kev(intel_db)
+                logger.info("CVEWatcher: CISA KEV result: %s", result_kev.get("status"))
 
-            logger.info("CVEWatcher: refreshing GHSA feed")
-            result_ghsa = ingest_ghsa_bulk(intel_db)
-            logger.info("CVEWatcher: GHSA result: %s", result_ghsa.get("status"))
-        except Exception:
-            logger.exception("CVEWatcher: feed refresh failed")
-        finally:
-            intel_db.close()
+                logger.info("CVEWatcher: refreshing GHSA feed")
+                result_ghsa = ingest_ghsa_bulk(intel_db)
+                logger.info("CVEWatcher: GHSA result: %s", result_ghsa.get("status"))
+            except Exception:
+                logger.exception("CVEWatcher: feed refresh failed")
 
     # ------------------------------------------------------------------
     # Target lookup

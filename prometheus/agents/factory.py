@@ -287,21 +287,7 @@ _TOR_PROXY_FLAGS: dict[str, set[str]] = {
 # Tools that always go through Tor via env vars (ALL_PROXY) — no flag needed.
 # These are safe because they respect HTTP_PROXY/ALL_PROXY environment variables
 # and docker_client.py sets them to Tor.
-_TOR_ENV_SAFE_TOOLS = {
-    "nmap",
-    "whatweb",
-    "wappalyzer",
-    "semgrep",
-    "trivy",
-    "gitleaks",
-    "trufflehog",
-    "python",
-    "python3",
-    "pip",
-    "gem",
-    "go",
-    "git",
-}
+# noqa: F841  — currently unused; retained as a canonical list of env-proxy-safe tools.
 
 
 def _check_tor_proxy_required(cmd: str) -> str | None:

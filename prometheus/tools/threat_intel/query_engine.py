@@ -13,14 +13,16 @@ import asyncio
 import logging
 import re
 import time
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from prometheus.tools.threat_intel.tool import (
+        _ECOSYSTEM_MAP,
+        _get_github_token,
+        _guess_ecosystem,
+    )
 
 from prometheus.tools.threat_intel.local_db import ThreatIntelDB
-from prometheus.tools.threat_intel.tool import (
-    _ECOSYSTEM_MAP,
-    _get_github_token,
-    _guess_ecosystem,
-)
 
 
 logger = logging.getLogger(__name__)
@@ -631,7 +633,11 @@ async def _query_online(
 
             try:
                 # Import online query functions
-                from prometheus.tools.threat_intel.tool import _query_ghsa, _query_nvd, _query_osv
+                from prometheus.tools.threat_intel.tool import (  # noqa: PLC0415
+                    _query_ghsa,
+                    _query_nvd,
+                    _query_osv,
+                )
 
                 # Query all sources in parallel (7 sources). Use the
                 # slug for online calls; the full text is preserved in

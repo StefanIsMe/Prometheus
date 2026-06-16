@@ -7,11 +7,9 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
 import threading
 import time
 import urllib.request
-from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -35,9 +33,7 @@ PROMETHEUS_AUTH_FILE = PROMETHEUS_AUTH_DIR / "auth.json"
 PROMETHEUS_AUTH_LOCK = PROMETHEUS_AUTH_DIR / "auth.json.lock"
 
 # Cache
-_ACCOUNT_INFO_CACHE_TTL = 60
-_account_info_cache: tuple[str, float, "NousPortalAccountInfo"] | None = None
-_ACCOUNT_INFO_CACHE_LOCK = threading.Lock()
+_account_info_cache: tuple[str, float, "NousPortalAccountInfo"] | None = None  # noqa: F841  — used by tests
 
 
 # === Account Info Types (from Hermes) ===

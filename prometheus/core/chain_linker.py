@@ -12,17 +12,15 @@ rule.
 
 from __future__ import annotations
 
-import logging
+from collections.abc import Iterable
 from dataclasses import dataclass, field
-from typing import Any, Iterable
+from typing import Any
 
 from prometheus.core.conditionally_valid import (
     Chain,
     find_chain_links,
     list_chains,
 )
-
-logger = logging.getLogger(__name__)
 
 
 @dataclass

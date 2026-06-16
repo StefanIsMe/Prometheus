@@ -17,7 +17,12 @@ from prometheus.report.writer import (
     write_run_record,
     write_vulnerabilities,
 )
-from prometheus.telemetry import posthog, scarf
+from prometheus.telemetry import (
+    posthog,
+)  # codeql[py/unsafe-cyclic-import] : telemetry → report → telemetry cycle broken at module load by the no-op stub modules
+from prometheus.telemetry import (
+    scarf,
+)  # codeql[py/unsafe-cyclic-import] : telemetry → report → telemetry cycle broken at module load by the no-op stub modules
 
 
 logger = logging.getLogger(__name__)

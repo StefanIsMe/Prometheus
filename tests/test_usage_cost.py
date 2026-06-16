@@ -20,7 +20,6 @@ if str(SOURCE_ROOT) not in sys.path:
 from prometheus.report.usage import (  # noqa: E402
     _LITELLM_KNOWN_PROVIDER_PREFIXES,
     _is_custom_proxy_model,
-    _litellm_model_name,
     _estimate_litellm_cost,
 )
 
@@ -194,14 +193,28 @@ def test_known_provider_set_covers_all_advertised_providers():
 
 
 if __name__ == "__main__":
+    import pytest
+
+    _mp = pytest.MonkeyPatch()
+
+    class _NullCaplog:
+        def __init__(self) -> None:
+            self.records: list = []
+
+        def at_level(self, *_args, **_kwargs):
+            from contextlib import nullcontext
+
+            return nullcontext()
+
+    _caplog = _NullCaplog()
     test_is_custom_proxy_model_true_for_tokenrouter()
     test_is_custom_proxy_model_true_for_unknown_prefix()
     test_is_custom_proxy_model_false_for_known_litellm_providers()
     test_is_custom_proxy_model_false_when_no_prefix()
     test_is_custom_proxy_model_handles_none_and_empty()
     test_is_custom_proxy_model_is_case_insensitive()
-    test_estimate_litellm_cost_returns_none_for_custom_proxy_without_logging()
-    test_estimate_litellm_cost_known_provider_falls_through()
+    test_estimate_litellm_cost_returns_none_for_custom_proxy_without_logging(_caplog)
+    test_estimate_litellm_cost_known_provider_falls_through(_caplog)
     test_known_provider_set_includes_tokenrouter_false()
     test_known_provider_set_covers_all_advertised_providers()
     print("All usage.py tests passed.")

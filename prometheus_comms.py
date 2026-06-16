@@ -2,11 +2,14 @@
 """Watch a prometheus scan and report status to stdout. Use from Hermes to monitor scans."""
 
 import json
+import logging
 import sys
 import time
 from pathlib import Path
 
 COMMS_ROOT = Path.home() / ".prometheus" / "comms"
+
+logger = logging.getLogger(__name__)
 
 
 def watch(run_id: str, poll_interval: float = 5.0):
@@ -68,7 +71,7 @@ def watch(run_id: str, poll_interval: float = 5.0):
                 else:
                     print(f"[{ts}] {etype}: {json.dumps(data)[:100]}")
             except json.JSONDecodeError:
-                pass
+                logger.debug("status line %d not valid JSON, skipping", len(lines), exc_info=True)
         last_line = len(lines)
 
         # Check for new findings
@@ -82,7 +85,7 @@ def watch(run_id: str, poll_interval: float = 5.0):
                     )
                 last_finding_count = len(findings)
         except (json.JSONDecodeError, FileNotFoundError):
-            pass
+            logger.debug("findings.json unreadable, skipping", exc_info=True)
 
         time.sleep(poll_interval)
 
@@ -126,14 +129,14 @@ def status(run_id: str):
             etype = event.get("type", "?")
             event_counts[etype] = event_counts.get(etype, 0) + 1
         except json.JSONDecodeError:
-            pass
+            logger.debug("event line not valid JSON, skipping", exc_info=True)
 
     # Count findings
     findings = []
     try:
         findings = json.loads(findings_path.read_text())
     except (json.JSONDecodeError, FileNotFoundError):
-        pass
+        logger.debug("findings.json unreadable, treating as empty", exc_info=True)
 
     print(f"Scan: {run_id}")
     print(f"Events: {len(lines)} total")

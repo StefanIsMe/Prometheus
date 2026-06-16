@@ -2,9 +2,12 @@
 """Daily threat intelligence summary — reads from /tmp/prometheus-threat-intel/ and outputs a digest."""
 
 import json
+import logging
 import os
 import glob
 from datetime import datetime, timedelta
+
+logger = logging.getLogger(__name__)
 
 FEED_DIR = os.path.join(
     os.environ.get("PROMETHEUS_DATA_DIR", os.path.expanduser("~/.prometheus")),
@@ -20,7 +23,8 @@ lines.append("")
 
 # --- CISA KEV (new entries in last 7 days) ---
 try:
-    kev = json.load(open(os.path.join(FEED_DIR, "cisa-kev.json")))
+    with open(os.path.join(FEED_DIR, "cisa-kev.json")) as _kev_f:
+        kev = json.load(_kev_f)
     vulns = kev.get("vulnerabilities", [])
     recent = [v for v in vulns if v.get("dateAdded", "") >= cutoff_7d]
     lines.append(f"📋 CISA KEV: {len(vulns)} total, {len(recent)} added this week")
@@ -41,7 +45,8 @@ try:
     ghsa_all = []
     seen = set()
     for f in sorted(glob.glob(os.path.join(FEED_DIR, "ghsa-*.json"))):
-        data = json.load(open(f))
+        with open(f) as _ghsa_f:
+            data = json.load(_ghsa_f)
         if isinstance(data, list):
             for a in data:
                 aid = a.get("ghsa_id", "")
@@ -73,7 +78,8 @@ try:
     nvd_total = 0
     nvd_vulns = []
     for f in glob.glob(os.path.join(FEED_DIR, "nvd-recent-*.json")):
-        data = json.load(open(f))
+        with open(f) as _nvd_f:
+            data = json.load(_nvd_f)
         nvd_total += data.get("totalResults", 0)
         for v in data.get("vulnerabilities", []):
             cve = v.get("cve", {})
@@ -110,12 +116,13 @@ except Exception as e:
 
 # --- Local cached summary ---
 try:
-    summary = json.load(open(os.path.join(FEED_DIR, "threat-summary.json")))
+    with open(os.path.join(FEED_DIR, "threat-summary.json")) as _summary_f:
+        summary = json.load(_summary_f)
     lines.append(
         f"📊 Total across all feeds: {sum(v.get('total', 0) if isinstance(v, dict) else 0 for v in summary['sources'].values())} entries"
     )
-except:
-    pass
+except BaseException:
+    logger.debug("could not load cached threat-summary.json, ignoring", exc_info=True)
 
 output = "\n".join(lines)
 print(output)

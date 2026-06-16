@@ -52,9 +52,19 @@ def _detect_bugcrowd_target(target: str) -> bool:
     """
     if not target:
         return False
+    # Use proper URL parsing to avoid substring tricks like
+    # "https://evil.com/?u=https://bugcrowd.com" sneaking through.
     target_lower = target.lower()
     if "bugcrowd.com" in target_lower:
-        return True
+        try:
+            from urllib.parse import urlparse
+
+            parsed = urlparse(target if "://" in target else f"https://{target}")
+            host = (parsed.netloc or "").lower()
+            if host == "bugcrowd.com" or host.endswith(".bugcrowd.com"):
+                return True
+        except ValueError:
+            pass
     # Check target registry
     try:
         from prometheus.core.target_registry import TargetRegistry
@@ -77,7 +87,7 @@ def _detect_bugcrowd_target(target: str) -> bool:
                 if config.get("platform") == "bugcrowd":
                     return True
     except Exception:
-        pass
+        logger.debug("platform detection failed, returning False", exc_info=True)
     return False
 
 
@@ -1142,7 +1152,7 @@ async def _do_create(  # noqa: PLR0912
             _expected_severity = _vrt_to_severity.get(vrt_priority, "medium")
             if severity != _expected_severity and vrt_result["confidence"] >= 0.7:
                 logger.warning(
-                    "CVSS severity (%s) disagrees with VRT priority P%s (%s) for '%s'. "
+                    "CVSS severity (%s) disagrees with VRT priority P%s (%s) for '%s'. "  # codeql[py/clear-text-logging-sensitive-data] : severity/vrt/titles are public severity metadata, not secrets
                     "Consider adjusting CVSS to match VRT classification.",
                     severity,
                     vrt_priority,
@@ -1485,7 +1495,7 @@ async def _do_create(  # noqa: PLR0912
         }
     else:
         logger.info(
-            "Vulnerability report created: id=%s severity=%s cvss=%.1f title=%s",
+            "Vulnerability report created: id=%s severity=%s cvss=%.1f title=%s",  # codeql[py/clear-text-logging-sensitive-data] : report metadata (id, severity, cvss, title) is not sensitive
             report_id,
             severity,
             cvss_score,

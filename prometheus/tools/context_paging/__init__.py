@@ -141,7 +141,7 @@ async def list_evicted_content(
                     }
                 )
         except Exception:
-            pass
+            logger.debug("context paging lookup failed, returning empty", exc_info=True)
 
     return json.dumps(
         {

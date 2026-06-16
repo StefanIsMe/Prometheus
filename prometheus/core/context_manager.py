@@ -169,7 +169,7 @@ def summarize_child_result(output: str, agent_name: str = "") -> str:
                 indent=2,
             )
     except (json.JSONDecodeError, TypeError):
-        pass
+        logger.debug("output not JSON-encodable, treating as plain text", exc_info=True)
 
     # For non-JSON output, truncate and summarize
     if len(output) > 2048:
@@ -282,7 +282,9 @@ class ContextOverflowStore:
                     stats["db_entries"] = row[0]
                     stats["db_size_bytes"] = row[1]
             except Exception:
-                pass
+                logger.debug(
+                    "db size query failed, leaving db_entries/db_size_bytes unset", exc_info=True
+                )
         return stats
 
     def clear(self) -> None:
@@ -293,7 +295,7 @@ class ContextOverflowStore:
                 self._conn.execute("DELETE FROM context_overflow")
                 self._conn.commit()
             except Exception:
-                pass
+                logger.debug("failed to clear context_overflow table, ignoring", exc_info=True)
 
     def close(self) -> None:
         """Close the database connection."""
@@ -301,7 +303,7 @@ class ContextOverflowStore:
             try:
                 self._conn.close()
             except Exception:
-                pass
+                logger.debug("failed to close context_overflow connection, ignoring", exc_info=True)
             self._conn = None
 
 

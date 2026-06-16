@@ -98,7 +98,7 @@ def _format_output(output: str) -> Text:
     if total_lines <= MAX_OUTPUT_LINES:
         display_lines = lines
         truncated = False
-        hidden_count = 0
+        _hidden_count = 0  # noqa: F841  — kept for status bar compatibility
     else:
         display_lines = lines[:head_count]
         truncated = True

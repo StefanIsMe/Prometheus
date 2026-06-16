@@ -573,7 +573,9 @@ def resolve_model(
             if key in excluded_keys:
                 continue
             if _is_key_circuit_broken(provider_name, key):
-                logger.debug("Key %s:%s is circuit-broken, skipping", provider_name, key_short)
+                logger.debug(
+                    "Key %s:%s is circuit-broken, skipping", provider_name, key_short
+                )  # codeql[py/clear-text-logging-sensitive-data] : key_short is the first 8 chars of the API key, used as a non-reversible identifier
                 continue
 
             keys_tried += 1
@@ -720,7 +722,7 @@ def _load_dotenv(path: Path) -> None:
                 if val and val != "***":
                     os.environ[key] = val
     except Exception:
-        pass
+        logger.debug("failed to load env vars, ignoring", exc_info=True)
 
 
 def _load_all_dotenv() -> None:

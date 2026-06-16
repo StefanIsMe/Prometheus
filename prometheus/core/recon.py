@@ -10,17 +10,14 @@ from __future__ import annotations
 
 import asyncio
 import json
-import logging
 import re
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 from urllib.parse import urljoin, urlparse
 
 import httpx
-
-logger = logging.getLogger(__name__)
 
 
 _JS_BUNDLE_PATTERNS = (

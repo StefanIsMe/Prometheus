@@ -31,29 +31,22 @@ from __future__ import annotations
 
 import asyncio
 import json
-import logging
-import re
 import sys
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
 import docker.errors
-import pytest
 from caido_sdk_client.errors import NetworkUserError
-from openai import APIConnectionError
 
 SOURCE_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SOURCE_ROOT))
 
 from prometheus.config.model_options import (  # noqa: E402
     resolve_model_options,
-    ModelOptionOverrides,
 )
-from prometheus.core import execution as core_execution  # noqa: E402
 from prometheus.core.execution import (  # noqa: E402
     _check_event_sink_health,
-    _mark_sink_dead,
     _sink_dead,
 )
 from prometheus.core.runner import (  # noqa: E402
@@ -64,7 +57,6 @@ from prometheus.runtime import session_manager  # noqa: E402
 from prometheus.runtime.session_manager import _force_cleanup_container  # noqa: E402
 from prometheus.runtime.caido_bootstrap import _login_as_guest  # noqa: E402
 from prometheus.tools.proxy import caido_api  # noqa: E402
-from prometheus.tools.threat_intel.query_engine import slugify_tech  # noqa: E402
 from prometheus.tools.threat_intel.tool import _cvss_score, _pkg_dict  # noqa: E402
 from prometheus.tools.todo.tools import _normalize_priority  # noqa: E402
 

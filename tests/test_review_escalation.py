@@ -3,8 +3,6 @@ Test stub for: Add a regression test: given a run.json with findings of severity
 TODO: implement.
 """
 
-import pytest
-
 
 def test_placeholder():
     assert True

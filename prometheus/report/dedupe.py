@@ -169,7 +169,7 @@ async def check_duplicate(
         settings = load_settings()
         from prometheus.config.models import configure_sdk_model_defaults
 
-        resolution = configure_sdk_model_defaults(settings)
+        _resolution = configure_sdk_model_defaults(settings)  # noqa: F841  — re-applies defaults; result is implicit
         model_name = settings.llm.model
         if not model_name:
             return {

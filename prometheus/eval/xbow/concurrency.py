@@ -13,7 +13,7 @@ shouldn't kill the other four).
 from __future__ import annotations
 
 import asyncio
-from typing import Any, Awaitable, Callable, Iterable, TypeVar
+from typing import Any, Awaitable, Iterable, TypeVar
 
 T = TypeVar("T")
 

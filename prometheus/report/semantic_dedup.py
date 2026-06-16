@@ -55,7 +55,7 @@ def _get_embedder():
         _ = resolve_active_hermes_model()  # warm the bridge
         _ = get_config()
     except Exception:
-        pass
+        logger.debug("embedder warmup failed, falling back to hash embedder", exc_info=True)
     try:
         # When an OpenAI-compatible gateway is configured and exposes
         # ``/v1/embeddings``, use it. Otherwise we use the stub.
@@ -78,7 +78,9 @@ def _get_embedder():
 
             return embed
     except Exception:
-        pass
+        logger.debug(
+            "OpenAI-compatible embedder setup failed, falling back to hash embedder", exc_info=True
+        )
     return _hash_embedder
 
 

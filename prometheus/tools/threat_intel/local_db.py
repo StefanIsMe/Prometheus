@@ -129,7 +129,11 @@ class ThreatIntelDB:
                     if s not in merged_sources:
                         merged_sources.append(s)
             except (json.JSONDecodeError, TypeError):
-                pass
+                logger.debug(
+                    "existing sources %r not valid JSON, ignoring",
+                    existing["sources"],
+                    exc_info=True,
+                )
 
         self._conn.execute(
             """
@@ -258,9 +262,14 @@ class ThreatIntelDB:
                         if (now - ts).total_seconds() < max_age_seconds:
                             fresh.add(name)
                     except (ValueError, TypeError):
-                        pass
+                        logger.debug(
+                            "updated %r for %s not iso-parseable, skipping",
+                            updated,
+                            name,
+                            exc_info=True,
+                        )
         except Exception:
-            pass
+            logger.debug("fresh feed listing failed, returning empty set", exc_info=True)
         return fresh
 
     def commit(self) -> None:
@@ -314,7 +323,7 @@ class ThreatIntelDB:
 
             # Version range filtering
             if version and result.get("vulnerable_version_range"):
-                from prometheus.tools.threat_intel.tool import _version_in_range
+                from prometheus.tools.threat_intel.tool import _version_in_range  # noqa: PLC0415
 
                 if not _version_in_range(version, result["vulnerable_version_range"]):
                     continue  # Skip — version is not in vulnerable range

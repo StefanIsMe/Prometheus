@@ -34,7 +34,9 @@ from textual.widgets.tree import TreeNode
 from prometheus.config import load_settings
 from prometheus.core.runner import run_prometheus_scan
 from prometheus.interface.tui.automation_panels import AutomatedScansPanel, ProgramsPanel
-from prometheus.interface.tui.findings_library import FindingsLibraryPanel
+from prometheus.interface.tui.findings_library import (
+    FindingsLibraryPanel,
+)  # codeql[py/unsafe-cyclic-import] : findings_library only imports app.prometheusTUIApp inside TYPE_CHECKING, so no runtime cycle
 from prometheus.interface.tui.live_view import TuiLiveView
 from prometheus.interface.tui.messages import send_user_message_to_agent
 from prometheus.interface.tui.renderers import render_tool_widget
@@ -181,7 +183,7 @@ class SplashScreen(Static):  # type: ignore[misc]
                     content_parts.append(Align.center(scan_text))
                     content_parts.append(Align.center(Text(" ")))
         except Exception:
-            pass
+            logger.debug("splash content build failed, ignoring", exc_info=True)
 
         content_parts.append(Align.center(self._build_url_text()))
 
@@ -803,9 +805,11 @@ class prometheusTUIApp(App):  # type: ignore[misc]
                             )
                             future.result(timeout=5)
                         except Exception:
-                            pass
+                            logger.debug(
+                                "cancel_descendants for %s failed, ignoring", root_id, exc_info=True
+                            )
             except Exception:
-                pass
+                logger.debug("agent cancellation loop failed, ignoring", exc_info=True)
 
         def cleanup_on_exit() -> None:
             self._scan_stop_event.set()
@@ -819,7 +823,9 @@ class prometheusTUIApp(App):  # type: ignore[misc]
                 try:
                     loop.call_soon_threadsafe(loop.stop)
                 except Exception:
-                    pass
+                    logger.debug(
+                        "loop.call_soon_threadsafe(loop.stop) failed, ignoring", exc_info=True
+                    )
                 with contextlib.suppress(Exception):
                     loop.close()
             self.report_state.cleanup()
@@ -849,7 +855,7 @@ class prometheusTUIApp(App):  # type: ignore[misc]
                         ["docker", "rm", *container_ids], capture_output=True, timeout=10
                     )
             except Exception:
-                pass
+                logger.debug("docker stop/rm of scan containers failed, ignoring", exc_info=True)
 
         def signal_handler(_signum: int, _frame: Any) -> None:
             self._scan_stop_event.set()
@@ -873,7 +879,7 @@ class prometheusTUIApp(App):  # type: ignore[misc]
                 splash = self.query_one("#splash_screen")
                 splash.remove()
             except ValueError:
-                pass
+                logger.debug("splash_screen already removed, ignoring", exc_info=True)
 
             main_container = Vertical(id="main_container")
             self.mount(main_container)
@@ -959,6 +965,7 @@ class prometheusTUIApp(App):  # type: ignore[misc]
             chat_input.show_horizontal_scrollbar = False
             chat_input.focus()
         except Exception:
+            logger.debug("focus_chat_input failed, scheduling retry", exc_info=True)
             self.call_after_refresh(self._focus_chat_input)
 
     def _focus_agents_tree(self) -> None:
@@ -976,6 +983,7 @@ class prometheusTUIApp(App):  # type: ignore[misc]
                 first_node = agents_tree.root.children[0]
                 agents_tree.select_node(first_node)
         except Exception:
+            logger.debug("focus_agents_tree failed, scheduling retry", exc_info=True)
             self.call_after_refresh(self._focus_agents_tree)
 
     def _switch_to_reports(self) -> None:
@@ -985,7 +993,7 @@ class prometheusTUIApp(App):  # type: ignore[misc]
             tabbed.active = "tab_programs"
             self.active_tab = "programs"
         except Exception:
-            pass
+            logger.debug("switch_to_reports failed, main_tabs not yet mounted", exc_info=True)
 
     def action_toggle_tab(self) -> None:
         """Cycle through tabs: Manual -> Auto -> Programs -> Reports -> Feeds -> Manual."""
@@ -1018,7 +1026,7 @@ class prometheusTUIApp(App):  # type: ignore[misc]
                 reports_container.refresh_findings()
                 reports_container.focus()
             except Exception:
-                pass
+                logger.debug("reports_container not yet mounted, skipping refresh", exc_info=True)
         elif self.active_tab == "manual":
             self._focus_chat_input()
 
@@ -1544,7 +1552,7 @@ class prometheusTUIApp(App):  # type: ignore[misc]
             panel = self.query_one("#reports_container", FindingsLibraryPanel)
             panel.refresh_findings()
         except Exception:
-            pass
+            logger.debug("reports_container not mounted, refresh no-op", exc_info=True)
 
     def _get_sweep_animation(self, color_palette: list[str]) -> Text:
         text = Text()
@@ -1654,7 +1662,7 @@ class prometheusTUIApp(App):  # type: ignore[misc]
             try:
                 self.call_from_thread(self.live_view.add_system_message, msg)
             except Exception:
-                pass
+                logger.debug("call_from_thread for progress msg failed, ignoring", exc_info=True)
 
         def scan_target() -> None:
             try:
@@ -1761,7 +1769,7 @@ class prometheusTUIApp(App):  # type: ignore[misc]
             try:
                 self._record_sdk_event(agent_id, event)
             except Exception:
-                pass
+                logger.debug("_record_sdk_event (off-loop) failed, ignoring", exc_info=True)
             return
         try:
             self.call_later(self._record_sdk_event, agent_id, event)
@@ -1769,7 +1777,9 @@ class prometheusTUIApp(App):  # type: ignore[misc]
             try:
                 self._record_sdk_event(agent_id, event)
             except Exception:
-                pass
+                logger.debug(
+                    "_record_sdk_event (call_later fallback) failed, ignoring", exc_info=True
+                )
 
     def _record_sdk_event(self, agent_id: str, event: Any) -> None:
         self.live_view.ingest_sdk_event(agent_id, event)
@@ -1798,7 +1808,7 @@ class prometheusTUIApp(App):  # type: ignore[misc]
                             if '"success": true' in output_str.lower():
                                 self._reports_needs_refresh = True
         except Exception:
-            pass
+            logger.debug("tool-output success scan failed, ignoring", exc_info=True)
 
     def _add_agent_node(self, agent_data: dict[str, Any]) -> None:
         if len(self.screen_stack) > 1 or self.show_splash:
@@ -2116,9 +2126,11 @@ class prometheusTUIApp(App):  # type: ignore[misc]
                         )
                         future.result(timeout=3)
                     except Exception:
-                        pass
+                        logger.debug(
+                            "cancel_descendants for %s failed, ignoring", root_id, exc_info=True
+                        )
         except Exception:
-            pass
+            logger.debug("shutdown cancellation loop failed, ignoring", exc_info=True)
 
         if self._scan_thread and self._scan_thread.is_alive():
             self._scan_thread.join(timeout=5)
@@ -2129,7 +2141,10 @@ class prometheusTUIApp(App):  # type: ignore[misc]
             try:
                 loop.call_soon_threadsafe(loop.stop)
             except Exception:
-                pass
+                logger.debug(
+                    "loop.call_soon_threadsafe(loop.stop) failed during cleanup, ignoring",
+                    exc_info=True,
+                )
             with contextlib.suppress(Exception):
                 loop.close()
 
