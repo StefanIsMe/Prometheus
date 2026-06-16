@@ -44,6 +44,17 @@ repos:
       - id: bandit
         args: [-c, pyproject.toml]
 
+  # Local hook: fail if external-telemetry code is added to the codebase
+  - repo: local
+    hooks:
+      - id: check-no-external-telemetry
+        name: no-external-telemetry
+        entry: python3 tools/check_no_external_telemetry.py
+        language: system
+        pass_filenames: false
+        types: [python]
+        stages: [pre-commit]
+
   # Additional Python code quality checks
   - repo: https://github.com/asottile/pyupgrade
     rev: v3.20.0

@@ -1,4 +1,4 @@
-.PHONY: help install dev-install format lint type-check security check-all clean pre-commit setup-dev dev
+.PHONY: help install dev-install format lint type-check security check-no-telemetry check-all clean pre-commit setup-dev dev
 
 help:
 	@echo "Available commands:"
@@ -7,11 +7,12 @@ help:
 	@echo "  dev-install   - Install development dependencies"
 	@echo ""
 	@echo "Code Quality:"
-	@echo "  format        - Format code with ruff"
-	@echo "  lint          - Lint code with ruff"
-	@echo "  type-check    - Run type checking with mypy and pyright"
-	@echo "  security      - Run security checks with bandit"
-	@echo "  check-all     - Run all code quality checks"
+	@echo "  format              - Format code with ruff"
+	@echo "  lint                - Lint code with ruff"
+	@echo "  type-check          - Run type checking with mypy and pyright"
+	@echo "  security            - Run security checks with bandit"
+	@echo "  check-no-telemetry  - Fail if external-telemetry code is in the codebase"
+	@echo "  check-all           - Run all code quality checks"
 	@echo ""
 	@echo "Development:"
 	@echo "  pre-commit    - Run pre-commit hooks on all files"
@@ -50,7 +51,16 @@ security:
 	uv run bandit -r prometheus/ -c pyproject.toml
 	@echo "✅ Security checks complete!"
 
-check-all: format lint type-check security
+check-no-telemetry:
+	@echo "🚫 Checking for external-telemetry code in the codebase..."
+	@if command -v uv >/dev/null 2>&1 && [ -d .venv ]; then \
+		uv run python tools/check_no_external_telemetry.py; \
+	else \
+		python3 tools/check_no_external_telemetry.py; \
+	fi
+	@echo "✅ No external-telemetry code found."
+
+check-all: format lint type-check security check-no-telemetry
 	@echo "✅ All code quality checks passed!"
 
 pre-commit:
