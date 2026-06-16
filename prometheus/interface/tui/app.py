@@ -1951,7 +1951,7 @@ class prometheusTUIApp(App):  # type: ignore[misc]
         if len(self.screen_stack) > 1 or self.show_splash:
             return
 
-        if not self.is_mounted:
+        if not self.is_mounted:  # type: ignore[truthy-function]
             return
 
         node = event.node
@@ -1967,11 +1967,11 @@ class prometheusTUIApp(App):  # type: ignore[misc]
                 self.selected_agent_id = agent_id
 
     @on(Tree.NodeSelected)  # type: ignore[misc]
-    def handle_tree_node_selected(self, event: Tree.NodeSelected) -> None:
+    def handle_tree_node_selected(self, event: Tree.NodeSelected) -> None:  # type: ignore[type-arg]
         if len(self.screen_stack) > 1 or self.show_splash:
             return
 
-        if not self.is_mounted:
+        if not self.is_mounted:  # type: ignore[truthy-function]
             return
 
         node = event.node
@@ -2020,7 +2020,7 @@ class prometheusTUIApp(App):  # type: ignore[misc]
         return "Unknown Agent"
 
     def action_toggle_help(self) -> None:
-        if self.show_splash or not self.is_mounted:
+        if self.show_splash or not self.is_mounted:  # type: ignore[truthy-function]
             return
 
         try:
@@ -2054,7 +2054,7 @@ class prometheusTUIApp(App):  # type: ignore[misc]
         self.push_screen(QuitScreen())
 
     def action_stop_selected_agent(self) -> None:
-        if self.show_splash or not self.is_mounted:
+        if self.show_splash or not self.is_mounted:  # type: ignore[truthy-function]
             return
 
         if len(self.screen_stack) > 1:
@@ -2173,7 +2173,7 @@ class prometheusTUIApp(App):  # type: ignore[misc]
             return True
 
     def on_resize(self, event: events.Resize) -> None:
-        if self.show_splash or not self.is_mounted:
+        if self.show_splash or not self.is_mounted:  # type: ignore[truthy-function]
             return
 
         try:

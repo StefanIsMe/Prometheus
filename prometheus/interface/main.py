@@ -70,8 +70,8 @@ logger = logging.getLogger(__name__)
 def validate_environment() -> None:
     logger.info("Validating environment")
     console = Console()
-    missing_required_vars = []
-    missing_optional_vars = []
+    missing_required_vars: list[str] = []
+    missing_optional_vars: list[str] = []
 
     settings = load_settings()
     resolution = configure_sdk_model_defaults(settings)
@@ -787,7 +787,6 @@ def main() -> None:
         # above.
         rc = xbow_main(sys.argv[2:])
         sys.exit(rc)
-        return
 
     # Dispatch `prometheus realvuln` to the RealVuln-Benchmark harness.
     # Subcommands: list, run, report, score.
@@ -795,7 +794,6 @@ def main() -> None:
         from prometheus.eval.realvuln.runner import main as realvuln_main
 
         sys.exit(realvuln_main(sys.argv[2:]))
-        return
 
     args = parse_arguments()
 
