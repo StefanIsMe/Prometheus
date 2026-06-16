@@ -3,7 +3,7 @@
 set -euo pipefail
 
 APP=prometheus
-REPO="StefanIsMe/prometheus"
+REPO="StefanIsMe/Prometheus"
 prometheus_IMAGE="prometheus-sandbox:local"
 
 MUTED='\033[0;2m'
@@ -112,7 +112,7 @@ check_existing_installation() {
             fi
 
             if [[ -n "$path" ]]; then
-                echo -e "${MUTED}Found existing prometheus at: ${NC}$path"
+                echo -e "${MUTED}Found existing Prometheus at: ${NC}$path"
 
                 if [[ "$path" == *".local/bin"* ]]; then
                     echo -e "${MUTED}Removing old pipx installation...${NC}"
@@ -135,7 +135,7 @@ check_version() {
     if [[ -x "$INSTALL_DIR/prometheus" ]]; then
         installed_version=$("$INSTALL_DIR/prometheus" --version 2>/dev/null | awk '{print $2}' || echo "")
         if [[ "$installed_version" == "$specific_version" ]]; then
-            print_message info "${GREEN}✓ prometheus ${NC}$specific_version${GREEN} already installed${NC}"
+            print_message info "${GREEN}✓ Prometheus ${NC}$specific_version${GREEN} already installed${NC}"
             SKIP_DOWNLOAD=true
         elif [[ -n "$installed_version" ]]; then
             print_message info "${MUTED}Installed: ${NC}$installed_version ${MUTED}→ Upgrading to ${NC}$specific_version"
@@ -144,7 +144,7 @@ check_version() {
 }
 
 download_and_install() {
-    print_message info "\n${CYAN}🦉 Installing prometheus${NC} ${MUTED}version: ${NC}$specific_version"
+    print_message info "\n${CYAN}🦉 Installing Prometheus${NC} ${MUTED}version: ${NC}$specific_version"
     print_message info "${MUTED}Platform: ${NC}$target\n"
 
     local tmp_dir=$(mktemp -d)
@@ -171,14 +171,14 @@ download_and_install() {
     cd - > /dev/null
     rm -rf "$tmp_dir"
 
-    echo -e "${GREEN}✓ prometheus installed to $INSTALL_DIR${NC}"
+    echo -e "${GREEN}✓ Prometheus installed to $INSTALL_DIR${NC}"
 }
 
 check_docker() {
     echo ""
     if ! command -v docker >/dev/null 2>&1; then
         echo -e "${YELLOW}⚠ Docker not found${NC}"
-        echo -e "${MUTED}prometheus requires Docker to run the security sandbox.${NC}"
+        echo -e "${MUTED}Prometheus requires Docker to run the security sandbox.${NC}"
         echo -e "${MUTED}Please install Docker: ${NC}https://docs.docker.com/get-docker/"
         echo ""
         return 1
@@ -213,9 +213,9 @@ add_to_path() {
     if grep -Fxq "$command" "$config_file" 2>/dev/null; then
         print_message info "${MUTED}PATH already configured in ${NC}$config_file"
     elif [[ -w $config_file ]]; then
-        echo -e "\n# prometheus" >> "$config_file"
+        echo -e "\n# Prometheus" >> "$config_file"
         echo "$command" >> "$config_file"
-        print_message info "${MUTED}Successfully added ${NC}prometheus ${MUTED}to \$PATH in ${NC}$config_file"
+        print_message info "${MUTED}Successfully added ${NC}Prometheus ${MUTED}to \$PATH in ${NC}$config_file"
     else
         print_message warning "Manually add the directory to $config_file (or similar):"
         print_message info "  $command"
@@ -296,7 +296,7 @@ verify_installation() {
 
     if [[ "$which_prometheus" != "$INSTALL_DIR/prometheus" && "$which_prometheus" != "$INSTALL_DIR/prometheus.exe" ]]; then
         if [[ -n "$which_prometheus" ]]; then
-            echo -e "${YELLOW}⚠ Found conflicting prometheus at: ${NC}$which_prometheus"
+            echo -e "${YELLOW}⚠ Found conflicting Prometheus at: ${NC}$which_prometheus"
             echo -e "${MUTED}Attempting to remove...${NC}"
 
             if rm -f "$which_prometheus" 2>/dev/null; then
@@ -310,7 +310,7 @@ verify_installation() {
 
     if [[ -x "$INSTALL_DIR/prometheus" ]]; then
         local version=$("$INSTALL_DIR/prometheus" --version 2>/dev/null | awk '{print $2}' || echo "unknown")
-        echo -e "${GREEN}✓ prometheus ${NC}$version${GREEN} ready${NC}"
+        echo -e "${GREEN}✓ Prometheus ${NC}$version${GREEN} ready${NC}"
     fi
 }
 
@@ -337,7 +337,7 @@ echo -e "${MUTED}To get started:${NC}"
 echo ""
 echo -e "  ${CYAN}1.${NC} Set your environment:"
 echo -e "     ${MUTED}export LLM_API_KEY='your-api-key'${NC}"
-echo -e "     ${MUTED}export prometheus_LLM='openai/gpt-5.4'${NC}"
+echo -e "     ${MUTED}export PROMETHEUS_LLM='openai/gpt-5.4'${NC}"
 echo ""
 echo -e "  ${CYAN}2.${NC} Run a penetration test:"
 echo -e "     ${MUTED}prometheus --target https://example.com${NC}"

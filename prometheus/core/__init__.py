@@ -1,1 +1,1 @@
-"""prometheus scan runtime core."""
+"""Prometheus scan runtime core."""

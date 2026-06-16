@@ -1,7 +1,7 @@
 {
   "$schema": "https://mintlify.com/docs.json",
   "theme": "maple",
-  "name": "prometheus",
+  "name": "Prometheus",
   "colors": {
     "primary": "#000000",
     "light": "#ffffff",
@@ -72,7 +72,7 @@
         "tab": "Cloud",
         "groups": [
           {
-            "group": "prometheus Cloud",
+            "group": "Prometheus Cloud",
             "pages": [
               "cloud/overview"
             ]
@@ -84,7 +84,7 @@
       "anchors": [
         {
           "anchor": "GitHub",
-          "href": "https://github.com/StefanIsMe/prometheus",
+          "href": "https://github.com/StefanIsMe/Prometheus",
           "icon": "github"
         }
       ]

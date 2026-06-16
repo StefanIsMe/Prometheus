@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Watch a prometheus scan and report status to stdout. Use from Hermes to monitor scans."""
+"""Watch a Prometheus scan and report status to stdout. Use from Hermes to monitor scans."""
 
 import json
 import logging
@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 def watch(run_id: str, poll_interval: float = 5.0):
-    """Watch a prometheus scan and print status updates to stdout."""
+    """Watch a Prometheus scan and print status updates to stdout."""
     status_path = COMMS_ROOT / run_id / "status.jsonl"
     findings_path = COMMS_ROOT / run_id / "findings.json"
 
@@ -27,7 +27,7 @@ def watch(run_id: str, poll_interval: float = 5.0):
     last_line = 0
     last_finding_count = 0
 
-    print(f"Watching prometheus scan: {run_id}")
+    print(f"Watching Prometheus scan: {run_id}")
     print(f"Status: {status_path}")
     print(f"Findings: {findings_path}")
     print("---")
@@ -91,7 +91,7 @@ def watch(run_id: str, poll_interval: float = 5.0):
 
 
 def send(run_id: str, instruction: str, action: str = "instruct"):
-    """Send an instruction to a running prometheus scan."""
+    """Send an instruction to a running Prometheus scan."""
     ctrl_path = COMMS_ROOT / run_id / "control.jsonl"
     if not ctrl_path.exists():
         print(f"ERROR: No comms directory for run {run_id}")
@@ -108,7 +108,7 @@ def send(run_id: str, instruction: str, action: str = "instruct"):
 
 
 def status(run_id: str):
-    """Print current status of a prometheus scan."""
+    """Print current status of a Prometheus scan."""
     status_path = COMMS_ROOT / run_id / "status.jsonl"
     findings_path = COMMS_ROOT / run_id / "findings.json"
 

@@ -1,5 +1,5 @@
 #!/bin/bash
-# prometheus deterministic scan pipeline
+# Prometheus deterministic scan pipeline
 # Runs recon → fingerprint → scan in one shot, no LLM turns between steps.
 # The agent calls this ONCE instead of making 5-10 individual LLM tool calls.
 #

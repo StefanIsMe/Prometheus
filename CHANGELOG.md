@@ -113,5 +113,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   that the author and contributors are not liable for any damages
   arising from your use of the software.
 
-[Unreleased]: https://github.com/StefanIsMe/prometheus/compare/v1.0.0...HEAD
-[1.0.0]: https://github.com/StefanIsMe/prometheus/releases/tag/v1.0.0
+[Unreleased]: https://github.com/StefanIsMe/Prometheus/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/StefanIsMe/Prometheus/releases/tag/v1.0.0

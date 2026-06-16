@@ -1,5 +1,5 @@
 #!/bin/bash
-# Update prometheus threat intelligence feeds
+# Update Prometheus threat intelligence feeds
 # Sources: CISA KEV, GitHub Security Advisories (GHSA), NVD trending CVEs
 set -euo pipefail
 

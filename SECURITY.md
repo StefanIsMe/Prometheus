@@ -19,7 +19,7 @@ standards, see [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md).
 
 Prometheus is currently in **Alpha** and ships breaking changes. We do
 not maintain security branches for older releases. Please run the
-[latest tagged release](https://github.com/StefanIsMe/prometheus/releases)
+[latest tagged release](https://github.com/StefanIsMe/Prometheus/releases)
 whenever possible.
 
 ---
@@ -33,10 +33,10 @@ high- or critical-severity findings.
 
 File a private advisory:
 
-> https://github.com/StefanIsMe/prometheus/security/advisories/new
+> https://github.com/StefanIsMe/Prometheus/security/advisories/new
 
 This routes the report through GitHub's private advisory workflow. Only
-the maintainers of `StefanIsMe/prometheus` will see it, and you can
+the maintainers of `StefanIsMe/Prometheus` will see it, and you can
 choose whether to disclose publicly when a fix is published.
 
 ### 2. Public issue (low-severity findings only)
@@ -44,7 +44,7 @@ choose whether to disclose publicly when a fix is published.
 For low-severity issues with no live exploit path, you may open a public
 issue with the `security` label:
 
-> https://github.com/StefanIsMe/prometheus/issues/new
+> https://github.com/StefanIsMe/Prometheus/issues/new
 
 **Do not** post live exploit payloads, stolen credentials, unredacted
 target details, or step-by-step reproduction against a third-party

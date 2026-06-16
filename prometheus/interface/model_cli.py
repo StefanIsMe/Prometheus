@@ -1,4 +1,4 @@
-"""prometheus model — manage LLM providers and models.
+"""Prometheus model — manage LLM providers and models.
 
 Subcommands:
   list                        Show current providers, models, and routing

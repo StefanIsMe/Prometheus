@@ -1038,7 +1038,7 @@ class FindingsLibraryPanel(VerticalScroll):
             domains = {f.get("domain", "") for f in self._filtered_findings}
             domain_label = "_".join(sorted(d for d in domains if d)) or "all"
 
-            lines = [f"# prometheus Findings Export — {domain_label}", ""]
+            lines = [f"# Prometheus Findings Export — {domain_label}", ""]
             lines.append(f"**Exported:** {datetime.now().strftime('%Y-%m-%d %H:%M')}")
             lines.append(f"**Total findings:** {len(self._filtered_findings)}")
             lines.append("")

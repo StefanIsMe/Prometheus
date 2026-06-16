@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# setup_tor_proxy.sh — Verify Tor SOCKS5 proxy availability for prometheus Docker sandbox scans
+# setup_tor_proxy.sh — Verify Tor SOCKS5 proxy availability for Prometheus Docker sandbox scans
 set -euo pipefail
 
 PASS=0
@@ -10,7 +10,7 @@ ok()   { echo "  [PASS] $1"; PASS=$((PASS+1)); }
 fail() { echo "  [FAIL] $1"; FAIL=$((FAIL+1)); }
 warn() { echo "  [WARN] $1"; WARN=$((WARN+1)); }
 
-echo "=== prometheus Tor Proxy Setup ==="
+echo "=== Prometheus Tor Proxy Setup ==="
 echo ""
 
 # ── 1. Check if Tor is installed ──────────────────────────────────────────────
@@ -69,7 +69,7 @@ echo ""
 echo "=== Summary ==="
 echo "  PASS: $PASS  FAIL: $FAIL  WARN: $WARN"
 echo ""
-echo "Docker proxy URL for prometheus containers:"
+echo "Docker proxy URL for Prometheus containers:"
 echo "  socks5://host.docker.internal:9050"
 echo "  socks5://172.17.0.1:9050"
 echo ""
@@ -78,6 +78,6 @@ if [[ $FAIL -gt 0 ]]; then
     echo "STATUS: FAIL — fix the issues above before running sandboxed scans."
     exit 1
 else
-    echo "STATUS: PASS — Tor proxy is ready for prometheus."
+    echo "STATUS: PASS — Tor proxy is ready for Prometheus."
     exit 0
 fi

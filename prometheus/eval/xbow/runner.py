@@ -147,7 +147,7 @@ def _make_engagement(challenge_id: str) -> Path:
     # the XBOW harness was here.
     log = eng_root / "engine.log"
     sentinel = (
-        f"\n# {datetime.now(UTC).isoformat()} — prometheus xbow run start\n"
+        f"\n# {datetime.now(UTC).isoformat()} — Prometheus xbow run start\n"
         f"# Do not auto-submit. This engagement is a benchmark run, not a real bug-bounty engagement.\n"
     )
     with log.open("a", encoding="utf-8") as f:

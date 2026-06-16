@@ -2,7 +2,7 @@
 
 This document replaces the previous `benchmarks/README.md`, which was
 removed on 2026-06-15. The old file made an unverified claim that
-prometheus `v0.4.0` achieved a **96%** success rate on the XBOW
+Prometheus `v0.4.0` achieved a **96%** success rate on the XBOW
 benchmark, with no source code, no eval scripts, and no reproducible
 run data. The file was originally added on 2026-01-23 by an outside
 contributor on top of the old "Strix" tree, and was last edited to

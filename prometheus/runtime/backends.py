@@ -25,7 +25,7 @@ async def _docker_backend(
 ) -> tuple[Any, Any]:
     """Bring up a session backed by the local Docker daemon.
 
-    Uses :class:`prometheusDockerSandboxClient` to inject NET_ADMIN /
+    Uses :class:`PrometheusDockerSandboxClient` to inject NET_ADMIN /
     NET_RAW caps + ``host.docker.internal`` host-gateway. Imports
     ``docker`` lazily so deployments that target a non-Docker
     backend don't need the docker-py library installed.
@@ -40,9 +40,9 @@ async def _docker_backend(
     import docker
     from agents.sandbox.sandboxes.docker import DockerSandboxClientOptions
 
-    from prometheus.runtime.docker_client import prometheusDockerSandboxClient
+    from prometheus.runtime.docker_client import PrometheusDockerSandboxClient
 
-    client = prometheusDockerSandboxClient(docker.from_env())
+    client = PrometheusDockerSandboxClient(docker.from_env())
     options = DockerSandboxClientOptions(image=image, exposed_ports=exposed_ports)
     session = await client.create(options=options, manifest=manifest)
     await session.start()

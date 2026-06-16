@@ -1,6 +1,6 @@
-# Contributing to prometheus
+# Contributing to Prometheus
 
-Thank you for your interest in contributing to prometheus! This guide will help you get started with development and contributions.
+Thank you for your interest in contributing to Prometheus! This guide will help you get started with development and contributions.
 
 ## 🚀 Development Setup
 
@@ -15,8 +15,8 @@ Thank you for your interest in contributing to prometheus! This guide will help 
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/StefanIsMe/prometheus.git
-   cd prometheus
+   git clone https://github.com/StefanIsMe/Prometheus.git
+   cd Prometheus
    ```
 
 2. **Install development dependencies**
@@ -34,7 +34,7 @@ Thank you for your interest in contributing to prometheus! This guide will help 
    export LLM_API_KEY="your-api-key"
    ```
 
-4. **Run prometheus in development mode**
+4. **Run Prometheus in development mode**
    ```bash
    uv run prometheus --target https://example.com
    ```
@@ -83,7 +83,7 @@ Skills are specialized knowledge packages that enhance agent capabilities. See [
 When reporting bugs, please include:
 
 - Python version and OS
-- prometheus version
+- Prometheus version
 - LLMs being used
 - Full error traceback
 - Steps to reproduce
@@ -101,7 +101,7 @@ We welcome feature ideas! Please:
 
 ## 🤝 Community
 
-- **Issues**: [GitHub Issues](https://github.com/StefanIsMe/prometheus/issues)
+- **Issues**: [GitHub Issues](https://github.com/StefanIsMe/Prometheus/issues)
 
 ## ✨ Recognition
 

@@ -1,17 +1,13 @@
-<p align="center">
-  <img src=".github/screenshot.png" alt="prometheus" width="100%" style="border-radius: 16px;">
-</p>
-
 <div align="center">
 
-# prometheus
+# Prometheus
 
 ### Open-source AI agents for authorized security testing and bug-bounty validation.
 
 <br/>
 
-<a href="https://github.com/StefanIsMe/prometheus/blob/main/LICENSE"><img src="https://img.shields.io/github/license/StefanIsMe/prometheus?style=flat-square" alt="License: MIT"></a>
-<a href="https://github.com/StefanIsMe/prometheus/stargazers"><img src="https://img.shields.io/github/stars/StefanIsMe/prometheus?style=flat-square" alt="GitHub Stars"></a>
+<a href="https://github.com/StefanIsMe/Prometheus/blob/main/LICENSE"><img src="https://img.shields.io/github/license/StefanIsMe/Prometheus?style=flat-square" alt="License: MIT"></a>
+<a href="https://github.com/StefanIsMe/Prometheus/stargazers"><img src="https://img.shields.io/github/stars/StefanIsMe/Prometheus?style=flat-square" alt="GitHub Stars"></a>
 <a href="https://pypi.org/project/prometheus-agent/"><img src="https://img.shields.io/pypi/v/prometheus-agent?style=flat-square" alt="PyPI Version"></a>
 <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.12%2B-blue?style=flat-square" alt="Python 3.12+"></a>
 <img src="https://img.shields.io/badge/status-alpha-orange?style=flat-square" alt="Status: Alpha">
@@ -103,8 +99,8 @@ full attribution is in [AUTHORS](AUTHORS).
 ### Install & first scan
 
 ```bash
-# Install prometheus
-curl -sSL https://raw.githubusercontent.com/StefanIsMe/prometheus/main/scripts/install.sh | bash
+# Install Prometheus
+curl -sSL https://raw.githubusercontent.com/StefanIsMe/Prometheus/main/scripts/install.sh | bash
 
 # Configure your AI provider
 export PROMETHEUS_LLM="openai/gpt-5.4"
@@ -231,10 +227,10 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Install prometheus
-        run: curl -sSL https://raw.githubusercontent.com/StefanIsMe/prometheus/main/scripts/install.sh | bash
+      - name: Install Prometheus
+        run: curl -sSL https://raw.githubusercontent.com/StefanIsMe/Prometheus/main/scripts/install.sh | bash
 
-      - name: Run prometheus
+      - name: Run Prometheus
         env:
           PROMETHEUS_LLM: ${{ secrets.PROMETHEUS_LLM }}
           LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
@@ -336,8 +332,8 @@ agree to follow the [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) and to
 license your contribution under the project's MIT license. New
 contributors are added to [AUTHORS](AUTHORS) on their first merged PR.
 
-Open a [pull request](https://github.com/StefanIsMe/prometheus/pulls) or
-[issue](https://github.com/StefanIsMe/prometheus/issues).
+Open a [pull request](https://github.com/StefanIsMe/Prometheus/pulls) or
+[issue](https://github.com/StefanIsMe/Prometheus/issues).
 
 ---
 
@@ -351,7 +347,7 @@ Open a [pull request](https://github.com/StefanIsMe/prometheus/pulls) or
 - **Code of Conduct:** [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
 - **Security policy:** see [SECURITY.md](SECURITY.md) — file a private
   GitHub Security Advisory at
-  `https://github.com/StefanIsMe/prometheus/security/advisories/new`.
+  `https://github.com/StefanIsMe/Prometheus/security/advisories/new`.
   Only the latest release (v1.0.0) is supported; responses are
   best-effort.
 - **Trademark:** "Prometheus" is the project name. The Prometheus

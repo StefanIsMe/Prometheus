@@ -7,7 +7,7 @@
 #   ./scripts/xbow_run.sh run --concurrency 4
 #   ./scripts/xbow_run.sh report <run_id>
 #
-# Requirements (all already required by prometheus itself):
+# Requirements (all already required by Prometheus itself):
 #   - docker (with `docker compose`)
 #   - git
 #   - python3 >= 3.11

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Entry point for prometheus from source."""
+"""Entry point for Prometheus from source."""
 
 from prometheus.interface.main import main
 

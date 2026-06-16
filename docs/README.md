@@ -1,6 +1,6 @@
-# prometheus Documentation
+# Prometheus Documentation
 
-Documentation source files for prometheus, powered by [Mintlify](https://mintlify.com).
+Documentation source files for Prometheus, powered by [Mintlify](https://mintlify.com).
 
 ## Local Preview
 

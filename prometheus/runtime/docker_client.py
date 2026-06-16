@@ -1,4 +1,4 @@
-"""prometheusDockerSandboxClient — preserves the image's ENTRYPOINT and adds
+"""PrometheusDockerSandboxClient — preserves the image's ENTRYPOINT and adds
 NET_ADMIN/NET_RAW capabilities + host-gateway.
 
 The SDK's ``DockerSandboxClient._create_container`` does not expose a hook for
@@ -158,7 +158,7 @@ def _exc_chain_types(exc: BaseException) -> set[type[BaseException]]:
     return types
 
 
-class prometheusDockerSandboxClient(DockerSandboxClient):
+class PrometheusDockerSandboxClient(DockerSandboxClient):
     """Docker sandbox client with NET_ADMIN/NET_RAW caps and self-healing.
 
     On Docker connectivity errors (daemon hung, socket timeout), attempts to
@@ -194,7 +194,7 @@ class prometheusDockerSandboxClient(DockerSandboxClient):
 
 
 async def _create_container_impl(
-    client: prometheusDockerSandboxClient,
+    client: PrometheusDockerSandboxClient,
     image: str,
     *,
     manifest: Manifest | None = None,
@@ -312,7 +312,7 @@ async def _create_container_impl(
 
 async def _recover_and_retry(
     exc: Exception,
-    client: prometheusDockerSandboxClient,
+    client: PrometheusDockerSandboxClient,
     image: str,
     *,
     manifest: Manifest | None = None,
