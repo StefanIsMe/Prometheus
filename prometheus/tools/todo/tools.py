@@ -9,7 +9,7 @@ import threading
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, NotRequired, TypedDict
+from typing import Any, NotRequired, TypedDict, Union
 
 from agents import RunContextWrapper, function_tool
 
@@ -223,21 +223,21 @@ def _apply_single_update(
 def _coerce_todo_ids(value: Any) -> list[str]:
     """Coerce LLM-supplied ``todo_ids`` into a list of strings.
 
-    The OpenAI Agents SDK validates tool arguments against the JSON schema
-    generated from the function signature, so the tool body only ever runs
-    with a value that *already* parsed as ``list[str]``. But the LLM
-    occasionally produces a value the schema does not match — a single
-    string, a JSON object like ``{"ef84db": ""}``, or a comma-separated
-    string — and the SDK then raises an opaque pydantic validation error
-    ("Input should be a valid list [type=list_type, input_value=...]")
-    that the LLM has no clear way to recover from.
+    The tool signatures below type ``todo_ids`` as ``Union[str, list[str]]``
+    so the generated JSON Schema has a top-level ``anyOf`` (required by
+    strict providers like DeepSeek — an untyped ``Any`` parameter
+    produces a schemaless ``{}`` that DeepSeek rejects with
+    "Invalid tool parameters schema : one of `type`, `anyOf`, `$ref`
+    field is required", which kills the scan on the first turn).
 
-    To make the tool resilient, we accept ``Any`` at the function level
-    and normalise here. The schema is also widened (see the tool
-    signatures below) to advertise ``string | array`` so the SDK is
-    willing to pass the raw value through. Returns an empty list if the
-    value cannot be coerced, so the caller surfaces a clear "non-empty
-    list required" error instead of a validation crash.
+    The Pydantic schema only declares ``string | array``, so the LLM
+    cannot send a dict without the SDK raising a ModelBehaviorError
+    before the tool body runs. We still accept a comma-separated string
+    or a single string ID, and the dict branch below is kept as a
+    defensive fallback for any internal caller that hands us a dict
+    directly. Returns an empty list if the value cannot be coerced, so
+    the caller surfaces a clear "non-empty list required" error instead
+    of a validation crash.
     """
     if value is None:
         return []
@@ -530,22 +530,21 @@ async def update_todo(ctx: RunContextWrapper, updates: list[_UpdateTodoInput]) -
 
 
 @function_tool(timeout=30)
-async def mark_todo_completed(ctx: RunContextWrapper, todo_ids: Any) -> str:
+async def mark_todo_completed(ctx: RunContextWrapper, todo_ids: str | list[str]) -> str:
     """Mark one or more todos as done (completed).
 
     Args:
-        todo_ids: One or more todo IDs to mark done. Accepts the usual
-            ``["abc123", "def456"]`` array, a single string ``"abc123"``,
-            a comma-separated string ``"abc123, def456"``, or even a
-            JSON-object-shaped mistake like ``{"abc123": ""}`` (the keys
-            are treated as IDs). Empty / missing values surface a clear
-            "non-empty list required" error.
+        todo_ids: One or more todo IDs. Accepts a JSON array
+            ``["abc123", "def456"]``, a single string ``"abc123"``, or
+            a comma-separated string ``"abc123, def456"``. An empty /
+            missing value surfaces a clear "non-empty list required"
+            error.
     """
     return _apply_bulk_status(todo_ids, "done", _agent_id_from(ctx))
 
 
 @function_tool(timeout=30)
-async def mark_todo_in_progress(ctx: RunContextWrapper, todo_ids: Any) -> str:
+async def mark_todo_in_progress(ctx: RunContextWrapper, todo_ids: str | list[str]) -> str:
     """Mark one or more todos as in progress.
 
     Args:
@@ -555,7 +554,7 @@ async def mark_todo_in_progress(ctx: RunContextWrapper, todo_ids: Any) -> str:
 
 
 @function_tool(timeout=30)
-async def delete_todo(ctx: RunContextWrapper, todo_ids: Any) -> str:
+async def delete_todo(ctx: RunContextWrapper, todo_ids: str | list[str]) -> str:
     """Delete one or more todos. Removes them entirely (no soft-delete).
 
     Args:
