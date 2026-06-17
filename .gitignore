@@ -161,3 +161,15 @@ schema.graphql
 .cursor/
 bandit.json
 bandit-out/
+
+# ── CI / Infra (kept private, not published to the repo) ────────────────
+.github/
+.gitlab-ci.yml
+.circleci/
+.travis.yml
+.wercker/
+.appveyor.yml
+azure-pipelines.yml
+buildkite.yml
+drone.yml
+Makefile.docker
