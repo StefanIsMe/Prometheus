@@ -35,7 +35,11 @@ from prometheus.config import (
     load_settings,
     persist_current,
 )
-from prometheus.config.models import configure_sdk_model_defaults, normalize_model_name
+from prometheus.config.models import (
+    configure_sdk_model_defaults,
+    get_active_model_resolution,
+    normalize_model_name,
+)
 from prometheus.core.paths import run_dir_for, runtime_state_dir
 from prometheus.core.rate_limiter import set_rate
 from prometheus.interface.cli import run_cli
@@ -231,10 +235,19 @@ async def warm_up_llm() -> None:
         )
 
         async def _consume_warmup_stream() -> None:
+            # Inherit attribution headers from the active resolution so the
+            # warmup request is also attributed to this app on the provider
+            # (e.g. OpenRouter apps page). Falls back to no headers if the
+            # resolution is not yet set.
+            resolution = get_active_model_resolution()
+            warmup_headers = resolution.extra_headers if resolution else None
             async for _ in model.stream_response(
                 system_instructions="You are a helpful assistant.",
                 input="Reply with just 'OK'.",
-                model_settings=ModelSettings(store=False),
+                model_settings=ModelSettings(
+                    store=False,
+                    extra_headers=warmup_headers or None,
+                ),
                 tools=[],
                 output_schema=None,
                 handoffs=[],

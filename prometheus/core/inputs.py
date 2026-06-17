@@ -195,6 +195,7 @@ def make_model_settings(
     supports_thinking: bool = False,
     provider_name: str = "",
     model_id: str | None = None,
+    extra_headers: dict[str, str] | None = None,
 ) -> ModelSettings:
     # DeepSeek rejects tool_choice when thinking mode is active.
     # Thinking mode is triggered by either supports_thinking flag OR
@@ -234,6 +235,7 @@ def make_model_settings(
         retry=DEFAULT_MODEL_RETRY,
         include_usage=True,
         store=effective_store,
+        extra_headers=extra_headers or None,
         **(overrides.extra_body_passthrough or {}),
     )
     if reasoning_effort is not None and not overrides.drop_reasoning_field:

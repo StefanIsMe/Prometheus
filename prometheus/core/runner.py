@@ -804,6 +804,7 @@ RESCAN MODE — EFFICIENCY DIRECTIVES:
             supports_thinking=resolution.supports_thinking,
             provider_name=resolution.provider_name,
             model_id=resolved_model,
+            extra_headers=resolution.extra_headers or None,
         )
         run_config = RunConfig(
             model=resolved_model,

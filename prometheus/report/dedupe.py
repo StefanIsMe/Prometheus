@@ -14,6 +14,7 @@ from openai.types.responses import ResponseOutputMessage
 from prometheus.config import load_settings
 from prometheus.config.models import (
     DEFAULT_MODEL_RETRY,
+    get_active_model_resolution,
     normalize_model_name,
 )
 from prometheus.report.state import get_global_report_state
@@ -207,6 +208,11 @@ async def check_duplicate(
             httpx = None  # type: ignore[assignment]
 
         async def _stream_once() -> Any:
+            # Inherit attribution headers from the active resolution so the
+            # dedupe LLM call is also attributed to this app on the provider
+            # (e.g. OpenRouter apps page).
+            resolution = get_active_model_resolution()
+            dedupe_headers = resolution.extra_headers if resolution else None
             async for event in model.stream_response(
                 system_instructions=DEDUPE_SYSTEM_PROMPT,
                 input=user_msg,
@@ -214,6 +220,7 @@ async def check_duplicate(
                     retry=DEFAULT_MODEL_RETRY,
                     include_usage=True,
                     store=False,
+                    extra_headers=dedupe_headers or None,
                 ),
                 tools=[],
                 output_schema=None,
