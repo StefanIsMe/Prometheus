@@ -5,6 +5,14 @@ The Caido CLI runs as an in-container sidecar listening on
 ``session.exec()``-ing curl from inside the container, then construct
 a host-side :class:`caido_sdk_client.Client` against the runtime's
 exposed-port URL for all subsequent SDK calls.
+
+For hosted SaaS targets (e.g. ``app.launchdarkly.com``), the in-container
+Caido listener exists but the target application is not a Caido-onboarded
+app — there is no guest token to fetch and the proxy provides no value
+to the scan. The :func:`bootstrap_caido` entry point takes the list of
+in-scope target URLs and skips the entire loginAsGuest loop when ALL
+targets are recognised hosted SaaS, emitting a single ``INFO`` line so
+the operator can see why no Caido client was returned.
 """
 
 from __future__ import annotations
@@ -13,6 +21,7 @@ import asyncio
 import json
 import logging
 from typing import TYPE_CHECKING
+from urllib.parse import urlparse
 
 from caido_sdk_client import Client, TokenAuthOptions
 from caido_sdk_client.types import CreateProjectOptions
@@ -28,6 +37,89 @@ logger = logging.getLogger(__name__)
 _LOGIN_AS_GUEST_BODY = (
     '{"query":"mutation LoginAsGuest { loginAsGuest { token { accessToken } } }"}'
 )
+
+
+# Hosted SaaS platforms whose loginAsGuest probe will always fail and
+# whose absence of a Caido-onboarded app means the proxy is useless
+# for the scan. We key on the registered domain so a customer's own
+# subdomain (e.g. acme.launchdarkly.com) is also covered.
+#
+# Adding a domain: confirm Caido has no signup flow for the platform
+# AND the platform is purely hosted (no on-prem variant that would
+# legitimately want Caido). The skip is silent + per-host — a user
+# whose scan ALSO includes a non-SaaS target still gets a Caido
+# client.
+_SAAS_HOSTED_DOMAINS: frozenset[str] = frozenset(
+    {
+        "launchdarkly.com",
+        "app.launchdarkly.com",
+        "github.com",
+        "gitlab.com",
+        "bitbucket.org",
+        "salesforce.com",
+        "force.com",
+        "atlassian.net",
+        "atlassian.com",
+        "slack.com",
+        "notion.so",
+        "figma.com",
+        "linear.app",
+        "vercel.com",
+        "netlify.com",
+        "herokuapp.com",
+        "shopify.com",
+    }
+)
+
+
+def _extract_host(value: str) -> str:
+    """Return the lower-cased host portion of ``value`` (URL or bare host)."""
+    if not value:
+        return ""
+    v = value.strip()
+    if "://" not in v and "/" not in v and "." in v:
+        v = f"https://{v}"
+    try:
+        parsed = urlparse(v)
+    except ValueError:
+        return ""
+    host = (parsed.netloc or "").lower()
+    if host.startswith("www."):
+        host = host[4:]
+    return host
+
+
+def _is_hosted_saas_target(target_urls: list[str] | None) -> bool:
+    """Return True if every non-empty target URL is a known hosted SaaS.
+
+    Returns False (i.e. don't skip) when:
+      * the target list is empty/unknown (no signal → best-effort probe),
+      * ANY target is not in :data:`_SAAS_HOSTED_DOMAINS`.
+    """
+    if not target_urls:
+        return False
+    non_empty = [u for u in target_urls if u and u.strip()]
+    if not non_empty:
+        return False
+    for url in non_empty:
+        host = _extract_host(url)
+        if not host:
+            # Unparseable target — be conservative and don't skip.
+            return False
+        # Check the host AND every parent domain (acme.launchdarkly.com
+        # should match launchdarkly.com).
+        host_or_ancestor = host
+        matched = False
+        while host_or_ancestor:
+            if host_or_ancestor in _SAAS_HOSTED_DOMAINS:
+                matched = True
+                break
+            if "." not in host_or_ancestor:
+                break
+            host_or_ancestor = host_or_ancestor.split(".", 1)[-1]
+        if not matched:
+            return False
+    return True
 
 
 async def _login_as_guest(
@@ -85,7 +177,16 @@ async def _login_as_guest(
         else:
             stderr = result.stderr.decode("utf-8", errors="replace")[:200]
             last_err = f"curl exit {result.exit_code}: {stderr}"
-        logger.debug("loginAsGuest attempt %d/%d failed: %s", i, attempts, last_err)
+        # Per-attempt debug log demoted to DEBUG-only after the first
+        # attempt so hosted-SaaS targets (where the loop is skipped via
+        # the early-return in bootstrap_caido) don't spam a single
+        # ``loginAsGuest attempt 1/10 failed: curl exit 7`` line per
+        # scan. See test_caido_login_as_guest.py for the demotion
+        # contract; bootstrap_caido handles the early-return path.
+        if i == 1:
+            logger.debug("loginAsGuest attempt 1/%d failed: %s", attempts, last_err)
+        else:
+            logger.debug("loginAsGuest attempt %d/%d failed: %s", i, attempts, last_err)
         # Per-attempt floor of 1.0 s (was 0) so a real outage backs off
         # faster; the multiplier is the same linear-then-cap pattern.
         await asyncio.sleep(max(1.0, min(2.0 * i, 8.0)))
@@ -98,11 +199,38 @@ async def bootstrap_caido(
     *,
     host_url: str,
     container_url: str,
-) -> Client:
-    """Connect to the in-container Caido sidecar and select a fresh project."""
+    target_urls: list[str] | None = None,
+    attempts: int = 10,
+) -> Client | None:
+    """Connect to the in-container Caido sidecar and select a fresh project.
+
+    Returns ``None`` when every in-scope target is a known hosted SaaS
+    platform — the Caido proxy provides no value to those scans
+    because the target apps don't expose a Caido-onboarding flow. The
+    caller (``session_manager.create_or_reuse``) treats ``None`` the
+    same as a bootstrap failure: it logs a single ``INFO`` line and
+    the scan continues without proxy interception.
+
+    When ``target_urls`` is empty / unset, the bootstrap runs the
+    historical retry path (best-effort, may log multiple DEBUG lines
+    if Caido isn't reachable) — this is the conservative behaviour
+    for call sites that don't yet pass target context.
+
+    The ``attempts`` parameter is plumbed through to
+    :func:`_login_as_guest` so tests can drive the loop in one cycle.
+    """
+    if _is_hosted_saas_target(target_urls):
+        logger.info(
+            "Skipping Caido proxy bootstrap: all in-scope targets are hosted "
+            "SaaS (%s). Caido requires an on-prem app with a reachable "
+            "loginAsGuest endpoint; hosted SaaS targets do not expose one.",
+            ", ".join(u for u in (target_urls or []) if u),
+        )
+        return None
+
     logger.info("Bootstrapping Caido client (host=%s, container=%s)", host_url, container_url)
 
-    access_token = await _login_as_guest(session, container_url=container_url)
+    access_token = await _login_as_guest(session, container_url=container_url, attempts=attempts)
 
     client = Client(host_url, auth=TokenAuthOptions(token=access_token))
     await client.connect()

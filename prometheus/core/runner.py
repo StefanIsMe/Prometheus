@@ -422,6 +422,7 @@ async def run_prometheus_scan(
         image=image,
         local_sources=local_sources or [],
         allow_direct=bool(scan_config.get("allow_direct", False)),
+        target_urls=[t.get("original", "") for t in scan_config.get("targets", []) or []],
     )
     _progress("Sandbox ready. Updating nuclei templates...")
     logger.info("Sandbox ready for scan %s", scan_id)

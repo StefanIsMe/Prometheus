@@ -122,6 +122,7 @@ async def create_or_reuse(
     image: str,
     local_sources: list[dict[str, str]],
     allow_direct: bool = False,
+    target_urls: list[str] | None = None,
 ) -> dict[str, Any]:
     """Return the existing session bundle for ``scan_id`` or create a new one.
 
@@ -131,6 +132,12 @@ async def create_or_reuse(
     Args:
         allow_direct: If True, tools inside the container may fall back
             to direct connections when Tor is unreachable.
+        target_urls: Optional list of in-scope target URLs. When ALL
+            targets are hosted SaaS (no on-prem app), the Caido proxy
+            bootstrap is skipped entirely — Caido requires a reachable
+            guest-token endpoint which hosted SaaS apps don't expose.
+            See :mod:`prometheus.runtime.caido_bootstrap` for the
+            detection logic.
     """
     cached = _SESSION_CACHE.get(scan_id)
     if cached is not None:
@@ -287,6 +294,7 @@ async def create_or_reuse(
             session,
             host_url=host_caido_url,
             container_url=container_caido_url,
+            target_urls=target_urls,
         )
     except Exception as exc:
         logger.warning(
