@@ -15,32 +15,94 @@ from agents import RunContextWrapper, function_tool
 logger = logging.getLogger(__name__)
 
 # Retry guard: prevent the agent from filing the same finding more than
-# MAX_RETRIES times.  Keyed by (title_hash, endpoint).
-_MAX_RETRIES = 3
-_retry_counters: dict[str, int] = {}
+# ``_MAX_RETRIES`` times in a single scan. Keyed by the NORMALISED
+# title (whitespace-collapsed, lower-cased, prefix-trimmed) so a
+# cosmetic re-write ("X" vs "X Discloses …") still hits the guard.
+# The scan-id scopes the counter so resumed scans don't inherit stale
+# counts from earlier runs.
+import threading as _threading
+
+_MAX_RETRIES = 2  # block on the 3rd attempt — the 1st attempt and 1 retry are tolerated
+_RETRY_GUARD_LOCK = _threading.Lock()
+_retry_counters: dict[tuple[str, str, str], int] = {}
 
 
-def _check_retry_guard(title: str, endpoint: str) -> str | None:
-    """Increment retry counter; return error message if exceeded."""
-    key = hashlib.sha256(f"{title}||{endpoint}".encode()).hexdigest()[:16]
-    count = _retry_counters.get(key, 0) + 1
-    _retry_counters[key] = count
+def _normalise_title_for_dedup(title: str) -> str:
+    """Collapse whitespace, lower-case, and strip a leading 'Test '/ 'Test: ' prefix.
+
+    Why this matters: the LaunchDarkly scan logged nine ``create_vulnerability_report``
+    calls for the same underlying GraphQL finding, where the title only changed by
+    trailing punctuation, leading "Test ", or re-ordering of the noun phrase.
+    A raw SHA-256 hash let all of those through because the bytes differed.
+    """
+    if not title:
+        return ""
+    t = " ".join(str(title).split()).strip().lower()
+    # Strip a leading "test" / "test:" placeholder prefix (case-insensitive
+    # above already lower-cased the string).
+    for prefix in ("test: ", "test ", "fuzz: ", "fuzz "):
+        if t.startswith(prefix):
+            t = t[len(prefix) :]
+            break
+    # Drop trailing punctuation the LLM adds/omits between attempts.
+    return t.rstrip(" .!?:;")
+
+
+def _check_retry_guard(title: str, endpoint: str, scan_id: str | None = None) -> str | None:
+    """Increment retry counter; return error message if exceeded.
+
+    Returns the rejection string when the agent has attempted the same
+    normalised title more than ``_MAX_RETRIES`` times for this scan
+    (default scan scope if ``scan_id`` is not provided).
+
+    The counter is shared across agents within the same scan by design:
+    if the agent loop hits the same finding from a child agent, the
+    cap still fires.
+    """
+    normalised = _normalise_title_for_dedup(title)
+    key = (scan_id or "_default", normalised, endpoint or "")
+    with _RETRY_GUARD_LOCK:
+        count = _retry_counters.get(key, 0) + 1
+        _retry_counters[key] = count
     if count > _MAX_RETRIES:
+        logger.warning(
+            "create_vulnerability_report: BLOCKED '%s' on %s after %d attempts "
+            "(scan=%s) — stop retrying this finding.",
+            title,
+            endpoint or "(no endpoint)",
+            count,
+            scan_id or "_default",
+        )
         return (
-            f"RETRY LIMIT EXCEEDED: You have attempted to file '{title}' "
-            f"{count} times.  Stop retrying.  Either fix the validation issues, "
-            f"change your approach, or move on to other findings."
+            f"RETRY LIMIT EXCEEDED: You have attempted to file a finding titled "
+            f"'{title}' {count} times in this scan (normalised: '{normalised}'). "
+            f"Stop retrying. Either fix the validation issues, change your "
+            f"approach, or move on to other findings."
         )
     if count > 1:
         logger.warning(
-            "Retry %d/%d for '%s' on %s — will block at %d",
+            "create_vulnerability_report: Retry %d/%d for '%s' on %s (scan=%s) "
+            "— will block on attempt %d",
             count,
             _MAX_RETRIES,
             title,
-            endpoint,
+            endpoint or "(no endpoint)",
+            scan_id or "_default",
             _MAX_RETRIES + 1,
         )
     return None
+
+
+def reset_retry_guard(scan_id: str | None = None) -> None:
+    """Clear retry counters — used between scans or in tests."""
+    with _RETRY_GUARD_LOCK:
+        if scan_id is None:
+            _retry_counters.clear()
+            return
+        prefix = f"{scan_id}\x00"
+        for key in list(_retry_counters.keys()):
+            if key[0] == scan_id or key[0].startswith(prefix):
+                _retry_counters.pop(key, None)
 
 
 def _detect_bugcrowd_target(target: str) -> bool:
@@ -359,9 +421,12 @@ async def _do_create(  # noqa: PLR0912
     validation_agent_id: str | None = None,
     agent_id: str | None = None,
     agent_name: str | None = None,
+    scan_id: str | None = None,
 ) -> dict[str, Any]:
-    # Retry guard: prevent the agent from filing the same finding >3 times
-    retry_error = _check_retry_guard(title, endpoint or "")
+    # Retry guard: prevent the agent from filing the same finding more than
+    # ``_MAX_RETRIES`` times. Keys on the NORMALISED title + scan id so
+    # cosmetic re-writes still trip the guard.
+    retry_error = _check_retry_guard(title, endpoint or "", scan_id=scan_id)
     if retry_error:
         return {"success": False, "error": retry_error, "title": title}
 
@@ -1527,6 +1592,7 @@ async def create_vulnerability_report(
     positive_controls: list[dict[str, Any]] | None = None,
     negative_controls: list[dict[str, Any]] | None = None,
     validation_agent_id: str | None = None,
+    scan_id: str | None = None,
 ) -> str:
     """File a vulnerability report — one report per fully-verified finding.
 
@@ -1793,6 +1859,15 @@ async def create_vulnerability_report(
             raw_agent_name = names.get(agent_id)
             agent_name = raw_agent_name if isinstance(raw_agent_name, str) else None
 
+    # The function_tool signature accepts ``scan_id`` as an explicit arg so
+    # SDK consumers can pass it directly, but a child invocation from a
+    # tool-wrapping Agent will see the value through ctx.context — prefer
+    # the context value when present so the retry guard scopes to the
+    # actual running scan, not a stale caller-provided id.
+    ctx_scan_id = inner.get("scan_id") if isinstance(inner, dict) else None
+    if isinstance(ctx_scan_id, str) and ctx_scan_id.strip():
+        scan_id = ctx_scan_id
+
     result = await _do_create(
         title=title,
         description=description,
@@ -1814,5 +1889,6 @@ async def create_vulnerability_report(
         validation_agent_id=validation_agent_id,
         agent_id=agent_id,
         agent_name=agent_name,
+        scan_id=scan_id,
     )
     return json.dumps(result, ensure_ascii=False, default=str)
