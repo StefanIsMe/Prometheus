@@ -190,7 +190,9 @@ class SplashScreen(Static):  # type: ignore[misc]
         return Panel.fit(Group(*content_parts), border_style=self.PRIMARY_GREEN, padding=(1, 6))
 
     def _build_url_text(self) -> Text:
-        return Text("Prometheus.ai", style=Style(color=self.PRIMARY_GREEN, bold=True))
+        return Text(
+            "github.com/StefanIsMe/Prometheus", style=Style(color=self.PRIMARY_GREEN, bold=True)
+        )
 
     def _build_welcome_text(self) -> Text:
         text = Text("Welcome to ", style=Style(color="white", bold=True))
