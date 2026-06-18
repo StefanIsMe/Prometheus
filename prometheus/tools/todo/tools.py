@@ -354,15 +354,28 @@ async def create_todo(ctx: RunContextWrapper, todos: list[dict[str, Any]]) -> st
             )
         agent_todos = _get_agent_todos(agent_id)
         created: list[dict[str, Any]] = []
-        for task in todos:
+        errors: list[dict[str, Any]] = []
+        for index, task in enumerate(todos):
             title = (task.get("title") or "").strip()
             if not title:
-                return json.dumps(
-                    {"success": False, "error": "Each todo must include a non-empty 'title'"},
-                    ensure_ascii=False,
-                    default=str,
+                # Skip this item but keep going so a single blank entry
+                # can't blow away a whole batch of valid todos. The LLM
+                # often emits 5-10 todos at once and one stray empty
+                # entry would otherwise lose every todo in the call.
+                errors.append(
+                    {"index": index, "error": "Each todo must include a non-empty 'title'"}
                 )
-            task_priority = _normalize_priority(task.get("priority"))
+                logger.debug(
+                    "create_todo: agent=%s skipping blank-title item at index=%d",
+                    agent_id,
+                    index,
+                )
+                continue
+            try:
+                task_priority = _normalize_priority(task.get("priority"))
+            except ValueError as exc:
+                errors.append({"index": index, "title": title, "error": str(exc)})
+                continue
             todo_id = str(uuid.uuid4())[:6]
             timestamp = datetime.now(UTC).isoformat()
             agent_todos[todo_id] = {
@@ -381,24 +394,26 @@ async def create_todo(ctx: RunContextWrapper, todos: list[dict[str, Any]]) -> st
             ensure_ascii=False,
             default=str,
         )
-    _persist()
+    if created:
+        _persist()
     logger.debug(
-        "create_todo: agent=%s created=%d total=%d",
+        "create_todo: agent=%s created=%d errors=%d total=%d",
         agent_id,
         len(created),
+        len(errors),
         len(_get_agent_todos(agent_id)),
     )
-    return json.dumps(
-        {
-            "success": True,
-            "created": created,
-            "created_count": len(created),
-            "todos": _sorted_todos(agent_id),
-            "total_count": len(_get_agent_todos(agent_id)),
-        },
-        ensure_ascii=False,
-        default=str,
-    )
+    success = bool(created) and not errors
+    response: dict[str, Any] = {
+        "success": success,
+        "created": created,
+        "created_count": len(created),
+        "todos": _sorted_todos(agent_id),
+        "total_count": len(agent_todos),
+    }
+    if errors:
+        response["errors"] = errors
+    return json.dumps(response, ensure_ascii=False, default=str)
 
 
 @function_tool(timeout=30)
