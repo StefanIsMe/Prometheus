@@ -166,6 +166,8 @@ bandit-out/
 # Local-only atomic PR tooling (not for the public repo)
 scripts/atomic_pr.py
 tests/test_atomic_pr.py
+# Local-only key-sync helper: reads Hermes config + writes ~/.prometheus/.env
+scripts/sync_tokenrouter_key.py
 
 # ── CI / Infra ──────────────────────────────────────────────────────────
 # GitHub Actions workflows and Dependabot config ARE tracked (restored
@@ -179,3 +181,21 @@ azure-pipelines.yml
 buildkite.yml
 drone.yml
 Makefile.docker
+
+# Per-machine Prometheus runtime data (Tor cache, runtime state, etc.)
+.prometheus/
+
+# ── Belt-and-suspenders secret coverage ────────────────────────────────
+# The patterns above are unanchored so they already match at any depth,
+# but spell them out recursively so intent is obvious in code review and
+# any future maintainer sees the secret-file list at a glance.
+**/.env
+**/.env.*
+**/auth.json
+**/.prometheus/
+**/secrets/
+**/credentials*.json
+**/*.key
+**/*.pem
+**/*.pfx
+**/*.p12

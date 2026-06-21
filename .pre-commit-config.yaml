@@ -49,11 +49,37 @@ repos:
     hooks:
       - id: check-no-external-telemetry
         name: no-external-telemetry
-        entry: python3 tools/check_no_external_telemetry.py
+        # Use `uv run python` (not `python3`) so the hook works on
+        # Windows, where `python3` is a Microsoft Store stub that
+        # silently fails. `uv` is in PATH on this host.
+        entry: uv run python tools/check_no_external_telemetry.py
         language: system
         pass_filenames: false
         types: [python]
         stages: [pre-commit]
+
+  # Local hook: full local CI gate before any push to GitHub.
+  # Mirrors `.github/workflows/ci.yml` -> `ci-success` aggregate job
+  # (ruff lint + ruff format + pytest; bandit + telemetry reported but
+  # non-gating by default). Type-check (mypy/pyright) is intentionally
+  # excluded — see the comment in `tools/ci_gate.py`.
+  #
+  # Install with: `uv run pre-commit install --hook-type pre-push`
+  - repo: local
+    hooks:
+      - id: ci-gate
+        name: ci-gate (pre-push)
+        # Same `uv run python` rationale as above — Windows-friendly.
+        # --pr scopes the gate to the staged diff so a pre-existing dirty
+        # tree (untracked files from a previous session) doesn't block a
+        # clean PR. Without --pr, the gate runs against the whole working
+        # tree and pre-existing failures would block every push. See
+        # tools/ci_gate.py for the --pr / --all semantics.
+        entry: uv run python tools/ci_gate.py --pr
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
+        always_run: true
 
   # Additional Python code quality checks
   - repo: https://github.com/asottile/pyupgrade
