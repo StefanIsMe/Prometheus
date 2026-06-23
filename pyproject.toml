@@ -35,7 +35,7 @@ classifiers = [
 dependencies = [
   "openai-agents[litellm]==0.14.6",
   "pydantic>=2.11.3",
-  "pydantic-settings>=2.13.0",
+  "pydantic-settings>=2.14.2",
   "rich",
   "docker>=7.1.0",
   "textual>=6.0.0",
